@@ -133,13 +133,13 @@
     <string name="members_search_hint">Cerca utenti…</string>
     <string name="members_search_empty">Nessun utente trovato</string>
     <string name="members_group_header">%1$s (%2$d)</string>
-    <string name="members_group_ops">Operatori</string>
+    <string name="members_group_ops">Ops</string>
     <string name="members_group_halfops">Half-op</string>
-    <string name="members_group_voiced">Voce</string>
+    <string name="members_group_voiced">Voice</string>
     <string name="members_group_users">Utenti</string>
-    <string name="members_role_operator">Operatore</string>
+    <string name="members_role_operator">Op</string>
     <string name="members_role_halfop">Half-op</string>
-    <string name="members_role_voice">Voce</string>
+    <string name="members_role_voice">Voice</string>
     <string name="cd_user_info">Info utente</string>
     <string name="cd_channel_settings">Impostazioni canale</string>
     <string name="cd_attach_file">Allega file</string>

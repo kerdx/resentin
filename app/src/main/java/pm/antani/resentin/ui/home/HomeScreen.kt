@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.ChannelEntity
 import pm.antani.resentin.data.db.NetworkEntity
+import pm.antani.resentin.ui.common.MircText
 
 private data class ChannelActionsTarget(val networkSlug: String, val channel: ChannelEntity)
 
@@ -456,7 +457,7 @@ private fun ChannelRow(channel: ChannelEntity, onClick: () -> Unit, onLongClick:
                 color = if (hasMention) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
             )
-            Text(
+            MircText(
                 text = if (isQuery) "Conversazione privata" else channel.topic?.takeIf { it.isNotBlank() } ?: "Nessun topic impostato",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
