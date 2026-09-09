@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -83,13 +84,23 @@ fun UserCardSheet(
     // to tapping a member in the channel list) — gates the two copy buttons below.
     messageText: String? = null,
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    // WHOIS cards can contain badges, channels and moderation controls. The default
+    // bottom-sheet state may stop at the half-expanded anchor, which hides the action
+    // rows until the user drags the sheet manually. Open this card fully every time;
+    // the content itself remains scrollable on smaller screens.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val clipboardManager = LocalClipboardManager.current
     var showPartialCopyDialog by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         // Scrollable: on small screens the action rows would otherwise sit below
         // the fold with no way to reach them.
-        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+        ) {
             val target = whois.target
             val nickColor = colorForNick(target)
             Row(verticalAlignment = Alignment.CenterVertically) {
