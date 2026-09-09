@@ -121,6 +121,16 @@
 
     <!-- Chat -->
     <string name="cd_members">Members</string>
+    <string name="members_search_hint">Search users…</string>
+    <string name="members_search_empty">No users found</string>
+    <string name="members_group_header">%1$s (%2$d)</string>
+    <string name="members_group_ops">Operators</string>
+    <string name="members_group_halfops">Half-ops</string>
+    <string name="members_group_voiced">Voiced</string>
+    <string name="members_group_users">Users</string>
+    <string name="members_role_operator">Operator</string>
+    <string name="members_role_halfop">Half-op</string>
+    <string name="members_role_voice">Voice</string>
     <string name="cd_user_info">User info</string>
     <string name="cd_channel_settings">Channel settings</string>
     <string name="cd_attach_file">Attach file</string>
