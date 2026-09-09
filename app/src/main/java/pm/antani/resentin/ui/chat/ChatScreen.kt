@@ -18,6 +18,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -38,6 +39,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,6 +47,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
@@ -150,6 +153,23 @@ fun ChatScreen(
     val initialReadCursor by viewModel.initialReadCursor.collectAsState()
     val initialReadCursorReady by viewModel.initialReadCursorReady.collectAsState()
     val members by viewModel.members.collectAsState()
+    val activeMention = remember(draftFieldValue) { mentionQueryAtCursor(draftFieldValue) }
+    val mentionSuggestions = remember(activeMention, members) {
+        activeMention?.let { findMentionSuggestions(it.query, members) }.orEmpty()
+    }
+
+    fun completeMention(nick: String) {
+        val mention = activeMention ?: return
+        val before = draftFieldValue.text.substring(0, mention.start)
+        val after = draftFieldValue.text.substring(mention.end)
+        val inserted = nick + if (after.isEmpty() || !after.first().isWhitespace()) " " else ""
+        val newText = before + inserted + after
+        val newCursor = before.length + inserted.length
+        val newValue = TextFieldValue(newText, TextRange(newCursor))
+        draftFieldValue = newValue
+        viewModel.onDraftChange(newText)
+        draftFocusRequester.requestFocus()
+    }
     val displayMode by viewModel.chatDisplayMode.collectAsState()
     val showSeconds by viewModel.showSeconds.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
@@ -321,14 +341,36 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .imePadding()
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .imePadding(),
             ) {
+                if (mentionSuggestions.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        tonalElevation = 3.dp,
+                    ) {
+                        LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+                            mentionSuggestions.forEach { member ->
+                                item(key = "mention-${member.nick}") {
+                                    DropdownMenuItem(
+                                        text = { Text(member.nick) },
+                                        onClick = { completeMention(member.nick) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                 IconButton(
                     onClick = { filePicker.launch("*/*") },
                     enabled = !isUploading,
@@ -360,6 +402,7 @@ fun ChatScreen(
                 IconButton(onClick = viewModel::send) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send))
                 }
+            }
             }
         },
     ) { padding ->
@@ -441,6 +484,33 @@ fun ChatScreen(
         )
     }
 }
+
+private data class MentionQuery(
+    val start: Int,
+    val end: Int,
+    val query: String,
+)
+
+private fun mentionQueryAtCursor(value: TextFieldValue): MentionQuery? {
+    if (!value.selection.collapsed) return null
+    val cursor = value.selection.end
+    if (cursor !in 0..value.text.length) return null
+    val atIndex = value.text.lastIndexOf('@', startIndex = cursor - 1)
+    if (atIndex < 0) return null
+    if (atIndex > 0 && !value.text[atIndex - 1].isWhitespace()) return null
+    val query = value.text.substring(atIndex + 1, cursor)
+    if (query.any(Char::isWhitespace)) return null
+    return MentionQuery(start = atIndex, end = cursor, query = query)
+}
+
+private fun findMentionSuggestions(query: String, members: List<MemberEntity>): List<MemberEntity> =
+    members
+        .asSequence()
+        .filter { query.isBlank() || it.nick.contains(query, ignoreCase = true) }
+        .distinctBy { it.nick.lowercase() }
+        .sortedWith(compareBy<MemberEntity>({ !it.nick.startsWith(query, ignoreCase = true) }, { it.nick.lowercase() }))
+        .take(8)
+        .toList()
 
 @Composable
 private fun UnreadDivider() {
