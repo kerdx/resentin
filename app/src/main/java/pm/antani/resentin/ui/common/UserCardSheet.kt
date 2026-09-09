@@ -3,6 +3,8 @@ package pm.antani.resentin.ui.common
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -85,7 +87,9 @@ fun UserCardSheet(
     val clipboardManager = LocalClipboardManager.current
     var showPartialCopyDialog by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+        // Scrollable: on small screens the action rows would otherwise sit below
+        // the fold with no way to reach them.
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp)) {
             val target = whois.target
             val nickColor = colorForNick(target)
             Row(verticalAlignment = Alignment.CenterVertically) {

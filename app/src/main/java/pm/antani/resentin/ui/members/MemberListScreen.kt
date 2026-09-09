@@ -1,6 +1,8 @@
 package pm.antani.resentin.ui.members
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -36,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -61,6 +65,7 @@ fun MemberListScreen(
     val ownSigils by viewModel.ownSigils.collectAsState()
     val privilegeModes by viewModel.privilegeModes.collectAsState()
     val whois by viewModel.selectedWhois.collectAsState()
+    val avatarCache by viewModel.avatarCache.collectAsState()
     val coloredNicklist by viewModel.coloredNicklist.collectAsState()
     var query by remember { mutableStateOf("") }
     val sorted = remember(members) { members.sortedWith(memberOrdering) }
@@ -138,6 +143,7 @@ fun MemberListScreen(
                                 member = member,
                                 coloredNicklist = coloredNicklist,
                                 roleLabel = group.roleRes?.let { stringResource(it) },
+                                avatarBitmap = avatarCache[member.nick.lowercase()],
                                 onClick = { viewModel.onMemberClick(member.nick) },
                             )
                         }
@@ -175,6 +181,7 @@ private fun MemberRow(
     member: MemberEntity,
     coloredNicklist: Boolean,
     roleLabel: String?,
+    avatarBitmap: Bitmap?,
     onClick: () -> Unit,
 ) {
     val nickColor = colorForNick(member.nick)
@@ -185,19 +192,29 @@ private fun MemberRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Tinted initial instead of a solid avatar: legible on both themes without a
-        // per-theme table, same deterministic color as the nick itself.
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(nickColor.copy(alpha = 0.18f), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = member.nick.firstOrNull()?.uppercase().orEmpty(),
-                style = MaterialTheme.typography.titleMedium,
-                color = nickColor,
+        // Real avatar when already fetched for this nick (see the card cache),
+        // else the tinted initial — legible on both themes without a per-theme
+        // table, same deterministic color as the nick itself.
+        val avatar = avatarBitmap
+        if (avatar != null) {
+            Image(
+                bitmap = avatar.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp).clip(CircleShape),
             )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(nickColor.copy(alpha = 0.18f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = member.nick.firstOrNull()?.uppercase().orEmpty(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = nickColor,
+                )
+            }
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
