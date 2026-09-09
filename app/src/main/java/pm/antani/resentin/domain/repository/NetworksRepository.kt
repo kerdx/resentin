@@ -154,11 +154,9 @@ class NetworksRepository(
         for ((networkIdRaw, windows) in dto.windows) {
             val networkId = networkIdRaw.toIntOrNull() ?: continue
             val slug = db.networkDao().slugForId(networkId) ?: continue
-            db.channelDao().upsertAll(
-                windows.map { window ->
-                    ChannelEntity(networkSlug = slug, name = window.targetNick, source = "query", joined = true)
-                },
-            )
+            syncMembership(slug, windows.map { window ->
+                ChannelEntity(networkSlug = slug, name = window.targetNick, source = "query", joined = true)
+            })
             db.channelDao().deleteMissingQueries(slug, windows.map { it.targetNick })
         }
     }
@@ -172,17 +170,26 @@ class NetworksRepository(
 
         for (network in networks) {
             val channels = api.getChannels(network.slug)
-            db.channelDao().upsertAll(channels.map { it.toEntity(network.slug) })
+            syncMembership(network.slug, channels.map { it.toEntity(network.slug) })
             db.channelDao().deleteMissing(network.slug, channels.map { it.name })
 
             // "$server" is a fixed per-network pseudo-channel carrying MOTD/service
             // notices (NickServ, ChanServ, ...) — always present, not listed by
             // GET .../channels, joined/fetched via the same generic (network, channel)
             // pipeline as a real channel.
-            db.channelDao().upsertAll(
+            syncMembership(
+                network.slug,
                 listOf(ChannelEntity(networkSlug = network.slug, name = SERVER_PSEUDO_CHANNEL, source = "server", joined = true)),
             )
         }
+    }
+
+    /** Membership-only sync: inserts unknown channels, refreshes source/joined on the
+     * known ones, and never touches the live WS-fed fields (topic, modes, read cursor,
+     * unread badges) — the REST payloads simply don't carry them. */
+    private suspend fun syncMembership(networkSlug: String, channels: List<ChannelEntity>) {
+        db.channelDao().insertMissing(channels)
+        channels.forEach { db.channelDao().updateMembership(networkSlug, it.name, it.source, it.joined) }
     }
 
     suspend fun updateIdentity(slug: String, nick: String?, ident: String?, realname: String?): Result<Unit> =

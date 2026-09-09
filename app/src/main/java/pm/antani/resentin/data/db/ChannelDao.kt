@@ -12,6 +12,16 @@ interface ChannelDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(channels: List<ChannelEntity>)
 
+    /** REST refreshes (GET .../channels, query_windows_list) carry membership only —
+     * no topic/modes/cursors/badges. Plain REPLACE would wipe those live WS-fed fields
+     * on every refresh, so membership sync goes through here instead: insert truly new
+     * rows, touch only source/joined on the ones already known. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertMissing(channels: List<ChannelEntity>)
+
+    @Query("UPDATE channels SET source = :source, joined = :joined WHERE networkSlug = :networkSlug AND name = :name")
+    suspend fun updateMembership(networkSlug: String, name: String, source: String, joined: Boolean)
+
     // Query windows (source = "query") and the synthetic "$server" pseudo-channel
     // (source = "server") aren't returned by GET /networks/:slug/channels, so they must
     // be excluded here — otherwise every REST refresh would wipe them out.
