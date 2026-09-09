@@ -234,6 +234,8 @@
     <string name="channel_settings_pin">Fissa in alto</string>
     <string name="channel_settings_mute">Silenzia notifiche</string>
     <string name="channel_settings_mute_desc">Niente notifiche per questo canale o conversazione</string>
+    <string name="channel_settings_mute_on">Silenzioso</string>
+    <string name="channel_settings_mute_off">Con notifiche</string>
     <string name="channel_settings_mute_forever">Per sempre</string>
     <string name="channel_settings_mute_tomorrow">Fino a domani</string>
     <string name="channel_settings_muted_until">Fino al %1$s</string>

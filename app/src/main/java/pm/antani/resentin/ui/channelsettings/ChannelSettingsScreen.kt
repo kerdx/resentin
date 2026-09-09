@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -15,6 +16,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -146,7 +150,16 @@ fun ChannelSettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(16.dp))
-                Text(stringResource(R.string.channel_settings_presence_title), style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.People,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.channel_settings_presence_title), style = MaterialTheme.typography.titleMedium)
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     stringResource(R.string.channel_settings_presence_desc),
@@ -169,6 +182,90 @@ fun ChannelSettingsScreen(
                             label = { Text(label) },
                             modifier = Modifier.padding(end = 8.dp),
                         )
+                    }
+                }
+            }
+
+            // Server-synced mute (muted_targets): lives with the other server
+            // sections, not under "on this device" — only the pin below is local.
+            item {
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.NotificationsOff,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.channel_settings_mute), style = MaterialTheme.typography.titleMedium)
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    muteStatusText(serverMute),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(
+                            if (serverMute.muted) R.string.channel_settings_mute_on
+                            else R.string.channel_settings_mute_off,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = serverMute.muted,
+                        enabled = serverMute.loaded,
+                        onCheckedChange = { muted ->
+                            if (muted) viewModel.muteForever() else viewModel.unmute()
+                        },
+                    )
+                }
+                if (serverMute.muted) {
+                    Spacer(Modifier.height(8.dp))
+                    // Same offers as cicchetto (muteSnooze.ts): permanent plus snoozes;
+                    // "tomorrow" is the next LOCAL midnight, not a rolling 24 hours.
+                    // Each option carries either a rolling duration or an absolute
+                    // timestamp, never both.
+                    data class MuteOption(val label: String, val durationSeconds: Long? = null, val atEpochSeconds: Long? = null)
+                    val tomorrowMidnight = LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toEpochSecond()
+                    val muteOptions = listOf(
+                        MuteOption(stringResource(R.string.channel_settings_mute_forever)),
+                        MuteOption("1h", durationSeconds = 3_600L),
+                        MuteOption("8h", durationSeconds = 28_800L),
+                        MuteOption(stringResource(R.string.channel_settings_mute_tomorrow), atEpochSeconds = tomorrowMidnight),
+                    )
+                    LazyRow {
+                        items(muteOptions) { option ->
+                            val selected = when {
+                                option.durationSeconds == null && option.atEpochSeconds == null ->
+                                    serverMute.until == null
+                                option.durationSeconds != null -> {
+                                    val remaining = (serverMute.until ?: 0) - System.currentTimeMillis() / 1000
+                                    remaining in (option.durationSeconds - 120)..(option.durationSeconds + 120)
+                                }
+                                else -> serverMute.until == option.atEpochSeconds
+                            }
+                            FilterChip(
+                                selected = selected,
+                                onClick = {
+                                    when {
+                                        option.durationSeconds != null -> viewModel.muteFor(option.durationSeconds)
+                                        option.atEpochSeconds != null -> viewModel.muteUntil(option.atEpochSeconds)
+                                        else -> viewModel.muteForever()
+                                    }
+                                },
+                                label = { Text(option.label) },
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -236,69 +333,15 @@ fun ChannelSettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Icon(
+                        Icons.Default.PushPin,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.width(12.dp))
                     Text(stringResource(R.string.channel_settings_pin), modifier = Modifier.weight(1f))
                     Switch(checked = isPinned, onCheckedChange = { viewModel.togglePinned() })
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.channel_settings_mute))
-                        Text(
-                            muteStatusText(serverMute),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(
-                        checked = serverMute.muted,
-                        enabled = serverMute.loaded,
-                        onCheckedChange = { muted ->
-                            if (muted) viewModel.muteForever() else viewModel.unmute()
-                        },
-                    )
-                }
-                if (serverMute.muted) {
-                    Spacer(Modifier.height(8.dp))
-                    // Same offers as cicchetto (muteSnooze.ts): permanent plus snoozes;
-                    // "tomorrow" is the next LOCAL midnight, not a rolling 24 hours.
-                    // Each option carries either a rolling duration or an absolute
-                    // timestamp, never both.
-                    data class MuteOption(val label: String, val durationSeconds: Long? = null, val atEpochSeconds: Long? = null)
-                    val tomorrowMidnight = LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toEpochSecond()
-                    val muteOptions = listOf(
-                        MuteOption(stringResource(R.string.channel_settings_mute_forever)),
-                        MuteOption("1h", durationSeconds = 3_600L),
-                        MuteOption("8h", durationSeconds = 28_800L),
-                        MuteOption(stringResource(R.string.channel_settings_mute_tomorrow), atEpochSeconds = tomorrowMidnight),
-                    )
-                    LazyRow {
-                        items(muteOptions) { option ->
-                            val selected = when {
-                                option.durationSeconds == null && option.atEpochSeconds == null ->
-                                    serverMute.until == null
-                                option.durationSeconds != null -> {
-                                    val remaining = (serverMute.until ?: 0) - System.currentTimeMillis() / 1000
-                                    remaining in (option.durationSeconds - 120)..(option.durationSeconds + 120)
-                                }
-                                else -> serverMute.until == option.atEpochSeconds
-                            }
-                            FilterChip(
-                                selected = selected,
-                                onClick = {
-                                    when {
-                                        option.durationSeconds != null -> viewModel.muteFor(option.durationSeconds)
-                                        option.atEpochSeconds != null -> viewModel.muteUntil(option.atEpochSeconds)
-                                        else -> viewModel.muteForever()
-                                    }
-                                },
-                                label = { Text(option.label) },
-                                modifier = Modifier.padding(end = 8.dp),
-                            )
-                        }
-                    }
                 }
             }
 
@@ -309,7 +352,10 @@ fun ChannelSettingsScreen(
                     enabled = !state.isSaving,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(stringResource(R.string.channel_settings_part))
+                    Text(
+                        stringResource(R.string.channel_settings_part),
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }
