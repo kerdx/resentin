@@ -30,7 +30,7 @@ class NotificationRouterTest {
     fun `a DM notifies even without mentioning our nick`() {
         val msg = message(channel = "lucy", sender = "Cavallopazzo", body = "ciao!")
         val bucket = queryBucket(msg, myNick = "Lucy")
-        assertEquals("Cavallopazzo", bucket)
+        assertEquals("cavallopazzo", bucket)
         assertTrue(shouldNotify(msg, openChat = null, myNick = "Lucy", bucket = bucket))
     }
 
