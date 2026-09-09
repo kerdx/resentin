@@ -23,6 +23,7 @@ import pm.antani.resentin.R
 import pm.antani.resentin.data.db.MessageEntity
 import pm.antani.resentin.data.prefs.AppPreferences
 import pm.antani.resentin.data.prefs.ChatDisplayMode
+import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.IgnoresRepository
 import pm.antani.resentin.domain.repository.MembersRepository
@@ -38,6 +39,7 @@ class ChatViewModel(
     private val networksRepository: NetworksRepository,
     membersRepository: MembersRepository,
     ignoresRepository: IgnoresRepository,
+    authRepository: AuthRepository,
     private val appPreferences: AppPreferences,
     private val connectionManager: ConnectionManager,
     private val openChatTracker: OpenChatTracker,
@@ -84,8 +86,9 @@ class ChatViewModel(
     // scoped to this same (network, channel) — empty members/sigils for a query/$server,
     // which naturally hides the channel-only actions in the card.
     private val userCard =
-        UserCardController(membersRepository, networksRepository, ignoresRepository, networkSlug, channelName, username, subject, viewModelScope)
+        UserCardController(membersRepository, networksRepository, ignoresRepository, authRepository, networkSlug, channelName, username, subject, viewModelScope)
     val selectedWhois = userCard.selectedWhois
+    val avatarBitmap = userCard.avatarBitmap
     val ownSigils = userCard.ownSigils
     val privilegeModes = userCard.privilegeModes
     val navigateToQuery = userCard.navigateToQuery
@@ -273,6 +276,7 @@ class ChatViewModel(
             networksRepository: NetworksRepository,
             membersRepository: MembersRepository,
             ignoresRepository: IgnoresRepository,
+            authRepository: AuthRepository,
             appPreferences: AppPreferences,
             connectionManager: ConnectionManager,
             openChatTracker: OpenChatTracker,
@@ -290,6 +294,7 @@ class ChatViewModel(
                     networksRepository,
                     membersRepository,
                     ignoresRepository,
+                    authRepository,
                     appPreferences,
                     connectionManager,
                     openChatTracker,

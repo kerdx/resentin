@@ -38,4 +38,16 @@ data class WhoisBundleDto(
     val secure: Boolean = false,
     val usingSsl: Boolean = false,
     val umodes: List<String>? = null,
+    /** Peer avatar path/URL seeded synchronously when cached (M3b) — null while the
+     * fetch is still in flight, patched later via [AvatarReadyDto]. */
+    val avatarUrl: String? = null,
+)
+
+/** Incremental WHOIS-card patch for a peer avatar fetch that completed after the
+ * bundle (M3b): `{kind: whois_avatar_ready, network, nick, avatar_url}`. */
+@Serializable
+data class AvatarReadyDto(
+    val network: String = "",
+    val nick: String = "",
+    val avatarUrl: String? = null,
 )

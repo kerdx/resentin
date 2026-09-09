@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import pm.antani.resentin.data.db.MemberEntity
 import pm.antani.resentin.data.prefs.AppPreferences
+import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.IgnoresRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
@@ -19,6 +20,7 @@ class MembersViewModel(
     membersRepository: MembersRepository,
     networksRepository: NetworksRepository,
     ignoresRepository: IgnoresRepository,
+    authRepository: AuthRepository,
     appPreferences: AppPreferences,
     networkSlug: String,
     channelName: String,
@@ -27,7 +29,7 @@ class MembersViewModel(
 ) : ViewModel() {
 
     private val controller =
-        UserCardController(membersRepository, networksRepository, ignoresRepository, networkSlug, channelName, username, subject, viewModelScope)
+        UserCardController(membersRepository, networksRepository, ignoresRepository, authRepository, networkSlug, channelName, username, subject, viewModelScope)
 
     val members: StateFlow<List<MemberEntity>> = controller.members
     val ownSigils = controller.ownSigils
@@ -35,6 +37,7 @@ class MembersViewModel(
     val selectedWhois = controller.selectedWhois
     val error = controller.error
     val navigateToQuery = controller.navigateToQuery
+    val avatarBitmap = controller.avatarBitmap
 
     val coloredNicklist: StateFlow<Boolean> = appPreferences.coloredNicklist
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -55,6 +58,7 @@ class MembersViewModel(
             membersRepository: MembersRepository,
             networksRepository: NetworksRepository,
             ignoresRepository: IgnoresRepository,
+            authRepository: AuthRepository,
             appPreferences: AppPreferences,
             networkSlug: String,
             channelName: String,
@@ -63,7 +67,7 @@ class MembersViewModel(
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
                 @Suppress("UNCHECKED_CAST")
-                return MembersViewModel(membersRepository, networksRepository, ignoresRepository, appPreferences, networkSlug, channelName, username, subject) as T
+                return MembersViewModel(membersRepository, networksRepository, ignoresRepository, authRepository, appPreferences, networkSlug, channelName, username, subject) as T
             }
         }
     }

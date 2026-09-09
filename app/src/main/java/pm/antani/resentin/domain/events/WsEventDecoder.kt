@@ -6,6 +6,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.net.dto.AutoAwayDebounceDto
+import pm.antani.resentin.net.dto.AvatarReadyDto
 import pm.antani.resentin.net.dto.BanlistBundleDto
 import pm.antani.resentin.net.dto.ChannelModesChangedDto
 import pm.antani.resentin.net.dto.IsupportChangedDto
@@ -49,6 +50,9 @@ object WsEventDecoder {
                 )
                 "whois_bundle" -> WsEvent.WhoisBundle(
                     AppJson.decodeFromJsonElement(WhoisBundleDto.serializer(), raw),
+                )
+                "whois_avatar_ready" -> WsEvent.AvatarReady(
+                    AppJson.decodeFromJsonElement(AvatarReadyDto.serializer(), raw),
                 )
                 "banlist_bundle" -> WsEvent.BanlistBundle(
                     AppJson.decodeFromJsonElement(BanlistBundleDto.serializer(), raw),

@@ -150,6 +150,7 @@ fun MemberListScreen(
     val whoisValue = whois
     if (whoisValue != null) {
         val ignored by viewModel.isIgnored(whoisValue.target).collectAsState(initial = false)
+        val avatar by viewModel.avatarBitmap.collectAsState()
         UserCardSheet(
             whois = whoisValue,
             viewerUsername = viewerUsername,
@@ -164,6 +165,7 @@ fun MemberListScreen(
             isIgnored = ignored,
             onIgnore = viewModel::ignore,
             onUnignore = viewModel::unignore,
+            avatarBitmap = avatar,
         )
     }
 }

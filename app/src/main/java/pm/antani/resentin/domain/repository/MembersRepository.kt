@@ -25,6 +25,7 @@ import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.session.ConnectionManager
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.net.dto.BanlistBundleDto
+import pm.antani.resentin.net.dto.AvatarReadyDto
 import pm.antani.resentin.net.dto.IsupportChangedDto
 import pm.antani.resentin.net.dto.MembersSeededDto
 import pm.antani.resentin.net.dto.ScrollbackMessageDto
@@ -167,6 +168,12 @@ class MembersRepository(
     val whoisEvents: Flow<WhoisBundleDto> = connectionManager.events
         .filterIsInstance<WsEvent.WhoisBundle>()
         .map { it.whois }
+
+    /** Incremental avatar patches for open WHOIS cards (M3b) — same shape as
+     * [whoisEvents], consumed by whoever currently shows that nick's card. */
+    val avatarEvents: Flow<AvatarReadyDto> = connectionManager.events
+        .filterIsInstance<WsEvent.AvatarReady>()
+        .map { it.avatar }
 
     /** Queries one of the channel's type-A list modes (`b` bans, `e` exempts, `I`
      * invex, `q`/`z` quiet/restrict) — the reply streams back as a [banlistEvents]

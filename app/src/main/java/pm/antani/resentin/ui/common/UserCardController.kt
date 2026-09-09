@@ -1,6 +1,9 @@
 package pm.antani.resentin.ui.common
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,9 +17,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import pm.antani.resentin.data.db.MemberEntity
+import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.IgnoresRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
@@ -57,6 +62,7 @@ class UserCardController(
     private val membersRepository: MembersRepository,
     private val networksRepository: NetworksRepository,
     private val ignoresRepository: IgnoresRepository,
+    private val authRepository: AuthRepository,
     private val networkSlug: String,
     private val channelName: String,
     private val username: String,
@@ -93,8 +99,43 @@ class UserCardController(
     fun isIgnored(nick: String): Flow<Boolean> =
         ignoredMasks.map { coveringMasks(it, nick).isNotEmpty() }
 
+    /** Avatar URL for the open card: the bundle's seed, patched live by avatar
+     * events. Null with no card open (dismiss clears it via selectedWhois). */
+    private val _avatarUrl = MutableStateFlow<String?>(null)
+    val avatarUrl: StateFlow<String?> = _avatarUrl.asStateFlow()
+
+    private val _avatarBitmap = MutableStateFlow<Bitmap?>(null)
+    val avatarBitmap: StateFlow<Bitmap?> = _avatarBitmap.asStateFlow()
+
+    private suspend fun fetchAvatar(url: String): Bitmap? = withContext(Dispatchers.IO) {
+        runCatching {
+            authRepository.fetchBytes(url)?.let { bytes ->
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
+        }.getOrNull()
+    }
+
     init {
-        membersRepository.whoisEvents.onEach { _selectedWhois.value = it }.launchIn(scope)
+        membersRepository.whoisEvents.onEach {
+            _selectedWhois.value = it
+            _avatarUrl.value = it.avatarUrl
+        }.launchIn(scope)
+        // Late avatar patch for the open card (M3b) — replaces the URL and kicks the
+        // fetch below via avatarUrl; ignored when the card moved on to another nick.
+        membersRepository.avatarEvents.onEach { event ->
+            if (event.nick.equals(_selectedWhois.value?.target, ignoreCase = true) && event.avatarUrl != null) {
+                _selectedWhois.value = _selectedWhois.value?.copy(avatarUrl = event.avatarUrl)
+                _avatarUrl.value = event.avatarUrl
+            }
+        }.launchIn(scope)
+        avatarUrl.onEach { url ->
+            _avatarBitmap.value = null
+            if (url != null) {
+                val bitmap = fetchAvatar(url)
+                // Drop stale results: the card may have closed or moved on mid-fetch.
+                if (_avatarUrl.value == url) _avatarBitmap.value = bitmap
+            }
+        }.launchIn(scope)
     }
 
     fun sigilsFor(nick: String): String =
@@ -112,6 +153,7 @@ class UserCardController(
 
     fun dismissWhois() {
         _selectedWhois.value = null
+        _avatarUrl.value = null
     }
 
     fun kick(nick: String) = runVerb { networkId -> membersRepository.kick(subject, networkId, channelName, nick) }

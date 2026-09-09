@@ -1,5 +1,6 @@
 package pm.antani.resentin.ui.common
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,10 +35,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import android.graphics.Bitmap
 import pm.antani.resentin.R
 import pm.antani.resentin.net.dto.WhoisBundleDto
 
@@ -67,6 +71,9 @@ fun UserCardSheet(
     isIgnored: Boolean = false,
     onIgnore: (String) -> Unit = {},
     onUnignore: (String) -> Unit = {},
+    // Peer avatar bitmap when the subject has one (M3b) — null while loading or
+    // without one, in which case the tinted initial below stands in.
+    avatarBitmap: Bitmap? = null,
     // Kick/ban/privilege toggles only make sense inside a real channel — hidden for a
     // query or the "$server" pseudo-chat, where there's no channel to moderate.
     showChannelActions: Boolean = true,
@@ -82,18 +89,28 @@ fun UserCardSheet(
             val target = whois.target
             val nickColor = colorForNick(target)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Same deterministic tinted initial as the member list rows.
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(nickColor.copy(alpha = 0.18f), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = target.firstOrNull()?.uppercase().orEmpty(),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = nickColor,
+                // Real avatar when the subject has one, else the same deterministic
+                // tinted initial as the member list rows.
+                val avatar = avatarBitmap
+                if (avatar != null) {
+                    Image(
+                        bitmap = avatar.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(56.dp).clip(CircleShape),
                     )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(nickColor.copy(alpha = 0.18f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = target.firstOrNull()?.uppercase().orEmpty(),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = nickColor,
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
