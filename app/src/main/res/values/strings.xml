@@ -239,6 +239,11 @@
     <string name="channel_settings_muted_until">Fino al %1$s</string>
     <string name="channel_settings_modes_title">Modes</string>
     <string name="channel_settings_raw_mode_hint">es. +l 50</string>
+    <string name="channel_settings_presence_title">Entrate e uscite</string>
+    <string name="channel_settings_presence_desc">Mostra o nascondi join, part, quit, cambi nick e mode di questo canale</string>
+    <string name="channel_settings_presence_show">Mostra</string>
+    <string name="channel_settings_presence_default">Default</string>
+    <string name="channel_settings_presence_hide">Nascondi</string>
     <string name="channel_settings_apply_mode">Applica</string>
     <string name="channel_settings_lists_title">Ban / invite / exception list</string>
     <string name="channel_settings_list_empty">Lista vuota</string>

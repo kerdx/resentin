@@ -230,6 +230,11 @@
     <string name="channel_settings_muted_until">Until %1$s</string>
     <string name="channel_settings_modes_title">Modes</string>
     <string name="channel_settings_raw_mode_hint">e.g. +l 50</string>
+    <string name="channel_settings_presence_title">Joins and parts</string>
+    <string name="channel_settings_presence_desc">Show or hide this channel\'s joins, parts, quits, nick changes and modes</string>
+    <string name="channel_settings_presence_show">Show</string>
+    <string name="channel_settings_presence_default">Default</string>
+    <string name="channel_settings_presence_hide">Hide</string>
     <string name="channel_settings_apply_mode">Apply</string>
     <string name="channel_settings_lists_title">Ban / invite / exception list</string>
     <string name="channel_settings_list_empty">List is empty</string>

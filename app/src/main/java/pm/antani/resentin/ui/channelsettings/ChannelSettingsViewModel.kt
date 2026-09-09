@@ -79,6 +79,17 @@ class ChannelSettingsViewModel(
     val serverMute: StateFlow<ServerMute> = userSettingsRepository.muteFlowFor(networkSlug, channelName)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ServerMute(loaded = false))
 
+    /** Server presence pin for this chat ("show"/"hide"/null = default). */
+    val presencePin: StateFlow<String?> = userSettingsRepository.presencePinFlowFor(networkSlug, channelName)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setPresencePin(pin: String?) {
+        viewModelScope.launch {
+            userSettingsRepository.setPresencePin(networkSlug, channelName, pin)
+                .onFailure { _uiState.update { s -> s.copy(error = it.message) } }
+        }
+    }
+
     fun muteForever() = setMuteRemote(until = null)
 
     fun muteFor(durationSeconds: Long) =
@@ -107,10 +118,12 @@ class ChannelSettingsViewModel(
             val channel = networksRepository.observeChannel(networkSlug, channelName).filterNotNull().first()
             _uiState.update { it.copy(topic = channel.topic.orEmpty()) }
         }
-        // Fresh server mute state for the switch below (plus durations) — the
-        // app-start warm-up may not have run yet, or another device changed it.
+        // Fresh server mute + presence state for the switches below (plus durations):
+        // the app-start warm-up may not have run yet, or another device changed it.
         viewModelScope.launch {
             userSettingsRepository.refreshNotificationPrefs()
+                .onFailure { _uiState.update { s -> s.copy(error = it.message) } }
+            userSettingsRepository.refreshDisplayPrefs()
                 .onFailure { _uiState.update { s -> s.copy(error = it.message) } }
         }
         networksRepository.observeChannelModes(networkSlug, channelName)

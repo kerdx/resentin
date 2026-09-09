@@ -68,12 +68,34 @@ class UserSettingsRepository(
 
     suspend fun getDisplayPrefs(): Result<DisplayPrefsDto> = runCatching {
         authRepository.api(UserSettingsApi::class.java).getDisplayPrefs().displayPrefs
-    }
+    }.onSuccess { _displayPrefs.value = it }
 
     suspend fun updateDisplayPrefs(prefs: DisplayPrefsDto): Result<DisplayPrefsDto> = runCatching {
         authRepository.api(UserSettingsApi::class.java)
             .updateDisplayPrefs(DisplayPrefsEnvelopeDto(prefs)).displayPrefs
-    }
+    }.onSuccess { _displayPrefs.value = it }
+
+    private val _displayPrefs = MutableStateFlow<DisplayPrefsDto?>(null)
+
+    /** Last fetched server display prefs (null = never loaded). The presence-pin UI
+     * below and the Settings nicklist toggle share this cache. */
+    val displayPrefs: StateFlow<DisplayPrefsDto?> = _displayPrefs.asStateFlow()
+
+    suspend fun refreshDisplayPrefs(): Result<DisplayPrefsDto> = getDisplayPrefs()
+
+    /** Presence pin for one chat: "show"/"hide"/null (absent = server default).
+     * Same ChannelKey shape as muted_targets; the server hides the matching
+     * join/part/quit/nick/mode rows itself, so this client filters nothing. */
+    fun presencePinFlowFor(networkSlug: String, target: String): Flow<String?> =
+        displayPrefs.map { it?.presenceFilter?.get(serverChannelKey(networkSlug, target)) }
+
+    suspend fun setPresencePin(networkSlug: String, target: String, pin: String?): Result<DisplayPrefsDto> =
+        runCatching {
+            val current = _displayPrefs.value ?: refreshDisplayPrefs().getOrThrow()
+            val key = serverChannelKey(networkSlug, target)
+            val pins = if (pin == null) current.presenceFilter - key else current.presenceFilter + (key to pin)
+            updateDisplayPrefs(current.copy(presenceFilter = pins)).getOrThrow()
+        }
 
     suspend fun getAliases(): Result<Map<String, String>> = runCatching {
         authRepository.api(UserSettingsApi::class.java).getAliases().aliases

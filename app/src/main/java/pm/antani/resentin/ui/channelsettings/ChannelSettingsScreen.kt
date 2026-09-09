@@ -59,6 +59,7 @@ fun ChannelSettingsScreen(
     val state by viewModel.uiState.collectAsState()
     val isPinned by viewModel.isPinned.collectAsState()
     val serverMute by viewModel.serverMute.collectAsState()
+    val presencePin by viewModel.presencePin.collectAsState()
 
     LaunchedEffect(state.parted) {
         if (state.parted) onParted()
@@ -137,6 +138,37 @@ fun ChannelSettingsScreen(
                         Button(onClick = viewModel::applyRawMode, enabled = state.rawModeInput.isNotBlank()) {
                             Text(stringResource(R.string.channel_settings_apply_mode))
                         }
+                    }
+                }
+            }
+
+            item {
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.channel_settings_presence_title), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.channel_settings_presence_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                // Server-synced tri-state (show/default/hide) — the server hides the
+                // matching rows itself, here we only set the pin.
+                val presenceOptions = listOf(
+                    Triple(stringResource(R.string.channel_settings_presence_show), "show", presencePin == "show"),
+                    Triple(stringResource(R.string.channel_settings_presence_default), null, presencePin == null),
+                    Triple(stringResource(R.string.channel_settings_presence_hide), "hide", presencePin == "hide"),
+                )
+                LazyRow {
+                    items(presenceOptions) { (label, pin, selected) ->
+                        FilterChip(
+                            selected = selected,
+                            onClick = { viewModel.setPresencePin(pin) },
+                            label = { Text(label) },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
                     }
                 }
             }
