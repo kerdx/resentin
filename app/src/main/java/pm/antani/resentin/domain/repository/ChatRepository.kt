@@ -18,6 +18,7 @@ import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.session.ConnectionManager
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.net.RateLimitException
+import pm.antani.resentin.irc.canonicalTarget
 import pm.antani.resentin.net.dto.RateLimitErrorDto
 import pm.antani.resentin.net.dto.ReadCursorRequestDto
 import pm.antani.resentin.net.dto.ScrollbackMessageDto
@@ -57,7 +58,7 @@ class ChatRepository(
     }
 
     fun observeMessages(networkSlug: String, channelName: String): Flow<List<MessageEntity>> =
-        db.messageDao().observeMessages(networkSlug, channelName)
+        db.messageDao().observeMessages(networkSlug, canonicalTarget(channelName))
 
     /** Startup maintenance (see AppContainer.init) — drops cached messages older than
      * [MESSAGE_RETENTION_DAYS] across every channel, so the local cache doesn't grow
@@ -107,8 +108,10 @@ class ChatRepository(
      * nick when the *other* party sent it, the partner's nick when we sent it — so the
      * two directions land under different keys unless normalized to the partner's nick. */
     private suspend fun queryBucket(message: ScrollbackMessageDto): String {
-        val ownNick = db.networkDao().nickForSlug(message.network) ?: return message.channel
-        return if (message.channel.equals(ownNick, ignoreCase = true)) message.sender else message.channel
+        val messageChannel = canonicalTarget(message.channel)
+        val ownNick = db.networkDao().nickForSlug(message.network)?.let(::canonicalTarget)
+            ?: return messageChannel
+        return if (messageChannel == ownNick) canonicalTarget(message.sender) else messageChannel
     }
 
     suspend fun recordIncoming(message: ScrollbackMessageDto) {
@@ -137,6 +140,7 @@ class ChatRepository(
             throw RateLimitException(retryAfterMs)
         }
         check(response.isSuccessful) { "HTTP ${response.code()}" }
+        response.body()?.let { recordIncoming(it) }
     }
 
     /** Fills the gap since the last locally-known message — called after (re)connecting
@@ -153,7 +157,8 @@ class ChatRepository(
      * OLD side of that gap, so it can't reach across it either. */
     suspend fun backfill(networkSlug: String, channelName: String): Result<Unit> = runCatching {
         val api = authRepository.api(MessagesApi::class.java)
-        val lastId = db.messageDao().maxId(networkSlug, channelName)
+        val canonicalChannelName = canonicalTarget(channelName)
+        val lastId = db.messageDao().maxId(networkSlug, canonicalChannelName)
         if (lastId == null) {
             api.getMessages(networkSlug, channelName, limit = BACKFILL_LIMIT).forEach { recordIncoming(it) }
             return@runCatching
@@ -173,7 +178,8 @@ class ChatRepository(
      * scroll-up pagination. */
     suspend fun loadOlder(networkSlug: String, channelName: String): Result<Unit> = runCatching {
         val api = authRepository.api(MessagesApi::class.java)
-        val oldestId = db.messageDao().minId(networkSlug, channelName) ?: return@runCatching
+        val canonicalChannelName = canonicalTarget(channelName)
+        val oldestId = db.messageDao().minId(networkSlug, canonicalChannelName) ?: return@runCatching
         val messages = api.getMessages(networkSlug, channelName, before = oldestId, limit = PAGE_LIMIT)
         messages.forEach { recordIncoming(it) }
     }
@@ -193,7 +199,8 @@ class ChatRepository(
      * which only reaches this device while the channel's WS topic happens to be
      * joined. No-ops (successfully) on a channel with no cached messages yet. */
     suspend fun markAllRead(networkSlug: String, channelName: String): Result<Unit> = runCatching {
-        val lastId = db.messageDao().maxId(networkSlug, channelName) ?: return@runCatching
+        val lastId = db.messageDao().maxId(networkSlug, canonicalTarget(channelName))
+            ?: return@runCatching
         markRead(networkSlug, channelName, lastId).getOrThrow()
         db.channelDao().updateUnreadCounts(networkSlug, channelName, 0, 0, "none")
     }

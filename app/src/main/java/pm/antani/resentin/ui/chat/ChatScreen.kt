@@ -5,9 +5,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -53,6 +57,7 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,6 +77,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -269,13 +275,27 @@ fun ChatScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
                 title = {
-                    Column(
-                        modifier = Modifier.clickable(enabled = topic != null) { showTopicDialog = true },
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(
+                            modifier = Modifier.clickable(enabled = topic != null) { showTopicDialog = true },
                     ) {
-                        Text(title)
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            networkSlug,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         // "(+rnt) topic text" — modes prefix the topic line the way a
                         // classic IRC client's status bar does, shown even without a
                         // topic set so the channel's mode flags stay visible either way.
@@ -292,6 +312,7 @@ fun ChatScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
+                    }
                     }
                 },
                 navigationIcon = {
@@ -324,7 +345,7 @@ fun ChatScreen(
                                 },
                             ) {
                                 Icon(
-                                    Icons.Default.Person,
+                                    Icons.Default.Group,
                                     contentDescription = pluralStringResource(
                                         R.plurals.cd_members_count,
                                         members.size,
@@ -365,10 +386,16 @@ fun ChatScreen(
                         }
                     }
                 }
-                Row(
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    tonalElevation = 2.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                 IconButton(
@@ -398,11 +425,16 @@ fun ChatScreen(
                             }
                         },
                     placeholder = { Text(stringResource(R.string.chat_message_placeholder)) },
+                    shape = RoundedCornerShape(20.dp),
                 )
-                IconButton(onClick = viewModel::send) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send))
+                IconButton(
+                    onClick = viewModel::send,
+                    modifier = Modifier.size(44.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send), tint = MaterialTheme.colorScheme.onPrimary)
                 }
-            }
+                    }
+                }
             }
         },
     ) { padding ->
@@ -421,6 +453,8 @@ fun ChatScreen(
                             coloredNicklist = coloredNicklist,
                             showHostmaskInEvents = showHostmaskInEvents,
                             isMention = isMentionRow(message, myNick, isQuery),
+                            isQuery = isQuery,
+                            isMine = isQuery && (myNick ?: viewerUsername).equals(message.sender, ignoreCase = true),
                             onReply = viewModel::reply,
                             onLongPress = { nick, text ->
                                 longPressedMessageText = text
@@ -602,6 +636,8 @@ private fun MessageRow(
     coloredNicklist: Boolean,
     showHostmaskInEvents: Boolean,
     isMention: Boolean,
+    isQuery: Boolean,
+    isMine: Boolean,
     onReply: (nick: String, body: String) -> Unit,
     onLongPress: (nick: String, text: String) -> Unit,
 ) {
@@ -638,7 +674,11 @@ private fun MessageRow(
                 if (displayMode == ChatDisplayMode.IRC_LINE) {
                     IrcLineRow(message, formatted, prefix, time, coloredNicklist, isMention)
                 } else {
-                    BubbleRow(message, formatted, prefix, time, coloredNicklist, isMention)
+                    BubbleRow(
+                        message, formatted, prefix, time, coloredNicklist, isMention,
+                        isPrivate = isQuery,
+                        isMine = isMine,
+                    )
                 }
             }
         }
@@ -675,36 +715,66 @@ private fun BubbleRow(
     time: String,
     coloredNicklist: Boolean,
     isMention: Boolean,
+    isPrivate: Boolean,
+    isMine: Boolean,
 ) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .then(mentionHighlight(isMention))
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        // Query messages use the same left-aligned conversation flow as IRC chat.
+        // The sender is still differentiated by the bubble tint below, not by
+        // switching sides of the conversation.
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Top,
     ) {
-        if (formatted.isAction) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                val annotated = remember(prefix, message.sender, formatted.text, coloredNicklist) {
-                    buildNickLine("* ", prefix, message.sender, " ", formatted.text, coloredNicklist)
+        Surface(
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(18.dp),
+            color = if (isPrivate && isMine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
+            tonalElevation = 1.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            ) {
+                if (formatted.isAction) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        val annotated = remember(prefix, message.sender, formatted.text, coloredNicklist) {
+                            buildNickLine("* ", prefix, message.sender, " ", formatted.text, coloredNicklist)
+                        }
+                        Text(
+                            text = annotated,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = time,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (formatted.isNotice) {
+                                prefix + message.sender + " (notice)"
+                            } else {
+                                prefix + message.sender
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (coloredNicklist) colorForNick(message.sender) else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = time,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    MircText(text = formatted.text, style = MaterialTheme.typography.bodyLarge)
                 }
-                Text(
-                    text = annotated,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
-                    modifier = Modifier.weight(1f),
-                )
-                Text(text = time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (formatted.isNotice) "$prefix${message.sender} (notice)" else "$prefix${message.sender}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (coloredNicklist) colorForNick(message.sender) else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(text = time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            MircText(text = formatted.text, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }

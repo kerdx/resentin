@@ -34,6 +34,7 @@ import pm.antani.resentin.domain.session.OpenChat
 import pm.antani.resentin.domain.session.OpenChatTracker
 import pm.antani.resentin.irc.containsMention
 import pm.antani.resentin.irc.isQueryTarget
+import pm.antani.resentin.irc.canonicalTarget
 import pm.antani.resentin.net.auth.TokenStore
 import pm.antani.resentin.net.dto.ScrollbackMessageDto
 import pm.antani.resentin.net.ws.SocketState
@@ -46,15 +47,14 @@ private val NOTIFIABLE_KINDS = setOf("privmsg", "action", "notice")
  * the open chat, classifying "is this a DM", the notification title/group, and the
  * tap-through deep link all need the SAME stable key, or e.g. tapping a DM notification
  * would deep-link to a chat named after your own nick. */
-fun queryBucket(message: ScrollbackMessageDto, myNick: String): String =
-    if (message.channel.equals(myNick, ignoreCase = true)) message.sender else message.channel
+fun queryBucket(message: ScrollbackMessageDto, myNick: String): String = if (canonicalTarget(message.channel) == canonicalTarget(myNick)) canonicalTarget(message.sender) else canonicalTarget(message.channel)
 
 fun shouldNotify(message: ScrollbackMessageDto, openChat: OpenChat?, myNick: String, bucket: String): Boolean {
     if (message.sender.equals(myNick, ignoreCase = true)) return false
     if (message.kind !in NOTIFIABLE_KINDS) return false
     val body = message.body ?: return false
 
-    if (openChat != null && openChat.networkSlug == message.network && openChat.channelName == bucket) {
+    if (openChat != null && openChat.networkSlug == message.network && canonicalTarget(openChat.channelName) == bucket) {
         return false
     }
 
@@ -108,11 +108,11 @@ class NotificationRouter(
             Log.d(TAG, "no cached nick for network=$networkSlug, dropping push wake-up")
             return
         }
-        val latest = db.messageDao().latestMessage(networkSlug, channelName) ?: return
+        val latest = db.messageDao().latestMessage(networkSlug, canonicalTarget(channelName)) ?: return
         val message = ScrollbackMessageDto(
             id = latest.id,
             network = networkSlug,
-            channel = channelName,
+            channel = canonicalTarget(channelName),
             serverTime = latest.serverTime,
             kind = latest.kind,
             sender = latest.sender,
@@ -219,15 +219,16 @@ class NotificationRouter(
     /** Backfills one channel/query and notifies for whatever's new; returns whether the
      * backfill itself was reachable (see [sweepForNotifications]). */
     private suspend fun sweepChannel(networkSlug: String, channelName: String, nick: String): Boolean {
-        val beforeMaxId = db.messageDao().maxId(networkSlug, channelName) ?: 0
+        val canonicalChannelName = canonicalTarget(channelName)
+        val beforeMaxId = db.messageDao().maxId(networkSlug, canonicalChannelName) ?: 0
         val result = chatRepository.backfill(networkSlug, channelName)
         result.onFailure { Log.w(TAG, "catch-up backfill failed for $networkSlug/$channelName", it) }
-        val newRows = db.messageDao().messagesAfter(networkSlug, channelName, beforeMaxId)
+        val newRows = db.messageDao().messagesAfter(networkSlug, canonicalChannelName, beforeMaxId)
         for (row in newRows) {
             val message = ScrollbackMessageDto(
                 id = row.id,
                 network = networkSlug,
-                channel = channelName,
+                channel = canonicalChannelName,
                 serverTime = row.serverTime,
                 kind = row.kind,
                 sender = row.sender,

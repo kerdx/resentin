@@ -24,12 +24,12 @@ interface ChannelDao {
     @Query("DELETE FROM channels WHERE networkSlug = :networkSlug AND source = 'query' AND name NOT IN (:targetNicks)")
     suspend fun deleteMissingQueries(networkSlug: String, targetNicks: List<String>)
 
-    @Query("UPDATE channels SET topic = :topic WHERE networkSlug = :networkSlug AND name = :name")
+    @Query("UPDATE channels SET topic = :topic WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name")
     suspend fun updateTopic(networkSlug: String, name: String, topic: String?)
 
     @Query(
         "UPDATE channels SET modes = :modes, modesRawJson = :modesRawJson " +
-            "WHERE networkSlug = :networkSlug AND name = :name",
+            "WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name",
     )
     suspend fun updateModes(networkSlug: String, name: String, modes: String?, modesRawJson: String?)
 
@@ -37,19 +37,19 @@ interface ChannelDao {
     // regress the locally-cached cursor on a stale/out-of-order update.
     @Query(
         "UPDATE channels SET lastReadMessageId = MAX(COALESCE(lastReadMessageId, 0), :messageId) " +
-            "WHERE networkSlug = :networkSlug AND name = :name",
+            "WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name",
     )
     suspend fun advanceLastReadMessageId(networkSlug: String, name: String, messageId: Long)
 
-    @Query("SELECT * FROM channels WHERE networkSlug = :networkSlug AND name = :name")
+    @Query("SELECT * FROM channels WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name")
     fun observeChannel(networkSlug: String, name: String): Flow<ChannelEntity?>
 
-    @Query("SELECT lastReadMessageId FROM channels WHERE networkSlug = :networkSlug AND name = :name")
+    @Query("SELECT lastReadMessageId FROM channels WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name")
     suspend fun getLastReadMessageId(networkSlug: String, name: String): Long?
 
     @Query(
         "UPDATE channels SET unreadMessages = :messages, unreadMentions = :mentions, severity = :severity " +
-            "WHERE networkSlug = :networkSlug AND name = :name",
+            "WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name",
     )
     suspend fun updateUnreadCounts(networkSlug: String, name: String, messages: Int, mentions: Int, severity: String)
 }

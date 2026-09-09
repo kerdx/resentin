@@ -26,6 +26,7 @@ import pm.antani.resentin.domain.repository.NetworksRepository
 import pm.antani.resentin.domain.repository.PushRepository
 import pm.antani.resentin.domain.repository.UserSettingsRepository
 import pm.antani.resentin.domain.session.ConnectionManager
+import pm.antani.resentin.domain.session.channelTopic
 import pm.antani.resentin.domain.session.OpenChatTracker
 import pm.antani.resentin.domain.session.PendingShareHolder
 import pm.antani.resentin.net.auth.TokenStore
@@ -177,9 +178,9 @@ class AppContainer(private val context: Context) {
             // token, so plain ASCII lowercasing is the pragmatic fold — it's what every
             // casemapping variant (ascii/rfc1459/strict-rfc1459) agrees on for ordinary
             // A-Z nicks, which is the case that actually occurs in practice.
-            add("grappa:user:$subject/network:${nwc.network.slug}/channel:${nwc.network.nick.lowercase()}")
+            add(channelTopic(subject, nwc.network.slug, nwc.network.nick))
             nwc.channels.filter { it.joined }.forEach { channel ->
-                add("grappa:user:$subject/network:${nwc.network.slug}/channel:${channel.name}")
+                add(channelTopic(subject, nwc.network.slug, channel.name))
             }
         }
     }

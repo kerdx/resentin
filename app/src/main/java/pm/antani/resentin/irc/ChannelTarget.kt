@@ -10,3 +10,22 @@ private const val SERVER_PSEUDO_CHANNEL = "\$server"
  */
 fun isQueryTarget(channelOrNick: String): Boolean =
     channelOrNick != SERVER_PSEUDO_CHANNEL && channelOrNick.firstOrNull() !in CHANNEL_PREFIXES
+/**
+ * Canonical key used by grappa-irc for channel and query targets.
+ *
+ * The server folds ASCII A-Z when building persisted message keys and Phoenix
+ * topics. Keeping this deliberately ASCII-only mirrors that behaviour without
+ * changing non-ASCII nick characters unexpectedly.
+ */
+fun canonicalTarget(target: String): String =
+    buildString(target.length) {
+        target.forEach { character ->
+            append(
+                if (character in 'A'..'Z') {
+                    (character.code + ('a'.code - 'A'.code)).toChar()
+                } else {
+                    character
+                },
+            )
+        }
+    }
