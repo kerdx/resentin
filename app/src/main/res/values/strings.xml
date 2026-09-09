@@ -226,6 +226,10 @@
     <string name="channel_settings_topic_updated">Topic aggiornato</string>
     <string name="channel_settings_update_topic">Aggiorna topic</string>
     <string name="channel_settings_part">Abbandona il canale</string>
+    <string name="channel_settings_device_title">Su questo dispositivo</string>
+    <string name="channel_settings_pin">Fissa in alto</string>
+    <string name="channel_settings_mute">Silenzia notifiche</string>
+    <string name="channel_settings_mute_desc">Niente notifiche per questo canale o conversazione</string>
     <string name="channel_settings_modes_title">Modes</string>
     <string name="channel_settings_raw_mode_hint">es. +l 50</string>
     <string name="channel_settings_apply_mode">Applica</string>

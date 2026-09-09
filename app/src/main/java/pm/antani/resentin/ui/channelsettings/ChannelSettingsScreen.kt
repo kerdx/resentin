@@ -55,6 +55,8 @@ fun ChannelSettingsScreen(
     onParted: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val isPinned by viewModel.isPinned.collectAsState()
+    val isMuted by viewModel.isMuted.collectAsState()
 
     LaunchedEffect(state.parted) {
         if (state.parted) onParted()
@@ -187,6 +189,36 @@ fun ChannelSettingsScreen(
                             Text(stringResource(R.string.channel_settings_add_mask))
                         }
                     }
+                }
+            }
+
+            item {
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.channel_settings_device_title), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.channel_settings_pin), modifier = Modifier.weight(1f))
+                    Switch(checked = isPinned, onCheckedChange = { viewModel.togglePinned() })
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.channel_settings_mute))
+                        Text(
+                            stringResource(R.string.channel_settings_mute_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = isMuted, onCheckedChange = { viewModel.toggleMuted() })
                 }
             }
 

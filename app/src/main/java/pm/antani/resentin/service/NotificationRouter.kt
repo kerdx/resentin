@@ -27,6 +27,7 @@ import pm.antani.resentin.MainActivity
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.AppDatabase
 import pm.antani.resentin.data.prefs.AppPreferences
+import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.session.ConnectionManager
@@ -101,6 +102,7 @@ class NotificationRouter(
      * bucket-normalized name (partner nick for a DM) — see `Grappa.Push.Payload`'s
      * `deep_link_target`, which mirrors `ChatRepository.queryBucket` on the server side. */
     suspend fun notifyFromPush(networkSlug: String, channelName: String) {
+        if (isMuted(networkSlug, channelName)) return
         chatRepository.backfill(networkSlug, channelName)
             .onFailure { Log.w(TAG, "backfill failed for push wake-up on $networkSlug/$channelName", it) }
         val nick = db.networkDao().observeNetwork(networkSlug).first()?.nick
@@ -217,8 +219,11 @@ class NotificationRouter(
     }
 
     /** Backfills one channel/query and notifies for whatever's new; returns whether the
-     * backfill itself was reachable (see [sweepForNotifications]). */
+     * backfill itself was reachable (see [sweepForNotifications]). Muted chats are
+     * skipped without backfilling at all — nothing to surface means nothing to fetch,
+     * which also saves the wake-up's battery budget. */
     private suspend fun sweepChannel(networkSlug: String, channelName: String, nick: String): Boolean {
+        if (isMuted(networkSlug, channelName)) return true
         val canonicalChannelName = canonicalTarget(channelName)
         val beforeMaxId = db.messageDao().maxId(networkSlug, canonicalChannelName) ?: 0
         val result = chatRepository.backfill(networkSlug, channelName)
@@ -249,6 +254,7 @@ class NotificationRouter(
             return
         }
         val bucket = queryBucket(message, nick)
+        if (isMuted(message.network, bucket)) return
         val notify = shouldNotify(message, openChatTracker.current.value, nick, bucket)
         Log.d(
             TAG,
@@ -332,6 +338,13 @@ class NotificationRouter(
         val label = context.getString(R.string.notif_action_mark_read)
         return NotificationCompat.Action.Builder(R.drawable.ic_notification, label, pendingIntent).build()
     }
+
+    /** Muted chats stay silent everywhere: live WS path, push wake-up path, and the
+     * undecryptable-push sweep. Reads the local-only DataStore set — the server keeps
+     * sending, this client just never surfaces it. Case is folded by [channelKey], so
+     * this matches regardless of which side normalized the name first. */
+    private suspend fun isMuted(networkSlug: String, bucket: String): Boolean =
+        channelKey(networkSlug, bucket) in appPreferences.mutedChannels.first()
 
     private fun ensureChannel() {
         val channel = NotificationChannel(

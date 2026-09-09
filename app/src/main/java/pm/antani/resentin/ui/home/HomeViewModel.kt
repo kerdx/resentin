@@ -12,11 +12,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.ChannelEntity
 import pm.antani.resentin.data.db.NetworkWithChannels
+import pm.antani.resentin.data.prefs.AppPreferences
+import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.MembersRepository
@@ -27,13 +30,31 @@ class HomeViewModel(
     private val chatRepository: ChatRepository,
     private val membersRepository: MembersRepository,
     private val authRepository: AuthRepository,
+    private val appPreferences: AppPreferences,
     private val subject: String,
     val isVisitor: Boolean,
     private val context: Context,
 ) : ViewModel() {
 
-    val networks: StateFlow<List<NetworkWithChannels>> = networksRepository.networksWithChannels
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    // Pinned chats first per network (stable sort keeps the server order otherwise).
+    val networks: StateFlow<List<NetworkWithChannels>> = combine(
+        networksRepository.networksWithChannels,
+        appPreferences.pinnedChannels,
+    ) { list, pinned ->
+        list.map { nwc ->
+            nwc.copy(
+                channels = nwc.channels.sortedByDescending { channel ->
+                    channelKey(nwc.network.slug, channel.name) in pinned
+                },
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val pinnedChannels: StateFlow<Set<String>> = appPreferences.pinnedChannels
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    val mutedChannels: StateFlow<Set<String>> = appPreferences.mutedChannels
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -131,6 +152,7 @@ class HomeViewModel(
             chatRepository: ChatRepository,
             membersRepository: MembersRepository,
             authRepository: AuthRepository,
+            appPreferences: AppPreferences,
             subject: String,
             isVisitor: Boolean,
             context: Context,
@@ -143,6 +165,7 @@ class HomeViewModel(
                         chatRepository,
                         membersRepository,
                         authRepository,
+                        appPreferences,
                         subject,
                         isVisitor,
                         context.applicationContext,

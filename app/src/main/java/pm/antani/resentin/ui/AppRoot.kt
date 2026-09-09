@@ -114,6 +114,7 @@ fun AppRoot(
                     container.chatRepository,
                     container.membersRepository,
                     container.authRepository,
+                    container.appPreferences,
                     currentSession.wsSubject,
                     currentSession.isVisitor,
                     appContext,
@@ -183,6 +184,7 @@ fun AppRoot(
                     container.chatRepository,
                     container.membersRepository,
                     container.authRepository,
+                    container.appPreferences,
                     currentSession.wsSubject,
                     currentSession.isVisitor,
                     appContext,
@@ -325,6 +327,7 @@ fun AppRoot(
                 factory = ChannelSettingsViewModel.factory(
                     container.networksRepository,
                     container.membersRepository,
+                    container.appPreferences,
                     networkSlug,
                     channelName,
                     currentSession.username,

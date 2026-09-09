@@ -6,15 +6,20 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import pm.antani.resentin.data.prefs.AppPreferences
+import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
 import pm.antani.resentin.net.dto.BanlistEntryDto
@@ -45,6 +50,7 @@ data class ChannelSettingsUiState(
 class ChannelSettingsViewModel(
     private val networksRepository: NetworksRepository,
     private val membersRepository: MembersRepository,
+    private val appPreferences: AppPreferences,
     private val networkSlug: String,
     private val channelName: String,
     private val username: String,
@@ -53,6 +59,28 @@ class ChannelSettingsViewModel(
 
     private val _uiState = MutableStateFlow(ChannelSettingsUiState())
     val uiState: StateFlow<ChannelSettingsUiState> = _uiState.asStateFlow()
+
+    /** Local-only per-chat flags (pinned/muted live in DataStore, never on the
+     * server) — exposed as UI state like everything else on this screen. */
+    val isPinned: StateFlow<Boolean> = appPreferences.pinnedChannels
+        .map { channelKey(networkSlug, channelName) in it }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val isMuted: StateFlow<Boolean> = appPreferences.mutedChannels
+        .map { channelKey(networkSlug, channelName) in it }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun togglePinned() {
+        viewModelScope.launch {
+            appPreferences.setChannelPinned(networkSlug, channelName, !isPinned.value)
+        }
+    }
+
+    fun toggleMuted() {
+        viewModelScope.launch {
+            appPreferences.setChannelMuted(networkSlug, channelName, !isMuted.value)
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -170,6 +198,7 @@ class ChannelSettingsViewModel(
         fun factory(
             networksRepository: NetworksRepository,
             membersRepository: MembersRepository,
+            appPreferences: AppPreferences,
             networkSlug: String,
             channelName: String,
             username: String,
@@ -177,7 +206,7 @@ class ChannelSettingsViewModel(
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
                 @Suppress("UNCHECKED_CAST")
-                return ChannelSettingsViewModel(networksRepository, membersRepository, networkSlug, channelName, username, subject) as T
+                return ChannelSettingsViewModel(networksRepository, membersRepository, appPreferences, networkSlug, channelName, username, subject) as T
             }
         }
     }

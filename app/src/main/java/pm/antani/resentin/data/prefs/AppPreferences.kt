@@ -5,11 +5,18 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "app_prefs")
+
+/** Local per-chat flag key, "slug/lowercased-target" — never sent to the server,
+ * unlike the server-persisted display prefs. Case-folded: "#Foo" and "#foo" are the
+ * same IRC target under every common casemapping. */
+fun channelKey(networkSlug: String, channel: String) =
+    "${networkSlug.lowercase()}/${channel.lowercase()}"
 
 /** Purely a local rendering choice — never sent to the server, unlike e.g. the
  * server-persisted `coloredNicklist` display pref. */
@@ -40,6 +47,26 @@ class AppPreferences(private val context: Context) {
     private val keyUnifiedPushEndpoint = stringPreferencesKey("unifiedpush_endpoint")
     private val keyUnifiedPushSubscriptionId = stringPreferencesKey("unifiedpush_subscription_id")
     private val keyPushDecryptionFailureAt = longPreferencesKey("push_decryption_failure_at")
+    private val keyPinnedChannels = stringSetPreferencesKey("pinned_channels")
+    private val keyMutedChannels = stringSetPreferencesKey("muted_channels")
+
+    val pinnedChannels: Flow<Set<String>> = context.dataStore.data.map { it[keyPinnedChannels] ?: emptySet() }
+
+    val mutedChannels: Flow<Set<String>> = context.dataStore.data.map { it[keyMutedChannels] ?: emptySet() }
+
+    suspend fun setChannelPinned(networkSlug: String, channel: String, pinned: Boolean) {
+        context.dataStore.edit {
+            val current = it[keyPinnedChannels] ?: emptySet()
+            it[keyPinnedChannels] = if (pinned) current + channelKey(networkSlug, channel) else current - channelKey(networkSlug, channel)
+        }
+    }
+
+    suspend fun setChannelMuted(networkSlug: String, channel: String, muted: Boolean) {
+        context.dataStore.edit {
+            val current = it[keyMutedChannels] ?: emptySet()
+            it[keyMutedChannels] = if (muted) current + channelKey(networkSlug, channel) else current - channelKey(networkSlug, channel)
+        }
+    }
 
     val stayConnected: Flow<Boolean> = context.dataStore.data.map { it[keyStayConnected] ?: false }
 

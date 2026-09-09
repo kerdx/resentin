@@ -25,7 +25,9 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Tag
@@ -68,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.ChannelEntity
 import pm.antani.resentin.data.db.NetworkEntity
+import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.ui.common.MircText
 
 private data class ChannelActionsTarget(val networkSlug: String, val channel: ChannelEntity)
@@ -89,6 +92,15 @@ fun HomeScreen(
     val networks by viewModel.networks.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val error by viewModel.error.collectAsState()
+    val pinnedChannels by viewModel.pinnedChannels.collectAsState()
+    val mutedChannels by viewModel.mutedChannels.collectAsState()
+    // Local-only flags live in DataStore (see AppPreferences.channelKey); resolved here
+    // so ChannelRow stays a dumb renderer.
+    val pinMutedOf: (networkSlug: String, channel: ChannelEntity) -> Pair<Boolean, Boolean> =
+        { networkSlug, channel ->
+            val key = channelKey(networkSlug, channel.name)
+            (key in pinnedChannels) to (key in mutedChannels)
+        }
 
     var actionsTarget by remember { mutableStateOf<ChannelActionsTarget?>(null) }
     var leaveConfirmTarget by remember { mutableStateOf<ChannelActionsTarget?>(null) }
@@ -169,8 +181,11 @@ fun HomeScreen(
                                     .sortedBy { it.source == "query" },
                                 key = { "${networkWithChannels.network.slug}-${it.name}" },
                             ) { channel ->
+                                val (pinned, muted) = pinMutedOf(networkWithChannels.network.slug, channel)
                                 ChannelRow(
                                     channel = channel,
+                                    pinned = pinned,
+                                    muted = muted,
                                     onClick = { onChannelClick(networkWithChannels.network.slug, channel.name) },
                                     onLongClick = {
                                         actionsTarget = ChannelActionsTarget(networkWithChannels.network.slug, channel)
@@ -419,7 +434,13 @@ private fun NetworkHeader(network: NetworkEntity, onClick: () -> Unit, onSetting
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChannelRow(channel: ChannelEntity, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun ChannelRow(
+    channel: ChannelEntity,
+    pinned: Boolean,
+    muted: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
     val hasUnread = channel.unreadMessages > 0
     val hasMention = channel.unreadMentions > 0
     val isQuery = channel.source == "query"
@@ -468,6 +489,25 @@ private fun ChannelRow(channel: ChannelEntity, onClick: () -> Unit, onLongClick:
         if (hasUnread) {
             Spacer(Modifier.width(8.dp))
             UnreadBadge(count = channel.unreadMessages, isMention = hasMention)
+        }
+        if (pinned || muted) {
+            Spacer(Modifier.width(6.dp))
+            if (pinned) {
+                Icon(
+                    Icons.Default.PushPin,
+                    contentDescription = stringResource(R.string.channel_settings_pin),
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (muted) {
+                Icon(
+                    Icons.Default.NotificationsOff,
+                    contentDescription = stringResource(R.string.channel_settings_mute),
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
