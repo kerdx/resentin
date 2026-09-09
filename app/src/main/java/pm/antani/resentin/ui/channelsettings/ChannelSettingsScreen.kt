@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -229,28 +230,39 @@ fun ChannelSettingsScreen(
                 }
                 if (serverMute.muted) {
                     Spacer(Modifier.height(8.dp))
-                    // Duration labels need no translation (forever is localized).
+                    // Same offers as cicchetto (muteSnooze.ts): permanent plus snoozes;
+                    // "tomorrow" is the next LOCAL midnight, not a rolling 24 hours.
+                    // Each option carries either a rolling duration or an absolute
+                    // timestamp, never both.
+                    data class MuteOption(val label: String, val durationSeconds: Long? = null, val atEpochSeconds: Long? = null)
+                    val tomorrowMidnight = LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toEpochSecond()
                     val muteOptions = listOf(
-                        stringResource(R.string.channel_settings_mute_forever) to null,
-                        "1h" to 3_600L,
-                        "8h" to 28_800L,
-                        "24h" to 86_400L,
-                        "7d" to 604_800L,
+                        MuteOption(stringResource(R.string.channel_settings_mute_forever)),
+                        MuteOption("1h", durationSeconds = 3_600L),
+                        MuteOption("8h", durationSeconds = 28_800L),
+                        MuteOption(stringResource(R.string.channel_settings_mute_tomorrow), atEpochSeconds = tomorrowMidnight),
                     )
                     LazyRow {
-                        items(muteOptions) { (label, seconds) ->
-                            val selected = if (seconds == null) {
-                                serverMute.until == null
-                            } else {
-                                val remaining = (serverMute.until ?: 0) - System.currentTimeMillis() / 1000
-                                remaining in (seconds - 120)..(seconds + 120)
+                        items(muteOptions) { option ->
+                            val selected = when {
+                                option.durationSeconds == null && option.atEpochSeconds == null ->
+                                    serverMute.until == null
+                                option.durationSeconds != null -> {
+                                    val remaining = (serverMute.until ?: 0) - System.currentTimeMillis() / 1000
+                                    remaining in (option.durationSeconds - 120)..(option.durationSeconds + 120)
+                                }
+                                else -> serverMute.until == option.atEpochSeconds
                             }
                             FilterChip(
                                 selected = selected,
                                 onClick = {
-                                    if (seconds == null) viewModel.muteForever() else viewModel.muteFor(seconds)
+                                    when {
+                                        option.durationSeconds != null -> viewModel.muteFor(option.durationSeconds)
+                                        option.atEpochSeconds != null -> viewModel.muteUntil(option.atEpochSeconds)
+                                        else -> viewModel.muteForever()
+                                    }
                                 },
-                                label = { Text(label) },
+                                label = { Text(option.label) },
                                 modifier = Modifier.padding(end = 8.dp),
                             )
                         }

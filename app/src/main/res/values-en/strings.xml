@@ -226,6 +226,7 @@
     <string name="channel_settings_mute">Mute notifications</string>
     <string name="channel_settings_mute_desc">No notifications for this channel or conversation</string>
     <string name="channel_settings_mute_forever">Forever</string>
+    <string name="channel_settings_mute_tomorrow">Until tomorrow</string>
     <string name="channel_settings_muted_until">Until %1$s</string>
     <string name="channel_settings_modes_title">Modes</string>
     <string name="channel_settings_raw_mode_hint">e.g. +l 50</string>

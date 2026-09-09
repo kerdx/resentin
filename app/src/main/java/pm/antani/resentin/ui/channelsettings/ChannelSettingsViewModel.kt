@@ -84,6 +84,8 @@ class ChannelSettingsViewModel(
     fun muteFor(durationSeconds: Long) =
         setMuteRemote(until = System.currentTimeMillis() / 1000 + durationSeconds)
 
+    fun muteUntil(epochSeconds: Long) = setMuteRemote(until = epochSeconds)
+
     fun unmute() {
         viewModelScope.launch {
             userSettingsRepository.clearMute(networkSlug, channelName)
