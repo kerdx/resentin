@@ -276,6 +276,7 @@
     <string name="whois_registered_nick">Nick registrato</string>
     <string name="whois_secure_connection">Connessione sicura (SSL/TLS)</string>
     <string name="whois_message_privately">Contatta in privato</string>
+    <string name="whois_moderation">Moderazione</string>
     <string name="whois_ignore">Ignora</string>
     <string name="whois_unignore">Rimuovi ignore</string>
     <string name="whois_channel_privileges">Privilegi sul canale</string>
