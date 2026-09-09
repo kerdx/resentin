@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pm.antani.resentin.R
@@ -24,12 +25,14 @@ import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
+import pm.antani.resentin.domain.repository.UserSettingsRepository
 
 class HomeViewModel(
     private val networksRepository: NetworksRepository,
     private val chatRepository: ChatRepository,
     private val membersRepository: MembersRepository,
     private val authRepository: AuthRepository,
+    private val userSettingsRepository: UserSettingsRepository,
     private val appPreferences: AppPreferences,
     private val subject: String,
     val isVisitor: Boolean,
@@ -59,7 +62,16 @@ class HomeViewModel(
     val pinnedChannels: StateFlow<Set<String>> = appPreferences.pinnedChannels
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    val mutedChannels: StateFlow<Set<String>> = appPreferences.mutedChannels
+    /** Server mute keys (muted_targets) — unexpired only, so the mute icon never
+     * outlives a snooze the server already dropped. */
+    val mutedChannels: StateFlow<Set<String>> = userSettingsRepository.notificationPrefs
+        .map { prefs ->
+            val nowSec = System.currentTimeMillis() / 1000
+            prefs?.mutedTargets
+                ?.filterValues { it.until == null || it.until > nowSec }
+                ?.keys
+                .orEmpty()
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -158,6 +170,7 @@ class HomeViewModel(
             chatRepository: ChatRepository,
             membersRepository: MembersRepository,
             authRepository: AuthRepository,
+            userSettingsRepository: UserSettingsRepository,
             appPreferences: AppPreferences,
             subject: String,
             isVisitor: Boolean,
@@ -171,6 +184,7 @@ class HomeViewModel(
                         chatRepository,
                         membersRepository,
                         authRepository,
+                        userSettingsRepository,
                         appPreferences,
                         subject,
                         isVisitor,

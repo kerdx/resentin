@@ -71,6 +71,7 @@ import pm.antani.resentin.R
 import pm.antani.resentin.data.db.ChannelEntity
 import pm.antani.resentin.data.db.NetworkEntity
 import pm.antani.resentin.data.prefs.channelKey
+import pm.antani.resentin.domain.repository.serverChannelKey
 import pm.antani.resentin.ui.common.MircText
 
 private data class ChannelActionsTarget(val networkSlug: String, val channel: ChannelEntity)
@@ -94,12 +95,12 @@ fun HomeScreen(
     val error by viewModel.error.collectAsState()
     val pinnedChannels by viewModel.pinnedChannels.collectAsState()
     val mutedChannels by viewModel.mutedChannels.collectAsState()
-    // Local-only flags live in DataStore (see AppPreferences.channelKey); resolved here
-    // so ChannelRow stays a dumb renderer.
+    // Pin is local-only (slash key), mute is the server muted_targets map (space key)
+    // — resolved here so ChannelRow stays a dumb renderer.
     val pinMutedOf: (networkSlug: String, channel: ChannelEntity) -> Pair<Boolean, Boolean> =
         { networkSlug, channel ->
-            val key = channelKey(networkSlug, channel.name)
-            (key in pinnedChannels) to (key in mutedChannels)
+            (channelKey(networkSlug, channel.name) in pinnedChannels) to
+                (serverChannelKey(networkSlug, channel.name) in mutedChannels)
         }
 
     var actionsTarget by remember { mutableStateOf<ChannelActionsTarget?>(null) }

@@ -49,7 +49,7 @@ class AppContainer(private val context: Context) {
     val openChatTracker = OpenChatTracker()
     val pendingShareHolder = PendingShareHolder()
     val notificationRouter =
-        NotificationRouter(context.applicationContext, connectionManager, database, openChatTracker, chatRepository, appPreferences, tokenStore)
+        NotificationRouter(context.applicationContext, connectionManager, database, openChatTracker, chatRepository, appPreferences, userSettingsRepository, tokenStore)
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -61,6 +61,15 @@ class AppContainer(private val context: Context) {
         notificationRouter.startListening(appScope)
 
         appScope.launch { chatRepository.pruneOldMessages() }
+
+        // Warms the server notification-prefs cache the live WS notification path
+        // gates server mutes on — refreshed again on every push wake-up, so a
+        // cold-started process never notifies for a muted chat.
+        appScope.launch {
+            tokenStore.session.filterNotNull().collect {
+                runCatching { userSettingsRepository.refreshNotificationPrefs() }
+            }
+        }
 
         // Battery-friendly sync: the WS stays open only while the app is actually
         // foreground (ProcessLifecycleOwner.currentStateFlow reaches STARTED on the

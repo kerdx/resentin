@@ -22,6 +22,8 @@ import pm.antani.resentin.data.prefs.AppPreferences
 import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
+import pm.antani.resentin.domain.repository.ServerMute
+import pm.antani.resentin.domain.repository.UserSettingsRepository
 import pm.antani.resentin.net.dto.BanlistEntryDto
 import pm.antani.resentin.net.dto.ChannelModesEntryDto
 import pm.antani.resentin.ui.common.isPrivileged
@@ -50,6 +52,7 @@ data class ChannelSettingsUiState(
 class ChannelSettingsViewModel(
     private val networksRepository: NetworksRepository,
     private val membersRepository: MembersRepository,
+    private val userSettingsRepository: UserSettingsRepository,
     private val appPreferences: AppPreferences,
     private val networkSlug: String,
     private val channelName: String,
@@ -60,13 +63,8 @@ class ChannelSettingsViewModel(
     private val _uiState = MutableStateFlow(ChannelSettingsUiState())
     val uiState: StateFlow<ChannelSettingsUiState> = _uiState.asStateFlow()
 
-    /** Local-only per-chat flags (pinned/muted live in DataStore, never on the
-     * server) — exposed as UI state like everything else on this screen. */
+    /** Local-only pin flag (DataStore, never on the server). */
     val isPinned: StateFlow<Boolean> = appPreferences.pinnedChannels
-        .map { channelKey(networkSlug, channelName) in it }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
-    val isMuted: StateFlow<Boolean> = appPreferences.mutedChannels
         .map { channelKey(networkSlug, channelName) in it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -76,9 +74,27 @@ class ChannelSettingsViewModel(
         }
     }
 
-    fun toggleMuted() {
+    /** Server mute (muted_targets) — same silence every device sees. Refreshed on
+     * open so the switch never shows a stale cache. */
+    val serverMute: StateFlow<ServerMute> = userSettingsRepository.muteFlowFor(networkSlug, channelName)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ServerMute(loaded = false))
+
+    fun muteForever() = setMuteRemote(until = null)
+
+    fun muteFor(durationSeconds: Long) =
+        setMuteRemote(until = System.currentTimeMillis() / 1000 + durationSeconds)
+
+    fun unmute() {
         viewModelScope.launch {
-            appPreferences.setChannelMuted(networkSlug, channelName, !isMuted.value)
+            userSettingsRepository.clearMute(networkSlug, channelName)
+                .onFailure { _uiState.update { s -> s.copy(error = it.message) } }
+        }
+    }
+
+    private fun setMuteRemote(until: Long?) {
+        viewModelScope.launch {
+            userSettingsRepository.setMute(networkSlug, channelName, until)
+                .onFailure { _uiState.update { s -> s.copy(error = it.message) } }
         }
     }
 
@@ -88,6 +104,12 @@ class ChannelSettingsViewModel(
             // overwritten by a later Room update while the user is mid-edit.
             val channel = networksRepository.observeChannel(networkSlug, channelName).filterNotNull().first()
             _uiState.update { it.copy(topic = channel.topic.orEmpty()) }
+        }
+        // Fresh server mute state for the switch below (plus durations) — the
+        // app-start warm-up may not have run yet, or another device changed it.
+        viewModelScope.launch {
+            userSettingsRepository.refreshNotificationPrefs()
+                .onFailure { _uiState.update { s -> s.copy(error = it.message) } }
         }
         networksRepository.observeChannelModes(networkSlug, channelName)
             .onEach { modes -> _uiState.update { it.copy(modes = modes) } }
@@ -198,6 +220,7 @@ class ChannelSettingsViewModel(
         fun factory(
             networksRepository: NetworksRepository,
             membersRepository: MembersRepository,
+            userSettingsRepository: UserSettingsRepository,
             appPreferences: AppPreferences,
             networkSlug: String,
             channelName: String,
@@ -206,7 +229,7 @@ class ChannelSettingsViewModel(
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
                 @Suppress("UNCHECKED_CAST")
-                return ChannelSettingsViewModel(networksRepository, membersRepository, appPreferences, networkSlug, channelName, username, subject) as T
+                return ChannelSettingsViewModel(networksRepository, membersRepository, userSettingsRepository, appPreferences, networkSlug, channelName, username, subject) as T
             }
         }
     }

@@ -42,6 +42,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import pm.antani.resentin.R
+import pm.antani.resentin.domain.repository.ServerMute
 import pm.antani.resentin.net.dto.BanlistEntryDto
 
 private val LIST_MODE_FALLBACK = listOf("b", "e", "I", "q")
@@ -56,7 +57,7 @@ fun ChannelSettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val isPinned by viewModel.isPinned.collectAsState()
-    val isMuted by viewModel.isMuted.collectAsState()
+    val serverMute by viewModel.serverMute.collectAsState()
 
     LaunchedEffect(state.parted) {
         if (state.parted) onParted()
@@ -213,12 +214,47 @@ fun ChannelSettingsScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.channel_settings_mute))
                         Text(
-                            stringResource(R.string.channel_settings_mute_desc),
+                            muteStatusText(serverMute),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Switch(checked = isMuted, onCheckedChange = { viewModel.toggleMuted() })
+                    Switch(
+                        checked = serverMute.muted,
+                        enabled = serverMute.loaded,
+                        onCheckedChange = { muted ->
+                            if (muted) viewModel.muteForever() else viewModel.unmute()
+                        },
+                    )
+                }
+                if (serverMute.muted) {
+                    Spacer(Modifier.height(8.dp))
+                    // Duration labels need no translation (forever is localized).
+                    val muteOptions = listOf(
+                        stringResource(R.string.channel_settings_mute_forever) to null,
+                        "1h" to 3_600L,
+                        "8h" to 28_800L,
+                        "24h" to 86_400L,
+                        "7d" to 604_800L,
+                    )
+                    LazyRow {
+                        items(muteOptions) { (label, seconds) ->
+                            val selected = if (seconds == null) {
+                                serverMute.until == null
+                            } else {
+                                val remaining = (serverMute.until ?: 0) - System.currentTimeMillis() / 1000
+                                remaining in (seconds - 120)..(seconds + 120)
+                            }
+                            FilterChip(
+                                selected = selected,
+                                onClick = {
+                                    if (seconds == null) viewModel.muteForever() else viewModel.muteFor(seconds)
+                                },
+                                label = { Text(label) },
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
+                    }
                 }
             }
 
@@ -267,6 +303,14 @@ private fun listModeLabel(letter: String): String = when (letter) {
     "q" -> "Quiet (+q)"
     "z" -> "Restrict (+z)"
     else -> "+$letter"
+}
+
+/** Mute subtitle: permanent, "until <date>", or the plain desc when unmuted. */
+@Composable
+private fun muteStatusText(mute: ServerMute): String {
+    if (!mute.muted) return stringResource(R.string.channel_settings_mute_desc)
+    val until = mute.until ?: return stringResource(R.string.channel_settings_mute_forever)
+    return stringResource(R.string.channel_settings_muted_until, formatEpochSeconds(until))
 }
 
 private val LIST_ENTRY_TIMESTAMP_FORMATTER =

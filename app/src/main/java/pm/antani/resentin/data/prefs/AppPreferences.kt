@@ -49,25 +49,15 @@ class AppPreferences(private val context: Context) {
     private val keyUnifiedPushSubscriptionId = stringPreferencesKey("unifiedpush_subscription_id")
     private val keyPushDecryptionFailureAt = longPreferencesKey("push_decryption_failure_at")
     private val keyPinnedChannels = stringSetPreferencesKey("pinned_channels")
-    private val keyMutedChannels = stringSetPreferencesKey("muted_channels")
     private val keyUnreadFirst = booleanPreferencesKey("unread_first")
     private val keyFontScale = floatPreferencesKey("font_scale")
 
     val pinnedChannels: Flow<Set<String>> = context.dataStore.data.map { it[keyPinnedChannels] ?: emptySet() }
 
-    val mutedChannels: Flow<Set<String>> = context.dataStore.data.map { it[keyMutedChannels] ?: emptySet() }
-
     suspend fun setChannelPinned(networkSlug: String, channel: String, pinned: Boolean) {
         context.dataStore.edit {
             val current = it[keyPinnedChannels] ?: emptySet()
             it[keyPinnedChannels] = if (pinned) current + channelKey(networkSlug, channel) else current - channelKey(networkSlug, channel)
-        }
-    }
-
-    suspend fun setChannelMuted(networkSlug: String, channel: String, muted: Boolean) {
-        context.dataStore.edit {
-            val current = it[keyMutedChannels] ?: emptySet()
-            it[keyMutedChannels] = if (muted) current + channelKey(networkSlug, channel) else current - channelKey(networkSlug, channel)
         }
     }
 

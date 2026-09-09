@@ -1,14 +1,17 @@
 package pm.antani.resentin.domain.repository
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import pm.antani.resentin.domain.events.WsEvent
@@ -16,9 +19,30 @@ import pm.antani.resentin.domain.session.ConnectionManager
 import pm.antani.resentin.net.dto.AliasesEnvelopeDto
 import pm.antani.resentin.net.dto.DisplayPrefsDto
 import pm.antani.resentin.net.dto.DisplayPrefsEnvelopeDto
+import pm.antani.resentin.net.dto.MutedTargetDto
+import pm.antani.resentin.net.dto.NotificationPrefsDto
 import pm.antani.resentin.net.dto.VhostSelectionUpdateDto
 import pm.antani.resentin.net.dto.VhostSettingsDto
 import pm.antani.resentin.net.rest.UserSettingsApi
+
+/** Server muted_targets key: "<slug> <ascii-folded target>" (Identifier.channel_key/2)
+ * — SPACE separator (RFC 2812 excludes it from chanstrings, so keys split
+ * unambiguously); ASCII-only fold mirrors fold_ascii/1, leaving >=0x80 bytes
+ * untouched. Deliberately NOT AppPreferences.channelKey (slash-separated, full
+ * lowercase) — byte equality with the server is the contract. */
+fun serverChannelKey(networkSlug: String, target: String): String {
+    val folded = target.map { if (it in 'A'..'Z') it + 32 else it }.joinToString("")
+    return "$networkSlug $folded"
+}
+
+/** Mute state for one chat: unknown until the prefs first load (fail-open, like the
+ * server's own lenient reader — an unreadable list must never silence anyone). */
+data class ServerMute(
+    val loaded: Boolean,
+    val muted: Boolean = false,
+    /** Mute expiry unix seconds, null = permanent. Meaningful only when muted. */
+    val until: Long? = null,
+)
 
 class UserSettingsRepository(
     private val authRepository: AuthRepository,
@@ -70,6 +94,77 @@ class UserSettingsRepository(
     suspend fun getAutoAwayDebounce(): Result<Int?> = runCatching {
         authRepository.api(UserSettingsApi::class.java).getAutoAwayDebounce().autoAwayDebounceSeconds
     }.onSuccess { _autoAwayDebounceSeconds.value = it }
+
+    private val _notificationPrefs = MutableStateFlow<NotificationPrefsDto?>(null)
+
+    /** Last fetched server notification prefs (null = never loaded). Warmed at app
+     * start and on every channel-settings open; mutations update it from the PUT
+     * response, so no extra GET is needed to stay current. */
+    val notificationPrefs: StateFlow<NotificationPrefsDto?> = _notificationPrefs.asStateFlow()
+
+    suspend fun refreshNotificationPrefs(): Result<NotificationPrefsDto> = runCatching {
+        authRepository.api(UserSettingsApi::class.java).getNotificationPrefs().notificationPrefs
+    }.onSuccess { _notificationPrefs.value = it }
+
+    /** Mute state for one chat, honouring server-side snooze expiry client-side too
+     * (the server prunes elapsed entries on read; a stale-enough cache could
+     * otherwise outlive them here). */
+    fun muteFor(networkSlug: String, target: String): ServerMute {
+        val prefs = _notificationPrefs.value ?: return ServerMute(loaded = false)
+        return muteIn(prefs, networkSlug, target, loaded = true)
+    }
+
+    fun muteFlowFor(networkSlug: String, target: String): Flow<ServerMute> =
+        notificationPrefs.map { prefs ->
+            if (prefs == null) ServerMute(loaded = false)
+            else muteIn(prefs, networkSlug, target, loaded = true)
+        }
+
+    private fun muteIn(prefs: NotificationPrefsDto, networkSlug: String, target: String, loaded: Boolean): ServerMute {
+        val entry = prefs.mutedTargets[serverChannelKey(networkSlug, target)] ?: return ServerMute(loaded = loaded)
+        val until = entry.until
+        if (until != null && until * 1000 <= System.currentTimeMillis()) return ServerMute(loaded = loaded)
+        return ServerMute(loaded = loaded, muted = true, until = until)
+    }
+
+    /** Synchronous gate for the notification paths — fail-open when never loaded. */
+    fun isMutedNow(networkSlug: String, target: String): Boolean {
+        val mute = muteFor(networkSlug, target)
+        return mute.loaded && mute.muted
+    }
+
+    /** Mute until unix seconds, null = permanent. Read-modify-write of the FULL prefs
+     * map (the server full-replaces every key but muted_targets) built by hand so a
+     * permanent mute's explicit null survives AppJson's explicitNulls=false. */
+    suspend fun setMute(networkSlug: String, target: String, until: Long?): Result<NotificationPrefsDto> =
+        updateMutedTargets { it + (serverChannelKey(networkSlug, target) to MutedTargetDto(until)) }
+
+    suspend fun clearMute(networkSlug: String, target: String): Result<NotificationPrefsDto> =
+        updateMutedTargets { it - serverChannelKey(networkSlug, target) }
+
+    private suspend fun updateMutedTargets(
+        transform: (Map<String, MutedTargetDto>) -> Map<String, MutedTargetDto>,
+    ): Result<NotificationPrefsDto> = runCatching {
+        val current = _notificationPrefs.value ?: refreshNotificationPrefs().getOrThrow()
+        val body = buildJsonObject {
+            put("channel_messages_all", current.channelMessagesAll)
+            put("channel_messages_only", buildJsonArray { current.channelMessagesOnly.forEach { add(JsonPrimitive(it)) } })
+            put("channel_mentions", current.channelMentions)
+            put("private_messages_all", current.privateMessagesAll)
+            put("private_messages_only", buildJsonArray { current.privateMessagesOnly.forEach { add(JsonPrimitive(it)) } })
+            put("presence_online", current.presenceOnline)
+            put("presence_offline", current.presenceOffline)
+            put(
+                "muted_targets",
+                buildJsonObject {
+                    transform(current.mutedTargets).forEach { (key, value) ->
+                        put(key, buildJsonObject { put("until", value.until?.let { JsonPrimitive(it) } ?: JsonNull) })
+                    }
+                },
+            )
+        }
+        authRepository.api(UserSettingsApi::class.java).updateNotificationPrefs(body).notificationPrefs
+    }.onSuccess { _notificationPrefs.value = it }
 
     /** [seconds]: `null` clears the preference (site default applies), `0` switches
      * auto-away off, any other value is the grace period in seconds — the accepted

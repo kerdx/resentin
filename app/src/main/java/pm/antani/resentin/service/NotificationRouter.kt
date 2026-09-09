@@ -27,9 +27,9 @@ import pm.antani.resentin.MainActivity
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.AppDatabase
 import pm.antani.resentin.data.prefs.AppPreferences
-import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.repository.ChatRepository
+import pm.antani.resentin.domain.repository.UserSettingsRepository
 import pm.antani.resentin.domain.session.ConnectionManager
 import pm.antani.resentin.domain.session.OpenChat
 import pm.antani.resentin.domain.session.OpenChatTracker
@@ -74,6 +74,7 @@ class NotificationRouter(
     private val openChatTracker: OpenChatTracker,
     private val chatRepository: ChatRepository,
     private val appPreferences: AppPreferences,
+    private val userSettingsRepository: UserSettingsRepository,
     private val tokenStore: TokenStore,
 ) {
     // Guards notifyFromUndecryptablePush against overlapping runs — live-observed: a
@@ -102,6 +103,7 @@ class NotificationRouter(
      * bucket-normalized name (partner nick for a DM) — see `Grappa.Push.Payload`'s
      * `deep_link_target`, which mirrors `ChatRepository.queryBucket` on the server side. */
     suspend fun notifyFromPush(networkSlug: String, channelName: String) {
+        runCatching { userSettingsRepository.refreshNotificationPrefs() }
         if (isMuted(networkSlug, channelName)) return
         chatRepository.backfill(networkSlug, channelName)
             .onFailure { Log.w(TAG, "backfill failed for push wake-up on $networkSlug/$channelName", it) }
@@ -211,6 +213,7 @@ class NotificationRouter(
      * host (5 by default), so firing every channel's backfill at once just lets OkHttp
      * pipeline them instead of this loop serializing what didn't need to be serial. */
     private suspend fun sweepForNotifications(): Int = coroutineScope {
+        runCatching { userSettingsRepository.refreshNotificationPrefs() }
         val networks = db.networkDao().observeNetworksWithChannels().first()
         networks.flatMap { nwc -> nwc.channels.filter { it.joined }.map { nwc.network to it } }
             .map { (network, channel) -> async { sweepChannel(network.slug, channel.name, network.nick) } }
@@ -339,12 +342,12 @@ class NotificationRouter(
         return NotificationCompat.Action.Builder(R.drawable.ic_notification, label, pendingIntent).build()
     }
 
-    /** Muted chats stay silent everywhere: live WS path, push wake-up path, and the
-     * undecryptable-push sweep. Reads the local-only DataStore set — the server keeps
-     * sending, this client just never surfaces it. Case is folded by [channelKey], so
-     * this matches regardless of which side normalized the name first. */
+    /** Server muted_targets gate — same mute the channel-settings switch writes, so it
+     * holds on every device. Fail-open when never loaded (mirrors the server's own
+     * lenient reader). Push paths refresh first (a cold-woken process has a stale
+     * cache); the live WS path rides the app-start refresh. */
     private suspend fun isMuted(networkSlug: String, bucket: String): Boolean =
-        channelKey(networkSlug, bucket) in appPreferences.mutedChannels.first()
+        userSettingsRepository.isMutedNow(networkSlug, bucket)
 
     private fun ensureChannel() {
         val channel = NotificationChannel(
