@@ -17,6 +17,7 @@ import pm.antani.resentin.data.db.ChannelEntity
 import pm.antani.resentin.data.db.NetworkEntity
 import pm.antani.resentin.data.db.NetworkWithChannels
 import pm.antani.resentin.domain.events.WsEvent
+import pm.antani.resentin.domain.session.channelTopic
 import pm.antani.resentin.domain.session.ConnectionManager
 import pm.antani.resentin.irc.formatChannelModes
 import pm.antani.resentin.net.AppJson
@@ -226,7 +227,7 @@ class NetworksRepository(
         val response = api.partChannel(slug, channel)
         check(response.isSuccessful) { "HTTP ${response.code()}" }
         authRepository.session.value?.wsSubject?.let { subject ->
-            connectionManager.leaveChannel("grappa:user:$subject/network:$slug/channel:$channel")
+            connectionManager.leaveChannel(channelTopic(subject, slug, channel))
         }
         refresh().getOrThrow()
     }

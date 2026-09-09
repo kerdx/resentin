@@ -5,16 +5,23 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -28,11 +35,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -40,11 +51,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -55,13 +68,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -75,6 +91,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -142,6 +159,23 @@ fun ChatScreen(
     val initialReadCursor by viewModel.initialReadCursor.collectAsState()
     val initialReadCursorReady by viewModel.initialReadCursorReady.collectAsState()
     val members by viewModel.members.collectAsState()
+    val activeMention = remember(draftFieldValue) { mentionQueryAtCursor(draftFieldValue) }
+    val mentionSuggestions = remember(activeMention, members) {
+        activeMention?.let { findMentionSuggestions(it.query, members) }.orEmpty()
+    }
+
+    fun completeMention(nick: String) {
+        val mention = activeMention ?: return
+        val before = draftFieldValue.text.substring(0, mention.start)
+        val after = draftFieldValue.text.substring(mention.end)
+        val inserted = nick + if (after.isEmpty() || !after.first().isWhitespace()) " " else ""
+        val newText = before + inserted + after
+        val newCursor = before.length + inserted.length
+        val newValue = TextFieldValue(newText, TextRange(newCursor))
+        draftFieldValue = newValue
+        viewModel.onDraftChange(newText)
+        draftFocusRequester.requestFocus()
+    }
     val displayMode by viewModel.chatDisplayMode.collectAsState()
     val showSeconds by viewModel.showSeconds.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
@@ -198,6 +232,31 @@ fun ChatScreen(
         }
     }
 
+    // Opening the IME reduces the list viewport, but it does not change the
+    // messages list, so the regular new-message auto-follow effect below is
+    // not triggered. Capture whether the user was following the tail when the
+    // composer received focus and restore that position after the IME resizes
+    // the layout. If the user was reading history, keep their position.
+    var shouldScrollToBottomOnIme by remember { mutableStateOf(false) }
+    val imeInsets = WindowInsets.ime
+    val density = LocalDensity.current
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val lastIndex = messages.size - 1 + if (dividerIndex != null) 1 else 0
+            Triple(
+                imeInsets.getBottom(density),
+                shouldScrollToBottomOnIme && hasScrolledInitially,
+                lastIndex,
+            )
+        }.collectLatest { (imeBottom, shouldFollow, lastIndex) ->
+            if (imeBottom <= 0 || !shouldFollow || lastIndex < 0) return@collectLatest
+            // IME insets animate over multiple frames. Keep the tail aligned
+            // after each inset change, once the current layout has measured.
+            withFrameNanos { }
+            listState.scrollToItem(lastIndex)
+        }
+    }
+
     // Only auto-follow to the tail when the reader was already there — landing on the
     // unread divider (potentially far above the bottom, e.g. after a big backfill) must
     // NOT get yanked down the instant one more message arrives; a still-unread backlog
@@ -216,13 +275,27 @@ fun ChatScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
                 title = {
-                    Column(
-                        modifier = Modifier.clickable(enabled = topic != null) { showTopicDialog = true },
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(
+                            modifier = Modifier.clickable(enabled = topic != null) { showTopicDialog = true },
                     ) {
-                        Text(title)
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            networkSlug,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         // "(+rnt) topic text" — modes prefix the topic line the way a
                         // classic IRC client's status bar does, shown even without a
                         // topic set so the channel's mode flags stay visible either way.
@@ -239,6 +312,7 @@ fun ChatScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
+                    }
                     }
                 },
                 navigationIcon = {
@@ -263,7 +337,22 @@ fun ChatScreen(
                         }
                     } else {
                         IconButton(onClick = onMembersClick) {
-                            Icon(Icons.Default.Person, contentDescription = stringResource(R.string.cd_members))
+                            BadgedBox(
+                                badge = {
+                                    Badge {
+                                        Text(members.size.toString())
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Default.Group,
+                                    contentDescription = pluralStringResource(
+                                        R.plurals.cd_members_count,
+                                        members.size,
+                                        members.size,
+                                    ),
+                                )
+                            }
                         }
                         IconButton(onClick = onSettingsClick) {
                             Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_channel_settings))
@@ -273,14 +362,42 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .imePadding()
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .imePadding(),
             ) {
+                if (mentionSuggestions.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        tonalElevation = 3.dp,
+                    ) {
+                        LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+                            mentionSuggestions.forEach { member ->
+                                item(key = "mention-${member.nick}") {
+                                    DropdownMenuItem(
+                                        text = { Text(member.nick) },
+                                        onClick = { completeMention(member.nick) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    tonalElevation = 2.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                 IconButton(
                     onClick = { filePicker.launch("*/*") },
                     enabled = !isUploading,
@@ -297,11 +414,26 @@ fun ChatScreen(
                         draftFieldValue = newValue
                         viewModel.onDraftChange(newValue.text)
                     },
-                    modifier = Modifier.weight(1f).focusRequester(draftFocusRequester),
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(draftFocusRequester)
+                        .onFocusChanged { focusState ->
+                            shouldScrollToBottomOnIme = if (focusState.isFocused) {
+                                hasScrolledInitially && isAtBottom
+                            } else {
+                                false
+                            }
+                        },
                     placeholder = { Text(stringResource(R.string.chat_message_placeholder)) },
+                    shape = RoundedCornerShape(20.dp),
                 )
-                IconButton(onClick = viewModel::send) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send))
+                IconButton(
+                    onClick = viewModel::send,
+                    modifier = Modifier.size(44.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send), tint = MaterialTheme.colorScheme.onPrimary)
+                }
+                    }
                 }
             }
         },
@@ -321,6 +453,8 @@ fun ChatScreen(
                             coloredNicklist = coloredNicklist,
                             showHostmaskInEvents = showHostmaskInEvents,
                             isMention = isMentionRow(message, myNick, isQuery),
+                            isQuery = isQuery,
+                            isMine = isQuery && (myNick ?: viewerUsername).equals(message.sender, ignoreCase = true),
                             onReply = viewModel::reply,
                             onLongPress = { nick, text ->
                                 longPressedMessageText = text
@@ -384,6 +518,33 @@ fun ChatScreen(
         )
     }
 }
+
+private data class MentionQuery(
+    val start: Int,
+    val end: Int,
+    val query: String,
+)
+
+private fun mentionQueryAtCursor(value: TextFieldValue): MentionQuery? {
+    if (!value.selection.collapsed) return null
+    val cursor = value.selection.end
+    if (cursor !in 0..value.text.length) return null
+    val atIndex = value.text.lastIndexOf('@', startIndex = cursor - 1)
+    if (atIndex < 0) return null
+    if (atIndex > 0 && !value.text[atIndex - 1].isWhitespace()) return null
+    val query = value.text.substring(atIndex + 1, cursor)
+    if (query.any(Char::isWhitespace)) return null
+    return MentionQuery(start = atIndex, end = cursor, query = query)
+}
+
+private fun findMentionSuggestions(query: String, members: List<MemberEntity>): List<MemberEntity> =
+    members
+        .asSequence()
+        .filter { query.isBlank() || it.nick.contains(query, ignoreCase = true) }
+        .distinctBy { it.nick.lowercase() }
+        .sortedWith(compareBy<MemberEntity>({ !it.nick.startsWith(query, ignoreCase = true) }, { it.nick.lowercase() }))
+        .take(8)
+        .toList()
 
 @Composable
 private fun UnreadDivider() {
@@ -475,6 +636,8 @@ private fun MessageRow(
     coloredNicklist: Boolean,
     showHostmaskInEvents: Boolean,
     isMention: Boolean,
+    isQuery: Boolean,
+    isMine: Boolean,
     onReply: (nick: String, body: String) -> Unit,
     onLongPress: (nick: String, text: String) -> Unit,
 ) {
@@ -511,7 +674,11 @@ private fun MessageRow(
                 if (displayMode == ChatDisplayMode.IRC_LINE) {
                     IrcLineRow(message, formatted, prefix, time, coloredNicklist, isMention)
                 } else {
-                    BubbleRow(message, formatted, prefix, time, coloredNicklist, isMention)
+                    BubbleRow(
+                        message, formatted, prefix, time, coloredNicklist, isMention,
+                        isPrivate = isQuery,
+                        isMine = isMine,
+                    )
                 }
             }
         }
@@ -548,36 +715,66 @@ private fun BubbleRow(
     time: String,
     coloredNicklist: Boolean,
     isMention: Boolean,
+    isPrivate: Boolean,
+    isMine: Boolean,
 ) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .then(mentionHighlight(isMention))
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        // Query messages use the same left-aligned conversation flow as IRC chat.
+        // The sender is still differentiated by the bubble tint below, not by
+        // switching sides of the conversation.
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Top,
     ) {
-        if (formatted.isAction) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                val annotated = remember(prefix, message.sender, formatted.text, coloredNicklist) {
-                    buildNickLine("* ", prefix, message.sender, " ", formatted.text, coloredNicklist)
+        Surface(
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(18.dp),
+            color = if (isPrivate && isMine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
+            tonalElevation = 1.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            ) {
+                if (formatted.isAction) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        val annotated = remember(prefix, message.sender, formatted.text, coloredNicklist) {
+                            buildNickLine("* ", prefix, message.sender, " ", formatted.text, coloredNicklist)
+                        }
+                        Text(
+                            text = annotated,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = time,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (formatted.isNotice) {
+                                prefix + message.sender + " (notice)"
+                            } else {
+                                prefix + message.sender
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (coloredNicklist) colorForNick(message.sender) else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = time,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    MircText(text = formatted.text, style = MaterialTheme.typography.bodyLarge)
                 }
-                Text(
-                    text = annotated,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
-                    modifier = Modifier.weight(1f),
-                )
-                Text(text = time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (formatted.isNotice) "$prefix${message.sender} (notice)" else "$prefix${message.sender}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (coloredNicklist) colorForNick(message.sender) else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(text = time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            MircText(text = formatted.text, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }

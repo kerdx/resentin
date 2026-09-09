@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -24,6 +25,7 @@ import pm.antani.resentin.data.prefs.ChatDisplayMode
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
+import pm.antani.resentin.domain.session.channelTopic
 import pm.antani.resentin.domain.session.ConnectionManager
 import pm.antani.resentin.domain.session.OpenChatTracker
 import pm.antani.resentin.domain.session.PendingShareHolder
@@ -128,6 +130,7 @@ class ChatViewModel(
     // changes the draft's TEXT, which doesn't imply focus or cursor position on its own.
     private val _replyFocusRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val replyFocusRequests: SharedFlow<Unit> = _replyFocusRequests.asSharedFlow()
+    private val channelReady = CompletableDeferred<Unit>()
 
     init {
         openChatTracker.onChatOpened(networkSlug, channelName)
@@ -145,8 +148,9 @@ class ChatViewModel(
                 connectionManager.connect()
                 connectionManager.joinChannel("grappa:user:$subject")
                 connectionManager.joinChannel("grappa:user:$subject/network:$networkSlug")
-                val channelTopic = "grappa:user:$subject/network:$networkSlug/channel:$channelName"
+                val channelTopic = channelTopic(subject, networkSlug, channelName)
                 networksRepository.applyJoinResponse(channelTopic, connectionManager.joinChannel(channelTopic))
+                channelReady.complete(Unit)
                 // A join reply only happens once per process lifetime per topic (usually
                 // AppContainer's app-wide join already consumed it before this screen
                 // even opened, via the same applyJoinResponse path) — if we still have no
@@ -154,7 +158,10 @@ class ChatViewModel(
                 if (_initialReadCursor.value == null) {
                     _initialReadCursor.value = networksRepository.getStoredReadCursor(networkSlug, channelName)
                 }
-            }.onFailure { _error.value = it.message }
+            }.onFailure {
+                if (!channelReady.isCompleted) channelReady.completeExceptionally(it)
+                _error.value = it.message
+            }
             // Only now, not before backfill() — while it's running, `messages` is a
             // partial, arbitrarily-ordered-by-arrival prefix of the true history (Room
             // emits on every individual upsert), so indexOfFirst{it.id > cursor} against
@@ -207,17 +214,22 @@ class ChatViewModel(
     fun send() {
         val text = _draft.value.trim()
         if (text.isBlank()) return
-        _draft.value = ""
         viewModelScope.launch {
-            chatRepository.sendMessage(networkSlug, channelName, text)
-                .onFailure { _error.value = it.message }
+            runCatching {
+                channelReady.await()
+                chatRepository.sendMessage(networkSlug, channelName, text).getOrThrow()
+            }.onSuccess {
+                // Do not erase text typed while the request was in flight.
+                if (_draft.value.trim() == text) _draft.value = ""
+            }.onFailure { _error.value = it.message }
         }
     }
 
     fun uploadFile(uri: Uri) {
         viewModelScope.launch {
-            _isUploading.value = true
             runCatching {
+                channelReady.await()
+                _isUploading.value = true
                 val pending = readUploadFile(appContext, uri)
                     ?: error(appContext.getString(R.string.chat_upload_failed))
                 chatRepository.uploadAndSend(networkSlug, channelName, pending.bytes, pending.fileName, pending.mimeType)

@@ -4,8 +4,10 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,17 +19,24 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -36,9 +45,11 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.ChannelEntity
@@ -90,9 +102,26 @@ fun HomeScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
-                title = { Text(host) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+                title = {
+                    Column {
+                        Text(
+                            text = "Resentin",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = host,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh))
@@ -116,7 +145,14 @@ fun HomeScreen(
                     Text(stringResource(R.string.home_no_networks), modifier = Modifier.align(Alignment.Center))
                 }
                 else -> {
-                    LazyColumn(Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        item(key = "home-summary") {
+                            HomeSectionHeader(networkCount = networks.size)
+                        }
                         networks.forEach { networkWithChannels ->
                             item(key = "network-${networkWithChannels.network.slug}") {
                                 NetworkHeader(
@@ -323,14 +359,47 @@ private fun ChannelActionsSheet(
 }
 
 @Composable
-private fun NetworkHeader(network: NetworkEntity, onClick: () -> Unit, onSettingsClick: () -> Unit, onAddClick: () -> Unit) {
+private fun HomeSectionHeader(networkCount: Int) {
     Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Le tue reti", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.width(8.dp))
+        Text(networkCount.toString() + " reti", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun NetworkHeader(network: NetworkEntity, onClick: () -> Unit, onSettingsClick: () -> Unit, onAddClick: () -> Unit) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+    ) {
+        Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = network.slug.take(1).uppercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+        Spacer(Modifier.width(10.dp))
         ConnectionStateDot(network.connectionState)
         Text(
             text = "${network.slug} — ${network.nick}",
@@ -344,6 +413,7 @@ private fun NetworkHeader(network: NetworkEntity, onClick: () -> Unit, onSetting
             Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_network_settings))
         }
     }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -351,30 +421,49 @@ private fun NetworkHeader(network: NetworkEntity, onClick: () -> Unit, onSetting
 private fun ChannelRow(channel: ChannelEntity, onClick: () -> Unit, onLongClick: () -> Unit) {
     val hasUnread = channel.unreadMessages > 0
     val hasMention = channel.unreadMentions > 0
+    val isQuery = channel.source == "query"
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(start = 40.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 24.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (channel.source == "query") {
+        Surface(
+            modifier = Modifier.size(38.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+        ) {
             Icon(
-                Icons.Default.Person,
-                contentDescription = stringResource(R.string.cd_direct_message),
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                imageVector = if (isQuery) Icons.Default.ChatBubbleOutline else Icons.Default.Tag,
+                contentDescription = if (isQuery) {
+                    stringResource(R.string.cd_direct_message)
+                } else {
+                    null
+                },
+                modifier = Modifier.padding(10.dp),
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
             )
-            Spacer(Modifier.width(8.dp))
         }
-        Text(
-            text = channel.name,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = if (hasUnread) FontWeight.Bold else FontWeight.Normal,
-            ),
-            color = if (hasMention) MaterialTheme.colorScheme.error else Color.Unspecified,
-            modifier = Modifier.weight(1f),
-        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = channel.name,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = if (hasUnread) FontWeight.Bold else FontWeight.Medium,
+                ),
+                color = if (hasMention) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+            Text(
+                text = if (isQuery) "Conversazione privata" else channel.topic?.takeIf { it.isNotBlank() } ?: "Nessun topic impostato",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         if (hasUnread) {
             Spacer(Modifier.width(8.dp))
             UnreadBadge(count = channel.unreadMessages, isMention = hasMention)
@@ -388,7 +477,7 @@ private fun UnreadBadge(count: Int, isMention: Boolean) {
         modifier = Modifier
             .background(
                 color = if (isMention) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                shape = CircleShape,
+                shape = RoundedCornerShape(10.dp),
             )
             .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
