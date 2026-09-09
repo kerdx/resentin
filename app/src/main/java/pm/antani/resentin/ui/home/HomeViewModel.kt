@@ -36,8 +36,8 @@ class HomeViewModel(
     private val context: Context,
 ) : ViewModel() {
 
-    // Pinned chats first per network, then (optionally) unread ones — stable sorts keep
-    // the server order everywhere else.
+    // Pinned chats first per network, then (optionally) most-unread first — stable
+    // sorts keep the server order everywhere else.
     val networks: StateFlow<List<NetworkWithChannels>> = combine(
         networksRepository.networksWithChannels,
         appPreferences.pinnedChannels,
@@ -49,7 +49,7 @@ class HomeViewModel(
                     compareByDescending<ChannelEntity> { channel ->
                         channelKey(nwc.network.slug, channel.name) in pinned
                     }.thenByDescending { channel ->
-                        unreadFirst && channel.unreadMessages > 0
+                        if (unreadFirst) channel.unreadMessages else 0
                     },
                 ),
             )
