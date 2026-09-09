@@ -3,6 +3,7 @@ package pm.antani.resentin.data.prefs
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -49,6 +50,8 @@ class AppPreferences(private val context: Context) {
     private val keyPushDecryptionFailureAt = longPreferencesKey("push_decryption_failure_at")
     private val keyPinnedChannels = stringSetPreferencesKey("pinned_channels")
     private val keyMutedChannels = stringSetPreferencesKey("muted_channels")
+    private val keyUnreadFirst = booleanPreferencesKey("unread_first")
+    private val keyFontScale = floatPreferencesKey("font_scale")
 
     val pinnedChannels: Flow<Set<String>> = context.dataStore.data.map { it[keyPinnedChannels] ?: emptySet() }
 
@@ -66,6 +69,22 @@ class AppPreferences(private val context: Context) {
             val current = it[keyMutedChannels] ?: emptySet()
             it[keyMutedChannels] = if (muted) current + channelKey(networkSlug, channel) else current - channelKey(networkSlug, channel)
         }
+    }
+
+    /** Home ordering: unread chats float above the rest (pinned stay on top of those).
+     * Off = pure server order (plus pinned). */
+    val unreadFirst: Flow<Boolean> = context.dataStore.data.map { it[keyUnreadFirst] ?: false }
+
+    suspend fun setUnreadFirst(value: Boolean) {
+        context.dataStore.edit { it[keyUnreadFirst] = value }
+    }
+
+    /** Global text-size multiplier applied to the whole theme typography (see
+     * ResentinTheme) — 1 = system default. */
+    val fontScale: Flow<Float> = context.dataStore.data.map { it[keyFontScale] ?: 1f }
+
+    suspend fun setFontScale(value: Float) {
+        context.dataStore.edit { it[keyFontScale] = value }
     }
 
     val stayConnected: Flow<Boolean> = context.dataStore.data.map { it[keyStayConnected] ?: false }

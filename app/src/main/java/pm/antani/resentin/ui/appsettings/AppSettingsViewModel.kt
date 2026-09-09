@@ -99,6 +99,20 @@ class AppSettingsViewModel(
         viewModelScope.launch { appPreferences.setShowHostmaskInEvents(enabled) }
     }
 
+    val unreadFirst: StateFlow<Boolean> = appPreferences.unreadFirst
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setUnreadFirst(enabled: Boolean) {
+        viewModelScope.launch { appPreferences.setUnreadFirst(enabled) }
+    }
+
+    val fontScale: StateFlow<Float> = appPreferences.fontScale
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
+
+    fun setFontScale(scale: Float) {
+        viewModelScope.launch { appPreferences.setFontScale(scale) }
+    }
+
     val replyStyle: StateFlow<ReplyStyle> = appPreferences.replyStyle
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReplyStyle.NICK)
 

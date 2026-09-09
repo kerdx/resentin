@@ -36,16 +36,22 @@ class HomeViewModel(
     private val context: Context,
 ) : ViewModel() {
 
-    // Pinned chats first per network (stable sort keeps the server order otherwise).
+    // Pinned chats first per network, then (optionally) unread ones — stable sorts keep
+    // the server order everywhere else.
     val networks: StateFlow<List<NetworkWithChannels>> = combine(
         networksRepository.networksWithChannels,
         appPreferences.pinnedChannels,
-    ) { list, pinned ->
+        appPreferences.unreadFirst,
+    ) { list, pinned, unreadFirst ->
         list.map { nwc ->
             nwc.copy(
-                channels = nwc.channels.sortedByDescending { channel ->
-                    channelKey(nwc.network.slug, channel.name) in pinned
-                },
+                channels = nwc.channels.sortedWith(
+                    compareByDescending<ChannelEntity> { channel ->
+                        channelKey(nwc.network.slug, channel.name) in pinned
+                    }.thenByDescending { channel ->
+                        unreadFirst && channel.unreadMessages > 0
+                    },
+                ),
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
