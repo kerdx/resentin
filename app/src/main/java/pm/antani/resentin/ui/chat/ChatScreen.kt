@@ -11,8 +11,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -32,6 +35,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -55,11 +60,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
@@ -75,6 +82,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -198,6 +206,31 @@ fun ChatScreen(
         }
     }
 
+    // Opening the IME reduces the list viewport, but it does not change the
+    // messages list, so the regular new-message auto-follow effect below is
+    // not triggered. Capture whether the user was following the tail when the
+    // composer received focus and restore that position after the IME resizes
+    // the layout. If the user was reading history, keep their position.
+    var shouldScrollToBottomOnIme by remember { mutableStateOf(false) }
+    val imeInsets = WindowInsets.ime
+    val density = LocalDensity.current
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val lastIndex = messages.size - 1 + if (dividerIndex != null) 1 else 0
+            Triple(
+                imeInsets.getBottom(density),
+                shouldScrollToBottomOnIme && hasScrolledInitially,
+                lastIndex,
+            )
+        }.collectLatest { (imeBottom, shouldFollow, lastIndex) ->
+            if (imeBottom <= 0 || !shouldFollow || lastIndex < 0) return@collectLatest
+            // IME insets animate over multiple frames. Keep the tail aligned
+            // after each inset change, once the current layout has measured.
+            withFrameNanos { }
+            listState.scrollToItem(lastIndex)
+        }
+    }
+
     // Only auto-follow to the tail when the reader was already there — landing on the
     // unread divider (potentially far above the bottom, e.g. after a big backfill) must
     // NOT get yanked down the instant one more message arrives; a still-unread backlog
@@ -263,7 +296,22 @@ fun ChatScreen(
                         }
                     } else {
                         IconButton(onClick = onMembersClick) {
-                            Icon(Icons.Default.Person, contentDescription = stringResource(R.string.cd_members))
+                            BadgedBox(
+                                badge = {
+                                    Badge {
+                                        Text(members.size.toString())
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = pluralStringResource(
+                                        R.plurals.cd_members_count,
+                                        members.size,
+                                        members.size,
+                                    ),
+                                )
+                            }
                         }
                         IconButton(onClick = onSettingsClick) {
                             Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_channel_settings))
@@ -297,7 +345,16 @@ fun ChatScreen(
                         draftFieldValue = newValue
                         viewModel.onDraftChange(newValue.text)
                     },
-                    modifier = Modifier.weight(1f).focusRequester(draftFocusRequester),
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(draftFocusRequester)
+                        .onFocusChanged { focusState ->
+                            shouldScrollToBottomOnIme = if (focusState.isFocused) {
+                                hasScrolledInitially && isAtBottom
+                            } else {
+                                false
+                            }
+                        },
                     placeholder = { Text(stringResource(R.string.chat_message_placeholder)) },
                 )
                 IconButton(onClick = viewModel::send) {

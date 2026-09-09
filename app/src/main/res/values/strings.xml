@@ -121,6 +121,15 @@
 
     <!-- Chat -->
     <string name="cd_members">Membri</string>
+    <string name="members_title_with_count">%1$s · %2$s</string>
+    <plurals name="member_count">
+        <item quantity="one">%d utente</item>
+        <item quantity="other">%d utenti</item>
+    </plurals>
+    <plurals name="cd_members_count">
+        <item quantity="one">Membri, %d utente</item>
+        <item quantity="other">Membri, %d utenti</item>
+    </plurals>
     <string name="cd_user_info">Info utente</string>
     <string name="cd_channel_settings">Impostazioni canale</string>
     <string name="cd_attach_file">Allega file</string>

@@ -21,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pm.antani.resentin.R
@@ -47,6 +48,7 @@ fun MemberListScreen(
     val whois by viewModel.selectedWhois.collectAsState()
     val coloredNicklist by viewModel.coloredNicklist.collectAsState()
     val sorted = remember(members) { members.sortedWith(memberOrdering) }
+    val memberCountLabel = pluralStringResource(R.plurals.member_count, sorted.size, sorted.size)
 
     LaunchedEffect(Unit) {
         viewModel.navigateToQuery.collect { nick -> onOpenQuery(networkSlug, nick) }
@@ -55,7 +57,7 @@ fun MemberListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = { Text(stringResource(R.string.members_title_with_count, title, memberCountLabel)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
