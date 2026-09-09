@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -107,6 +108,11 @@ class UserCardController(
     private val _avatarBitmap = MutableStateFlow<Bitmap?>(null)
     val avatarBitmap: StateFlow<Bitmap?> = _avatarBitmap.asStateFlow()
 
+    // WHOIS replies are broadcast to every screen-level controller because the
+    // repository owns one WebSocket event stream. Keep the requested nick here so a
+    // reply opened from the members screen cannot also resurrect the chat's card.
+    private val _pendingWhoisTarget = MutableStateFlow<String?>(null)
+
     private suspend fun fetchAvatar(url: String): Bitmap? = withContext(Dispatchers.IO) {
         runCatching {
             authRepository.fetchBytes(url)?.let { bytes ->
@@ -116,10 +122,13 @@ class UserCardController(
     }
 
     init {
-        membersRepository.whoisEvents.onEach {
-            _selectedWhois.value = it
-            _avatarUrl.value = it.avatarUrl
-        }.launchIn(scope)
+        membersRepository.whoisEvents
+            .filter { it.target.equals(_pendingWhoisTarget.value, ignoreCase = true) }
+            .onEach {
+                _pendingWhoisTarget.value = null
+                _selectedWhois.value = it
+                _avatarUrl.value = it.avatarUrl
+            }.launchIn(scope)
         // Late avatar patch for the open card (M3b) — replaces the URL and kicks the
         // fetch below via avatarUrl; ignored when the card moved on to another nick.
         membersRepository.avatarEvents.onEach { event ->
@@ -145,6 +154,7 @@ class UserCardController(
 
     fun onNickClick(nick: String) {
         scope.launch {
+            _pendingWhoisTarget.value = nick
             runCatching { ignoresRepository.refresh(networkSlug) }
             runCatching {
                 val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
@@ -154,6 +164,7 @@ class UserCardController(
     }
 
     fun dismissWhois() {
+        _pendingWhoisTarget.value = null
         _selectedWhois.value = null
         _avatarUrl.value = null
     }
