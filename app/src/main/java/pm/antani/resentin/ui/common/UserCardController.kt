@@ -107,12 +107,6 @@ class UserCardController(
     private val _avatarBitmap = MutableStateFlow<Bitmap?>(null)
     val avatarBitmap: StateFlow<Bitmap?> = _avatarBitmap.asStateFlow()
 
-    /** Avatars fetched for opened cards, by lowercased nick — lets the member list
-     * show a real avatar for nicks already looked up, with zero extra traffic
-     * (there is no bulk avatar endpoint, and cicchetto doesn't list avatars either). */
-    private val _avatarCache = MutableStateFlow<Map<String, Bitmap>>(emptyMap())
-    val avatarCache: StateFlow<Map<String, Bitmap>> = _avatarCache.asStateFlow()
-
     private suspend fun fetchAvatar(url: String): Bitmap? = withContext(Dispatchers.IO) {
         runCatching {
             authRepository.fetchBytes(url)?.let { bytes ->
@@ -141,9 +135,6 @@ class UserCardController(
                 // Drop stale results: the card may have closed or moved on mid-fetch.
                 if (_avatarUrl.value == url && bitmap != null) {
                     _avatarBitmap.value = bitmap
-                    _selectedWhois.value?.target?.lowercase()?.let { nick ->
-                        _avatarCache.value = _avatarCache.value + (nick to bitmap)
-                    }
                 }
             }
         }.launchIn(scope)

@@ -17,10 +17,6 @@ import pm.antani.resentin.net.dto.MeDto
 import pm.antani.resentin.net.rest.AuthApi
 import pm.antani.resentin.net.rest.ConfigApi
 import pm.antani.resentin.net.rest.MeApi
-import java.io.File
-import java.security.MessageDigest
-
-private const val AVATAR_CACHE_TTL_MS = 7L * 24 * 60 * 60 * 1000
 
 class AuthRepository(
     private val tokenStore: TokenStore,
@@ -148,48 +144,19 @@ class AuthRepository(
     /** Raw authenticated GET for byte-serving routes (peer avatars) — the URL the
      * server hands out may be absolute or a bare path, hence resolved here.
      *
-     * Avatars are cached under the app cache directory. The first lookup still needs
-     * the network, but reopening a card (or recreating the activity) can render the
-     * already-known image without downloading it again. A stale cached copy remains a
-     * fallback when the server is temporarily unavailable. */
+     * This intentionally does not persist avatar bytes on disk: only the avatar for
+     * the currently opened user card is fetched, then the UI may keep its decoded
+     * bitmap in memory while the screen is alive. */
     suspend fun fetchBytes(url: String): ByteArray? = withContext(Dispatchers.IO) {
         val session = tokenStore.session.value ?: return@withContext null
         val absolute = if (url.startsWith("http")) url else "https://${session.host}$url"
-        val cacheFile = avatarCacheFile(absolute)
-        val cached = runCatching {
-            cacheFile.takeIf { it.isFile }?.readBytes()
-        }.getOrNull()
-        val cacheFresh = cacheFile.isFile && System.currentTimeMillis() - cacheFile.lastModified() < AVATAR_CACHE_TTL_MS
-        if (cacheFresh && cached != null) return@withContext cached
-
         val client = HttpClients.okHttpClient(tokenProvider = { tokenStore.session.value?.token })
         val request = okhttp3.Request.Builder().url(absolute).build()
-        val fetched = runCatching {
+        runCatching {
             client.newCall(request).execute().use { response ->
                 check(response.isSuccessful) { "HTTP ${response.code}" }
                 checkNotNull(response.body).bytes()
             }
         }.getOrNull()
-        if (fetched != null) {
-            runCatching {
-                cacheFile.parentFile?.mkdirs()
-                val temporary = File(cacheFile.parentFile, "${cacheFile.name}.tmp")
-                temporary.writeBytes(fetched)
-                if (!temporary.renameTo(cacheFile)) {
-                    temporary.delete()
-                    cacheFile.writeBytes(fetched)
-                }
-            }
-            fetched
-        } else {
-            cached
-        }
-    }
-
-    private fun avatarCacheFile(url: String): File {
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(url.toByteArray(Charsets.UTF_8))
-            .joinToString("") { byte -> "%02x".format(byte) }
-        return File(File(context.cacheDir, "peer-avatars"), "$digest.img")
     }
 }

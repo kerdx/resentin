@@ -38,7 +38,6 @@ class MembersViewModel(
     val error = controller.error
     val navigateToQuery = controller.navigateToQuery
     val avatarBitmap = controller.avatarBitmap
-    val avatarCache = controller.avatarCache
 
     val coloredNicklist: StateFlow<Boolean> = appPreferences.coloredNicklist
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
