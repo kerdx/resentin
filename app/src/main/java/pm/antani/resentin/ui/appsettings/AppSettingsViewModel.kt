@@ -46,6 +46,9 @@ data class AppSettingsUiState(
     val autoAwayCustomMode: Boolean = false,
     val autoAwayCustomDraft: String = "",
     val autoAwaySavingError: String? = null,
+    val showPeerProfiles: Boolean = false,
+    val showPeerProfilesLoaded: Boolean = false,
+    val showPeerProfilesError: String? = null,
 )
 
 class AppSettingsViewModel(
@@ -135,13 +138,19 @@ class AppSettingsViewModel(
         viewModelScope.launch {
             val prefsResult = userSettingsRepository.getDisplayPrefs()
             val aliasesResult = userSettingsRepository.getAliases()
+            val peerProfilesResult = userSettingsRepository.getShowPeerProfiles()
             val prefs = prefsResult.getOrDefault(DisplayPrefsDto())
             _uiState.update {
                 it.copy(
                     displayPrefs = prefs,
                     aliases = aliasesResult.getOrNull().orEmpty(),
+                    showPeerProfiles = peerProfilesResult.getOrDefault(false),
+                    showPeerProfilesLoaded = true,
+                    showPeerProfilesError = peerProfilesResult.exceptionOrNull()?.message,
                     isLoading = false,
-                    error = prefsResult.exceptionOrNull()?.message ?: aliasesResult.exceptionOrNull()?.message,
+                    error = prefsResult.exceptionOrNull()?.message
+                        ?: aliasesResult.exceptionOrNull()?.message
+                        ?: peerProfilesResult.exceptionOrNull()?.message,
                 )
             }
             appPreferences.setColoredNicklist(prefs.coloredNicklist)
@@ -155,6 +164,23 @@ class AppSettingsViewModel(
         }
         refreshVhostSettings()
         refreshAutoAwayDebounce()
+    }
+
+    fun setShowPeerProfiles(enabled: Boolean) {
+        if (!_uiState.value.showPeerProfilesLoaded) return
+        val previous = _uiState.value.showPeerProfiles
+        _uiState.update { it.copy(showPeerProfiles = enabled, showPeerProfilesError = null) }
+        viewModelScope.launch {
+            userSettingsRepository.updateShowPeerProfiles(enabled)
+                .onSuccess { value ->
+                    _uiState.update { it.copy(showPeerProfiles = value, showPeerProfilesError = null) }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(showPeerProfiles = previous, showPeerProfilesError = error.message)
+                    }
+                }
+        }
     }
 
     // #348 on grappa-irc — cached in the repository (not this ViewModel) so the live

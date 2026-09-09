@@ -5,6 +5,7 @@ import pm.antani.resentin.net.dto.AliasesEnvelopeDto
 import pm.antani.resentin.net.dto.AutoAwayDebounceDto
 import pm.antani.resentin.net.dto.NotificationPrefsEnvelopeDto
 import pm.antani.resentin.net.dto.DisplayPrefsEnvelopeDto
+import pm.antani.resentin.net.dto.ShowPeerProfilesDto
 import pm.antani.resentin.net.dto.VhostSelectionUpdateDto
 import pm.antani.resentin.net.dto.VhostSettingsDto
 import retrofit2.http.Body
@@ -56,4 +57,11 @@ interface UserSettingsApi {
      * [pm.antani.resentin.net.rest.AdminApi.updateNetwork]). */
     @PUT("me/settings/auto-away-debounce-seconds")
     suspend fun updateAutoAwayDebounce(@Body body: JsonObject): AutoAwayDebounceDto
+
+    /** Whether the server should discover peer profile data such as avatars. */
+    @GET("me/settings/show-peer-profiles")
+    suspend fun getShowPeerProfiles(): ShowPeerProfilesDto
+
+    @PUT("me/settings/show-peer-profiles")
+    suspend fun updateShowPeerProfiles(@Body body: ShowPeerProfilesDto): ShowPeerProfilesDto
 }

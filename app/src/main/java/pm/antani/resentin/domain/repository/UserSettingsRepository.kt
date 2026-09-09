@@ -21,6 +21,7 @@ import pm.antani.resentin.net.dto.DisplayPrefsDto
 import pm.antani.resentin.net.dto.DisplayPrefsEnvelopeDto
 import pm.antani.resentin.net.dto.MutedTargetDto
 import pm.antani.resentin.net.dto.NotificationPrefsDto
+import pm.antani.resentin.net.dto.ShowPeerProfilesDto
 import pm.antani.resentin.net.dto.VhostSelectionUpdateDto
 import pm.antani.resentin.net.dto.VhostSettingsDto
 import pm.antani.resentin.net.rest.UserSettingsApi
@@ -197,4 +198,14 @@ class UserSettingsRepository(
         }
         authRepository.api(UserSettingsApi::class.java).updateAutoAwayDebounce(body).autoAwayDebounceSeconds
     }.onSuccess { _autoAwayDebounceSeconds.value = it }
+
+    suspend fun getShowPeerProfiles(): Result<Boolean> = runCatching {
+        authRepository.api(UserSettingsApi::class.java).getShowPeerProfiles().showPeerProfiles
+    }
+
+    suspend fun updateShowPeerProfiles(enabled: Boolean): Result<Boolean> = runCatching {
+        authRepository.api(UserSettingsApi::class.java)
+            .updateShowPeerProfiles(ShowPeerProfilesDto(enabled))
+            .showPeerProfiles
+    }
 }
