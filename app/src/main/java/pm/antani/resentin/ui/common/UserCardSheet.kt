@@ -186,18 +186,19 @@ fun UserCardSheet(
             val showContact = !target.equals(viewerUsername, ignoreCase = true)
             if (showContact) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { onContactPrivately(target) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.whois_message_privately))
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { if (isIgnored) onUnignore(target) else onIgnore(target) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(if (isIgnored) R.string.whois_unignore else R.string.whois_ignore))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = { onContactPrivately(target) },
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    ) {
+                        Text(stringResource(R.string.whois_message_privately))
+                    }
+                    OutlinedButton(
+                        onClick = { if (isIgnored) onUnignore(target) else onIgnore(target) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(if (isIgnored) R.string.whois_unignore else R.string.whois_ignore))
+                    }
                 }
             }
 
