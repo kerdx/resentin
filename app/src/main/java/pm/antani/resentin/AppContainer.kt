@@ -21,6 +21,7 @@ import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.repository.AdminRepository
 import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
+import pm.antani.resentin.domain.repository.IgnoresRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
 import pm.antani.resentin.domain.repository.PushRepository
@@ -43,6 +44,7 @@ class AppContainer(private val context: Context) {
     val networksRepository = NetworksRepository(authRepository, database, connectionManager)
     val chatRepository = ChatRepository(authRepository, database, context.applicationContext)
     val membersRepository = MembersRepository(connectionManager, database)
+    val ignoresRepository = IgnoresRepository(authRepository)
     val userSettingsRepository = UserSettingsRepository(authRepository, connectionManager)
     val pushRepository = PushRepository(authRepository, appPreferences)
     val adminRepository = AdminRepository(authRepository)

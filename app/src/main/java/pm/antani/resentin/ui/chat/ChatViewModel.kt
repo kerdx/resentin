@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -23,6 +24,7 @@ import pm.antani.resentin.data.db.MessageEntity
 import pm.antani.resentin.data.prefs.AppPreferences
 import pm.antani.resentin.data.prefs.ChatDisplayMode
 import pm.antani.resentin.domain.repository.ChatRepository
+import pm.antani.resentin.domain.repository.IgnoresRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
 import pm.antani.resentin.domain.session.channelTopic
@@ -35,6 +37,7 @@ class ChatViewModel(
     private val chatRepository: ChatRepository,
     private val networksRepository: NetworksRepository,
     membersRepository: MembersRepository,
+    ignoresRepository: IgnoresRepository,
     private val appPreferences: AppPreferences,
     private val connectionManager: ConnectionManager,
     private val openChatTracker: OpenChatTracker,
@@ -81,7 +84,7 @@ class ChatViewModel(
     // scoped to this same (network, channel) — empty members/sigils for a query/$server,
     // which naturally hides the channel-only actions in the card.
     private val userCard =
-        UserCardController(membersRepository, networksRepository, networkSlug, channelName, username, subject, viewModelScope)
+        UserCardController(membersRepository, networksRepository, ignoresRepository, networkSlug, channelName, username, subject, viewModelScope)
     val selectedWhois = userCard.selectedWhois
     val ownSigils = userCard.ownSigils
     val privilegeModes = userCard.privilegeModes
@@ -96,6 +99,9 @@ class ChatViewModel(
     fun contactPrivately(nick: String) = userCard.contactPrivately(nick)
     fun setModeFromCard(nick: String, letter: Char, grant: Boolean) = userCard.setMode(nick, letter, grant)
     fun sigilsFor(nick: String) = userCard.sigilsFor(nick)
+    fun isIgnored(nick: String): Flow<Boolean> = userCard.isIgnored(nick)
+    fun ignore(nick: String) = userCard.ignore(nick)
+    fun unignore(nick: String) = userCard.unignore(nick)
 
     private val _draft = MutableStateFlow("")
     val draft: StateFlow<String> = _draft.asStateFlow()
@@ -266,6 +272,7 @@ class ChatViewModel(
             chatRepository: ChatRepository,
             networksRepository: NetworksRepository,
             membersRepository: MembersRepository,
+            ignoresRepository: IgnoresRepository,
             appPreferences: AppPreferences,
             connectionManager: ConnectionManager,
             openChatTracker: OpenChatTracker,
@@ -282,6 +289,7 @@ class ChatViewModel(
                     chatRepository,
                     networksRepository,
                     membersRepository,
+                    ignoresRepository,
                     appPreferences,
                     connectionManager,
                     openChatTracker,

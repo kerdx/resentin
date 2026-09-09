@@ -217,6 +217,7 @@ fun AppRoot(
                     container.chatRepository,
                     container.networksRepository,
                     container.membersRepository,
+                    container.ignoresRepository,
                     container.appPreferences,
                     container.connectionManager,
                     container.openChatTracker,
@@ -258,6 +259,7 @@ fun AppRoot(
                 factory = MembersViewModel.factory(
                     container.membersRepository,
                     container.networksRepository,
+                    container.ignoresRepository,
                     container.appPreferences,
                     networkSlug,
                     channelName,

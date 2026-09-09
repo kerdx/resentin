@@ -486,6 +486,7 @@ fun ChatScreen(
 
     val whoisValue = whois
     if (whoisValue != null) {
+        val ignored by viewModel.isIgnored(whoisValue.target).collectAsState(initial = false)
         UserCardSheet(
             whois = whoisValue,
             viewerUsername = viewerUsername,
@@ -502,6 +503,9 @@ fun ChatScreen(
             onBan = viewModel::banFromCard,
             onSetMode = viewModel::setModeFromCard,
             showChannelActions = !isQuery,
+            isIgnored = ignored,
+            onIgnore = viewModel::ignore,
+            onUnignore = viewModel::unignore,
         )
     }
 

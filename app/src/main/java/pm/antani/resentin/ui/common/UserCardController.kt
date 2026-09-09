@@ -1,6 +1,7 @@
 package pm.antani.resentin.ui.common
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -16,8 +17,10 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import pm.antani.resentin.data.db.MemberEntity
+import pm.antani.resentin.domain.repository.IgnoresRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
+import pm.antani.resentin.domain.repository.coveringMasks
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.net.dto.WhoisBundleDto
 
@@ -53,6 +56,7 @@ fun isPrivileged(sigils: String): Boolean = sigils.any { it in setOf('~', '&', '
 class UserCardController(
     private val membersRepository: MembersRepository,
     private val networksRepository: NetworksRepository,
+    private val ignoresRepository: IgnoresRepository,
     private val networkSlug: String,
     private val channelName: String,
     private val username: String,
@@ -79,6 +83,16 @@ class UserCardController(
     private val _navigateToQuery = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val navigateToQuery: SharedFlow<String> = _navigateToQuery.asSharedFlow()
 
+    /** Server /ignore masks for this network — refreshed whenever a card opens, so
+     * the ignore toggle below never renders a stale membership. */
+    val ignoredMasks: StateFlow<List<String>> = ignoresRepository.ignores
+        .map { it[networkSlug].orEmpty() }
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Reactive "is this nick covered" for the card's ignore toggle. */
+    fun isIgnored(nick: String): Flow<Boolean> =
+        ignoredMasks.map { coveringMasks(it, nick).isNotEmpty() }
+
     init {
         membersRepository.whoisEvents.onEach { _selectedWhois.value = it }.launchIn(scope)
     }
@@ -88,6 +102,7 @@ class UserCardController(
 
     fun onNickClick(nick: String) {
         scope.launch {
+            runCatching { ignoresRepository.refresh(networkSlug) }
             runCatching {
                 val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
                 membersRepository.requestWhois(subject, networkId, nick)
@@ -103,6 +118,26 @@ class UserCardController(
 
     fun ban(nick: String) =
         runVerb { networkId -> membersRepository.ban(subject, networkId, channelName, "$nick!*@*") }
+
+    /** Server /ignore toggle — personal, needs no channel privilege. The server
+     * normalises a bare nick to `nick!*@*`; unignoring drops every mask covering
+     * the nick (usually exactly that one). */
+    fun ignore(nick: String) {
+        scope.launch {
+            runCatching { ignoresRepository.addIgnore(networkSlug, nick) }
+                .onFailure { _error.value = it.message }
+        }
+    }
+
+    fun unignore(nick: String) {
+        scope.launch {
+            runCatching {
+                ignoresRepository.covering(networkSlug, nick).forEach { mask ->
+                    ignoresRepository.removeIgnore(networkSlug, mask).getOrThrow()
+                }
+            }.onFailure { _error.value = it.message }
+        }
+    }
 
     fun contactPrivately(nick: String) {
         scope.launch {

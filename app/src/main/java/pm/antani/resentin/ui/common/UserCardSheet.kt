@@ -50,6 +50,11 @@ fun UserCardSheet(
     onKick: (String) -> Unit,
     onBan: (String) -> Unit,
     onSetMode: (nick: String, letter: Char, grant: Boolean) -> Unit,
+    // Server /ignore toggle — personal like the DM button (needs no privilege),
+    // so it stays visible wherever the card is.
+    isIgnored: Boolean = false,
+    onIgnore: (String) -> Unit = {},
+    onUnignore: (String) -> Unit = {},
     // Kick/ban/privilege toggles only make sense inside a real channel — hidden for a
     // query or the "$server" pseudo-chat, where there's no channel to moderate.
     showChannelActions: Boolean = true,
@@ -88,8 +93,22 @@ fun UserCardSheet(
             val target = whois.target
             val showContact = !target.equals(viewerUsername, ignoreCase = true)
             if (showContact) {
-                OutlinedButton(onClick = { onContactPrivately(target) }, modifier = Modifier.padding(top = 16.dp)) {
-                    Text(stringResource(R.string.whois_message_privately))
+                Row(modifier = Modifier.padding(top = 16.dp)) {
+                    OutlinedButton(
+                        onClick = { onContactPrivately(target) },
+                        modifier = Modifier.padding(end = 8.dp),
+                    ) {
+                        Text(stringResource(R.string.whois_message_privately))
+                    }
+                    OutlinedButton(
+                        onClick = { if (isIgnored) onUnignore(target) else onIgnore(target) },
+                    ) {
+                        Text(
+                            stringResource(
+                                if (isIgnored) R.string.whois_unignore else R.string.whois_ignore,
+                            ),
+                        )
+                    }
                 }
             }
 
