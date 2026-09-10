@@ -69,6 +69,12 @@
     <string name="directory_refreshing">Aggiornamento in corso…</string>
     <string name="directory_captured_at_label">Aggiornato: %1$s</string>
     <string name="directory_featured">In evidenza</string>
+    <string name="directory_featured_title">Canali in evidenza</string>
+    <string name="directory_all_channels">Tutti i canali</string>
+    <string name="directory_featured_join">Entra</string>
+    <string name="directory_featured_open">Apri</string>
+    <string name="directory_featured_loading">Caricamento canali in evidenza…</string>
+    <string name="directory_featured_unavailable">Canali in evidenza non disponibili</string>
     <string name="directory_load_more">Carica altri</string>
 
     <!-- Admin -->

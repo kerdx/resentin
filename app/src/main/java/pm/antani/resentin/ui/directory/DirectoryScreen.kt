@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,8 +33,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,7 +46,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import pm.antani.resentin.R
+import pm.antani.resentin.irc.canonicalTarget
 import pm.antani.resentin.net.dto.DirectoryEntryDto
+import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.ui.common.MircText
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -103,9 +106,7 @@ fun DirectoryScreen(
                     Icon(Icons.Default.Search, contentDescription = stringResource(R.string.directory_search_hint))
                 }
             }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            ) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 FilterChip(
                     selected = state.sort == "users",
                     onClick = { viewModel.setSort("users") },
@@ -121,31 +122,148 @@ fun DirectoryScreen(
             StatusLine(status = state.status, capturedAt = state.capturedAt)
             Box(Modifier.fillMaxSize()) {
                 when {
-                    state.isLoading && state.entries.isEmpty() -> {
+                    state.isLoading && state.entries.isEmpty() && state.featured.isEmpty() && !state.isFeaturedLoading -> {
                         CircularProgressIndicator(Modifier.align(Alignment.Center))
                     }
-                    state.entries.isEmpty() -> {
+                    state.entries.isEmpty() && state.featured.isEmpty() && !state.isFeaturedLoading -> {
                         Text(stringResource(R.string.directory_empty), modifier = Modifier.align(Alignment.Center))
                     }
                     else -> {
-                        LazyColumn(Modifier.fillMaxSize()) {
-                            items(state.entries, key = { it.name }) { entry ->
-                                DirectoryRow(entry, onClick = { viewModel.joinChannel(entry.name) })
-                            }
-                            if (state.nextCursor != null) {
-                                item(key = "load-more") {
-                                    LoadMoreRow(isLoading = state.isLoadingMore, onClick = viewModel::loadMore)
-                                }
-                            }
-                        }
+                        DirectoryContent(
+                            state = state,
+                            onChannelClick = viewModel::joinChannel,
+                            onLoadMore = viewModel::loadMore,
+                        )
                     }
                 }
-                state.error?.let { message ->
+                (state.error ?: state.featuredError)?.let { message ->
                     Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
                         Text(message)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun DirectoryContent(
+    state: DirectoryUiState,
+    onChannelClick: (String) -> Unit,
+    onLoadMore: () -> Unit,
+) {
+    val featuredNames = remember(state.featured) {
+        state.featured.map { canonicalTarget(it.name) }.toSet()
+    }
+    val directoryEntriesByName = remember(state.entries) {
+        state.entries.associateBy { canonicalTarget(it.name) }
+    }
+    val normalEntries = state.entries.filterNot { canonicalTarget(it.name) in featuredNames }
+
+    LazyColumn(Modifier.fillMaxSize()) {
+        if (state.isFeaturedLoading && state.featured.isEmpty()) {
+            item(key = "featured-loading") {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(stringResource(R.string.directory_featured_loading))
+                }
+            }
+        }
+        if (state.featured.isNotEmpty()) {
+            item(key = "featured-header") {
+                Text(
+                    stringResource(R.string.directory_featured_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("directory-featured-section")
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
+            items(state.featured, key = { "featured:" + it.name }) { featured ->
+                FeaturedChannelRow(
+                    featured = featured,
+                    directoryEntry = directoryEntriesByName[canonicalTarget(featured.name)],
+                    isJoined = isJoinedChannel(featured.name, state.joinedChannels),
+                    onClick = { onChannelClick(featured.name) },
+                )
+            }
+        }
+        if (normalEntries.isNotEmpty()) {
+            if (state.featured.isNotEmpty()) {
+                item(key = "all-channels-header") {
+                    Text(
+                        stringResource(R.string.directory_all_channels),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+            }
+            items(normalEntries, key = { it.name }) { entry ->
+                DirectoryRow(entry, onClick = { onChannelClick(entry.name) })
+            }
+        }
+        if (state.nextCursor != null) {
+            item(key = "load-more") {
+                LoadMoreRow(isLoading = state.isLoadingMore, onClick = onLoadMore)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeaturedChannelRow(
+    featured: FeaturedChannelDto,
+    directoryEntry: DirectoryEntryDto?,
+    isJoined: Boolean,
+    onClick: () -> Unit,
+) {
+    val description = directoryEntry?.topic?.takeIf { it.isNotBlank() }
+        ?: featured.description?.takeIf { it.isNotBlank() }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(featured.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = stringResource(R.string.directory_featured),
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            description?.let {
+                MircText(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        directoryEntry?.let { entry ->
+            Text(
+                entry.userCount.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        }
+        Button(
+            onClick = onClick,
+            modifier = Modifier.testTag("directory-featured-action"),
+        ) {
+            Text(stringResource(if (isJoined) R.string.directory_featured_open else R.string.directory_featured_join))
         }
     }
 }

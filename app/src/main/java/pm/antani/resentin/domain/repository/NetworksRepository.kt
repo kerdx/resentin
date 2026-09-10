@@ -26,6 +26,7 @@ import pm.antani.resentin.net.dto.ChannelDto
 import pm.antani.resentin.net.dto.ChannelModesEntryDto
 import pm.antani.resentin.net.dto.ConnectionStateUpdateDto
 import pm.antani.resentin.net.dto.DirectoryPageDto
+import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.net.dto.IdentityUpdateDto
 import pm.antani.resentin.net.dto.JoinChannelRequestDto
 import pm.antani.resentin.net.dto.NetworkDto
@@ -252,6 +253,11 @@ class NetworksRepository(
     suspend fun getDirectory(slug: String, sort: String, q: String? = null, cursor: String? = null): Result<DirectoryPageDto> =
         runCatching {
             authRepository.api(NetworksApi::class.java).getDirectory(slug, sort, q, cursor)
+        }
+
+    suspend fun getFeaturedChannels(slug: String): Result<List<FeaturedChannelDto>> =
+        runCatching {
+            authRepository.api(NetworksApi::class.java).getFeaturedChannels(slug).channels
         }
 
     suspend fun refreshDirectory(slug: String): Result<Unit> = runCatching {

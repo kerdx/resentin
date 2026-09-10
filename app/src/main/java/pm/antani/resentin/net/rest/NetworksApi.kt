@@ -4,6 +4,7 @@ import okhttp3.ResponseBody
 import pm.antani.resentin.net.dto.ArchiveEnvelopeDto
 import pm.antani.resentin.net.dto.ChannelDto
 import pm.antani.resentin.net.dto.DirectoryPageDto
+import pm.antani.resentin.net.dto.FeaturedChannelsResponseDto
 import pm.antani.resentin.net.dto.JoinChannelRequestDto
 import pm.antani.resentin.net.dto.NetworkDto
 import retrofit2.Response
@@ -39,6 +40,9 @@ interface NetworksApi {
     /** Arms a fresh upstream LIST snapshot; both a started refresh and an already-running
      * one answer 202. The actual page only lands via a subsequent [getDirectory] poll —
      * there is no server push for directory-refresh completion. */
+    @GET("networks/{slug}/featured")
+    suspend fun getFeaturedChannels(@Path("slug") slug: String): FeaturedChannelsResponseDto
+
     @POST("networks/{slug}/directory/refresh")
     suspend fun refreshDirectory(@Path("slug") slug: String): Response<ResponseBody>
 

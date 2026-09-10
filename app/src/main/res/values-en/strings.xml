@@ -69,6 +69,12 @@
     <string name="directory_refreshing">Refreshing…</string>
     <string name="directory_captured_at_label">Updated: %1$s</string>
     <string name="directory_featured">Featured</string>
+    <string name="directory_featured_title">Featured channels</string>
+    <string name="directory_all_channels">All channels</string>
+    <string name="directory_featured_join">Join</string>
+    <string name="directory_featured_open">Open</string>
+    <string name="directory_featured_loading">Loading featured channels…</string>
+    <string name="directory_featured_unavailable">Featured channels unavailable</string>
     <string name="directory_load_more">Load more</string>
 
     <!-- Admin -->
