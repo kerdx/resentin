@@ -3,6 +3,8 @@ package pm.antani.resentin.ui.channelsettings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,7 +64,7 @@ import pm.antani.resentin.net.dto.BanlistEntryDto
 
 private val LIST_MODE_FALLBACK = listOf("b", "e", "I", "q")
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ChannelSettingsScreen(
     viewModel: ChannelSettingsViewModel,
@@ -131,83 +133,57 @@ fun ChannelSettingsScreen(
                     icon = Icons.Default.Settings,
                     title = stringResource(R.string.channel_settings_modes_title),
                 ) {
-                    SIMPLE_TOGGLE_MODES.forEach { letter ->
-                        val checked = state.modes.modes.any { it.firstOrNull() == letter }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("+$letter", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                            Switch(
-                                checked = checked,
-                                onCheckedChange = { viewModel.toggleSimpleMode(letter) },
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SIMPLE_TOGGLE_MODES.forEach { letter ->
+                            val checked = state.modes.modes.any { it.firstOrNull() == letter }
+                            FilterChip(
+                                selected = checked,
                                 enabled = state.isPrivileged,
+                                onClick = { viewModel.toggleSimpleMode(letter) },
+                                label = { Text("+$letter") },
                             )
                         }
                     }
                     if (state.isPrivileged) {
-                        Spacer(Modifier.height(8.dp))
-                        Row(
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = state.rawModeInput,
+                            onValueChange = viewModel::onRawModeInputChange,
+                            placeholder = { Text(stringResource(R.string.channel_settings_raw_mode_hint)) },
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = viewModel::applyRawMode,
+                            enabled = state.rawModeInput.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            OutlinedTextField(
-                                value = state.rawModeInput,
-                                onValueChange = viewModel::onRawModeInputChange,
-                                placeholder = { Text(stringResource(R.string.channel_settings_raw_mode_hint)) },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Button(onClick = viewModel::applyRawMode, enabled = state.rawModeInput.isNotBlank()) {
-                                Text(stringResource(R.string.channel_settings_apply_mode))
-                            }
+                            Text(stringResource(R.string.channel_settings_apply_mode))
                         }
                     }
                 }
             }
-
             item {
                 ChannelSettingsSection(
-                    icon = Icons.Default.People,
-                    title = stringResource(R.string.channel_settings_presence_title),
-                    description = stringResource(R.string.channel_settings_presence_desc),
-                ) {
-                    val presenceOptions = listOf(
-                        Triple(stringResource(R.string.channel_settings_presence_show), "show", presencePin == "show"),
-                        Triple(stringResource(R.string.channel_settings_presence_default), null, presencePin == null),
-                        Triple(stringResource(R.string.channel_settings_presence_hide), "hide", presencePin == "hide"),
-                    )
-                    LazyRow {
-                        items(presenceOptions) { (label, pin, selected) ->
-                            FilterChip(
-                                selected = selected,
-                                onClick = { viewModel.setPresencePin(pin) },
-                                label = { Text(label) },
-                                modifier = Modifier.padding(end = 8.dp),
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                ChannelSettingsSection(
-                    icon = Icons.Default.NotificationsOff,
-                    title = stringResource(R.string.channel_settings_mute),
-                    description = muteStatusText(serverMute),
+                    icon = Icons.Default.Settings,
+                    title = stringResource(R.string.settings_title),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            stringResource(
-                                if (serverMute.muted) R.string.channel_settings_mute_on
-                                else R.string.channel_settings_mute_off,
-                            ),
-                            modifier = Modifier.weight(1f),
-                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.channel_settings_mute), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                muteStatusText(serverMute),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         Switch(
                             checked = serverMute.muted,
                             enabled = serverMute.loaded,
@@ -251,9 +227,53 @@ fun ChannelSettingsScreen(
                             }
                         }
                     }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    Column {
+                        Text(stringResource(R.string.channel_settings_presence_title), style = MaterialTheme.typography.bodyLarge)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.channel_settings_presence_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        val presenceOptions = listOf(
+                            Triple(stringResource(R.string.channel_settings_presence_show), "show", presencePin == "show"),
+                            Triple(stringResource(R.string.channel_settings_presence_default), null, presencePin == null),
+                            Triple(stringResource(R.string.channel_settings_presence_hide), "hide", presencePin == "hide"),
+                        )
+                        LazyRow {
+                            items(presenceOptions) { (label, pin, selected) ->
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { viewModel.setPresencePin(pin) },
+                                    label = { Text(label) },
+                                    modifier = Modifier.padding(end = 8.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.channel_settings_device_title), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                stringResource(R.string.channel_settings_pin),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = isPinned, onCheckedChange = { viewModel.togglePinned() })
+                    }
                 }
             }
-
             item {
                 ChannelSettingsSection(
                     icon = Icons.Default.Tag,
@@ -305,22 +325,6 @@ fun ChannelSettingsScreen(
                                 Text(stringResource(R.string.channel_settings_add_mask))
                             }
                         }
-                    }
-                }
-            }
-
-            item {
-                ChannelSettingsSection(
-                    icon = Icons.Default.PushPin,
-                    title = stringResource(R.string.channel_settings_device_title),
-                    description = stringResource(R.string.channel_settings_pin),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(stringResource(R.string.channel_settings_pin), modifier = Modifier.weight(1f))
-                        Switch(checked = isPinned, onCheckedChange = { viewModel.togglePinned() })
                     }
                 }
             }
