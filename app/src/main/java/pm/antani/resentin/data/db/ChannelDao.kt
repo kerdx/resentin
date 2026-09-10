@@ -34,6 +34,9 @@ interface ChannelDao {
     @Query("DELETE FROM channels WHERE networkSlug = :networkSlug AND source = 'query' AND name NOT IN (:targetNicks)")
     suspend fun deleteMissingQueries(networkSlug: String, targetNicks: List<String>)
 
+    @Query("DELETE FROM channels WHERE networkSlug = :networkSlug AND source = 'query' AND name COLLATE NOCASE = :name")
+    suspend fun deleteQuery(networkSlug: String, name: String)
+
     @Query("UPDATE channels SET topic = :topic WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name")
     suspend fun updateTopic(networkSlug: String, name: String, topic: String?)
 

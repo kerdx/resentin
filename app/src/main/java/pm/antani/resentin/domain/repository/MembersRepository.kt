@@ -298,11 +298,10 @@ class MembersRepository(
         )
     }
 
-    /** Closes a DM window server-side (deletes the `query_windows` row) — the server
-     * then re-broadcasts `query_windows_list`, which [NetworksRepository] already
-     * listens for to drop the local `channels` row (source="query"). Local removal is
-     * NOT done optimistically here so a failed push (e.g. WS not connected) doesn't
-     * desync the two. */
+    /** Closes a DM window server-side (deletes the `query_windows` row). The caller is
+     * expected to drop the local `channels` row optimistically on success (see
+     * [NetworksRepository.closeLocalQuery]) — the server does not reliably
+     * re-broadcast `query_windows_list` on close, so waiting for it leaves dead rows. */
     suspend fun closeQueryWindow(subject: String, networkId: Int, targetNick: String) {
         connectionManager.sendVerb(
             "grappa:user:$subject",

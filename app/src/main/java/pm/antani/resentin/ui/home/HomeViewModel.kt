@@ -112,13 +112,16 @@ class HomeViewModel(
     }
 
     /** Long-press action: leaves [channel] — a real IRC PART for a joined channel, or
-     * just closing the local DM window for a query (PART-ing a nick makes no sense). */
+     * closing the DM window for a query (PART-ing a nick makes no sense), with
+     * optimistic local removal so the row disappears even though the server doesn't
+     * reliably re-broadcast `query_windows_list` on close. */
     fun leaveChannel(networkSlug: String, channel: ChannelEntity) {
         viewModelScope.launch {
             val result = if (channel.source == "query") {
                 runCatching {
                     val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
                     membersRepository.closeQueryWindow(subject, networkId, channel.name)
+                    networksRepository.closeLocalQuery(networkSlug, channel.name)
                 }
             } else {
                 networksRepository.partChannel(networkSlug, channel.name)

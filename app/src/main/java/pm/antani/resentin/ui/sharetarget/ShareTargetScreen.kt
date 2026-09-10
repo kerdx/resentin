@@ -1,30 +1,51 @@
 package pm.antani.resentin.ui.sharetarget
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pm.antani.resentin.R
+import pm.antani.resentin.data.db.ChannelEntity
+import pm.antani.resentin.data.db.NetworkEntity
+import pm.antani.resentin.ui.common.MircText
 import pm.antani.resentin.ui.home.HomeViewModel
 
 /** "Condividi in..." — the landing screen when another app shares a file/photo into
@@ -46,7 +67,7 @@ fun ShareTargetScreen(
                 title = { Text(stringResource(R.string.share_target_title)) },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_cancel))
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.cd_cancel))
                     }
                 },
             )
@@ -56,32 +77,167 @@ fun ShareTargetScreen(
             if (isRefreshing && networks.isEmpty()) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
             } else {
-                LazyColumn(Modifier.fillMaxSize()) {
-                    networks.forEach { networkWithChannels ->
-                        item(key = "network-${networkWithChannels.network.slug}") {
-                            Text(
-                                text = "${networkWithChannels.network.slug} — ${networkWithChannels.network.nick}",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
-                            )
-                        }
-                        items(
-                            networkWithChannels.channels.filter { it.source != "server" },
-                            key = { "${networkWithChannels.network.slug}-${it.name}" },
-                        ) { channel ->
-                            Text(
-                                text = channel.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onChatSelected(networkWithChannels.network.slug, channel.name)
-                                    }
-                                    .padding(start = 40.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-                            )
-                        }
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(networks, key = { it.network.slug }) { networkWithChannels ->
+                        ShareNetworkGroupCard(
+                            network = networkWithChannels.network,
+                            channels = networkWithChannels.channels.filter { it.source != "server" },
+                            onChatSelected = { channel ->
+                                onChatSelected(networkWithChannels.network.slug, channel.name)
+                            },
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShareNetworkGroupCard(
+    network: NetworkEntity,
+    channels: List<ChannelEntity>,
+    onChatSelected: (ChannelEntity) -> Unit,
+) {
+    // Stessa lingua delle card della home: una surfaceContainerHigh per rete,
+    // stable avatar tint per slug, dividers between rows.
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            ShareNetworkHeader(network = network, channelCount = channels.size)
+            channels.forEachIndexed { index, channel ->
+                if (index == 0) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    )
+                }
+                ShareChannelRow(
+                    channel = channel,
+                    onClick = { onChatSelected(channel) },
+                )
+                if (index < channels.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 62.dp, end = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShareNetworkHeader(network: NetworkEntity, channelCount: Int) {
+    val scheme = MaterialTheme.colorScheme
+    val (avatarContainer, avatarContent) = remember(scheme, network.slug) {
+        val palettes = listOf(
+            scheme.primaryContainer to scheme.onPrimaryContainer,
+            scheme.secondaryContainer to scheme.onSecondaryContainer,
+            scheme.tertiaryContainer to scheme.onTertiaryContainer,
+        )
+        palettes[(network.slug.hashCode().and(Int.MAX_VALUE)) % palettes.size]
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.size(44.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = avatarContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = network.slug.take(1).uppercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = avatarContent,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = network.slug,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${network.nick} • $channelCount",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ShareChannelRow(channel: ChannelEntity, onClick: () -> Unit) {
+    val isQuery = channel.source == "query"
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(start = 12.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = RoundedCornerShape(14.dp),
+            color = if (isQuery) {
+                MaterialTheme.colorScheme.tertiaryContainer
+            } else {
+                MaterialTheme.colorScheme.secondaryContainer
+            },
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = if (isQuery) Icons.Outlined.ChatBubbleOutline else Icons.Outlined.Tag,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = if (isQuery) {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    },
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = channel.name,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val topic = channel.topic?.takeIf { it.isNotBlank() }
+            if (isQuery || topic != null) {
+                MircText(
+                    text = if (isQuery) {
+                        stringResource(R.string.channel_private_conversation)
+                    } else {
+                        topic.orEmpty()
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

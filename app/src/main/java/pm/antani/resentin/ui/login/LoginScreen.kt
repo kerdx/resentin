@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Lock
@@ -61,15 +60,16 @@ fun LoginScreen(viewModel: LoginViewModel) {
             verticalArrangement = Arrangement.Center,
         ) {
             Surface(
-                modifier = Modifier.size(64.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(72.dp),
+                shape = RoundedCornerShape(22.dp),
+                color = androidx.compose.ui.graphics.Color(0xFF4E342E),
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.ChatBubbleOutline,
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(
+                        id = R.drawable.ic_launcher_foreground,
+                    ),
                     contentDescription = null,
-                    modifier = Modifier.padding(16.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(9.dp),
                 )
             }
             Spacer(Modifier.height(16.dp))
@@ -99,7 +99,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
                 },
                 singleLine = true,
                 enabled = !state.isLoading,
-                shape = MaterialTheme.shapes.medium,
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { focusState -> if (!focusState.isFocused) viewModel.onHostFieldBlur() },
@@ -138,6 +138,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
                     label = { Text(stringResource(R.string.login_token_label)) },
                     singleLine = true,
                     enabled = !state.isLoading,
+                    shape = RoundedCornerShape(16.dp),
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -148,6 +149,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
                         label = { Text(stringResource(R.string.login_username_label)) },
                         singleLine = true,
                         enabled = !state.isLoading,
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(12.dp))
@@ -157,6 +159,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
                         label = { Text(stringResource(R.string.login_password_label)) },
                         singleLine = true,
                         enabled = !state.isLoading,
+                        shape = RoundedCornerShape(16.dp),
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -168,6 +171,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
                         label = { Text(stringResource(R.string.login_visitor_nick_label)) },
                         singleLine = true,
                         enabled = !state.isLoading,
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
