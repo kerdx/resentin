@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "app_prefs")
@@ -49,6 +50,8 @@ class AppPreferences(private val context: Context) {
     private val keyUnifiedPushSubscriptionId = stringPreferencesKey("unifiedpush_subscription_id")
     private val keyPushDecryptionFailureAt = longPreferencesKey("push_decryption_failure_at")
     private val keyPinnedChannels = stringSetPreferencesKey("pinned_channels")
+    private fun draftKey(networkSlug: String, channel: String) =
+        stringPreferencesKey("draft_${channelKey(networkSlug, channel)}")
     private val keyUnreadFirst = booleanPreferencesKey("unread_first")
     private val keyFontScale = floatPreferencesKey("font_scale")
 
@@ -58,6 +61,18 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit {
             val current = it[keyPinnedChannels] ?: emptySet()
             it[keyPinnedChannels] = if (pinned) current + channelKey(networkSlug, channel) else current - channelKey(networkSlug, channel)
+        }
+    }
+
+    /** Draft text is local-only and scoped to the canonical network/channel pair. */
+    suspend fun getChatDraft(networkSlug: String, channel: String): String =
+        context.dataStore.data.first()[draftKey(networkSlug, channel)].orEmpty()
+
+    /** Empty drafts are removed so abandoned chats do not accumulate forever. */
+    suspend fun setChatDraft(networkSlug: String, channel: String, draft: String) {
+        context.dataStore.edit {
+            val key = draftKey(networkSlug, channel)
+            if (draft.isEmpty()) it.remove(key) else it[key] = draft
         }
     }
 

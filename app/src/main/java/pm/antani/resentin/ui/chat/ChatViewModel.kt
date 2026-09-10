@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.MessageEntity
@@ -129,6 +131,8 @@ class ChatViewModel(
 
     private val _draft = MutableStateFlow("")
     val draft: StateFlow<String> = _draft.asStateFlow()
+    private var draftChangedByUser = false
+    private val draftWriteMutex = Mutex()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -171,6 +175,12 @@ class ChatViewModel(
         pendingShareHolder.consume().forEach { uploadFile(it) }
         viewModelScope.launch {
             userCard.error.collect { message -> message?.let { _error.value = it } }
+        }
+        viewModelScope.launch {
+            val savedDraft = runCatching {
+                appPreferences.getChatDraft(networkSlug, channelName)
+            }.getOrDefault("")
+            if (!draftChangedByUser) _draft.value = savedDraft
         }
         viewModelScope.launch {
             _initialReadCursor.value = networksRepository.getStoredReadCursor(networkSlug, channelName)
@@ -224,7 +234,17 @@ class ChatViewModel(
     }
 
     fun onDraftChange(text: String) {
+        setDraft(text)
+    }
+
+    private fun setDraft(text: String) {
+        draftChangedByUser = true
         _draft.value = text
+        viewModelScope.launch {
+            draftWriteMutex.withLock {
+                appPreferences.setChatDraft(networkSlug, channelName, text)
+            }
+        }
     }
 
     /** Swipe-to-reply: prefills the draft using the active reply-style template
@@ -236,7 +256,7 @@ class ChatViewModel(
             val style = appPreferences.replyStyle.first()
             val customTemplate = appPreferences.replyCustomTemplate.first()
             val prefix = buildReplyPrefix(style, customTemplate, nick, messageBody)
-            if (!_draft.value.startsWith(prefix)) _draft.value = prefix + _draft.value
+            if (!_draft.value.startsWith(prefix)) setDraft(prefix + _draft.value)
             _replyFocusRequests.tryEmit(Unit)
         }
     }
@@ -250,7 +270,7 @@ class ChatViewModel(
                 chatRepository.sendMessage(networkSlug, channelName, text).getOrThrow()
             }.onSuccess {
                 // Do not erase text typed while the request was in flight.
-                if (_draft.value.trim() == text) _draft.value = ""
+                if (_draft.value.trim() == text) setDraft("")
             }.onFailure { _error.value = it.message }
         }
     }
