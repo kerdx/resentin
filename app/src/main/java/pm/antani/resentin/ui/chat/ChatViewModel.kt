@@ -36,11 +36,16 @@ import pm.antani.resentin.domain.session.channelTopic
 import pm.antani.resentin.domain.session.ConnectionManager
 import pm.antani.resentin.domain.session.OpenChatTracker
 import pm.antani.resentin.domain.session.PendingShareHolder
+import pm.antani.resentin.irc.canonicalTarget
 import pm.antani.resentin.irc.isMessageVisibleUnderPresenceFilter
 import pm.antani.resentin.irc.isQueryTarget
 import pm.antani.resentin.irc.presenceVisible
 import pm.antani.resentin.ui.common.UserCardController
 
+sealed interface ChatCommandEffect {
+    data class OpenChannel(val channelName: String) : ChatCommandEffect
+    data object CloseChat : ChatCommandEffect
+}
 class ChatViewModel(
     private val chatRepository: ChatRepository,
     private val networksRepository: NetworksRepository,
@@ -119,6 +124,7 @@ class ChatViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun onMessageLongPress(nick: String) = userCard.onNickClick(nick)
+    fun requestWhois(nick: String) = userCard.onNickClick(nick)
     fun dismissWhois() = userCard.dismissWhois()
     fun kickFromCard(nick: String) = userCard.kick(nick)
     fun banFromCard(nick: String) = userCard.ban(nick)
@@ -164,6 +170,9 @@ class ChatViewModel(
     // changes the draft's TEXT, which doesn't imply focus or cursor position on its own.
     private val _replyFocusRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val replyFocusRequests: SharedFlow<Unit> = _replyFocusRequests.asSharedFlow()
+
+    private val _commandEffects = MutableSharedFlow<ChatCommandEffect>(extraBufferCapacity = 1)
+    val commandEffects: SharedFlow<ChatCommandEffect> = _commandEffects.asSharedFlow()
     private val channelReady = CompletableDeferred<Unit>()
 
     init {
@@ -262,8 +271,25 @@ class ChatViewModel(
     }
 
     fun send() {
-        val text = _draft.value.trim()
+        val rawText = _draft.value
+        val text = rawText.trim()
         if (text.isBlank()) return
+        when (val parsed = parseSlashCommand(rawText)) {
+            SlashCommandParseResult.NotACommand -> sendMessage(text)
+            SlashCommandParseResult.Incomplete -> showSlashError(R.string.chat_slash_command_incomplete)
+            is SlashCommandParseResult.Invalid -> showSlashError(
+                when (parsed.error) {
+                    SlashCommandError.UnknownCommand -> R.string.chat_slash_command_unknown
+                    SlashCommandError.MissingArgument -> R.string.chat_slash_command_missing_argument
+                    SlashCommandError.InvalidArgument -> R.string.chat_slash_command_invalid_argument
+                },
+                "/${parsed.token}",
+            )
+            is SlashCommandParseResult.Parsed -> executeSlashCommand(parsed.command)
+        }
+    }
+
+    private fun sendMessage(text: String) {
         viewModelScope.launch {
             runCatching {
                 channelReady.await()
@@ -272,6 +298,57 @@ class ChatViewModel(
                 // Do not erase text typed while the request was in flight.
                 if (_draft.value.trim() == text) setDraft("")
             }.onFailure { _error.value = it.message }
+        }
+    }
+
+    private fun showSlashError(messageRes: Int, argument: String? = null) {
+        _error.value = if (argument == null) {
+            appContext.getString(messageRes)
+        } else {
+            appContext.getString(messageRes, argument)
+        }
+    }
+
+    private fun executeSlashCommand(command: SlashCommand) {
+        val argument = command.arguments.firstOrNull()
+        when (command.name) {
+            "query" -> {
+                setDraft("")
+                contactPrivately(requireNotNull(argument))
+            }
+            "whois" -> {
+                setDraft("")
+                requestWhois(requireNotNull(argument))
+            }
+            "join" -> joinFromCommand(requireNotNull(argument))
+            "part" -> partFromCommand(argument)
+            else -> showSlashError(R.string.chat_slash_command_unsupported, "/${command.name}")
+        }
+    }
+
+    private fun joinFromCommand(channel: String) {
+        setDraft("")
+        viewModelScope.launch {
+            runCatching {
+                channelReady.await()
+                networksRepository.joinChannel(networkSlug, channel).getOrThrow()
+            }.onSuccess {
+                _commandEffects.emit(ChatCommandEffect.OpenChannel(channel))
+            }.onFailure { _error.value = it.message }
+        }
+    }
+
+    private fun partFromCommand(target: String?) {
+        val targetChannel = target ?: channelName
+        setDraft("")
+        viewModelScope.launch {
+            networksRepository.partChannel(networkSlug, targetChannel)
+                .onSuccess {
+                    if (canonicalTarget(targetChannel) == canonicalTarget(channelName)) {
+                        _commandEffects.emit(ChatCommandEffect.CloseChat)
+                    }
+                }
+                .onFailure { _error.value = it.message }
         }
     }
 

@@ -59,6 +59,9 @@ class HomeViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val draftChannels: StateFlow<Set<String>> = appPreferences.chatDrafts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     val pinnedChannels: StateFlow<Set<String>> = appPreferences.pinnedChannels
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 

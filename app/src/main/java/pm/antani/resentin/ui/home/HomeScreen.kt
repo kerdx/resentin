@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PushPin
@@ -94,6 +95,7 @@ fun HomeScreen(
     val networks by viewModel.networks.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val error by viewModel.error.collectAsState()
+    val draftChannels by viewModel.draftChannels.collectAsState()
     val pinnedChannels by viewModel.pinnedChannels.collectAsState()
     val mutedChannels by viewModel.mutedChannels.collectAsState()
     // Pin is local-only (slash key), mute is the server muted_targets map (space key)
@@ -184,10 +186,12 @@ fun HomeScreen(
                                 key = { "${networkWithChannels.network.slug}-${it.name}" },
                             ) { channel ->
                                 val (pinned, muted) = pinMutedOf(networkWithChannels.network.slug, channel)
+                                val hasDraft = channelKey(networkWithChannels.network.slug, channel.name) in draftChannels
                                 ChannelRow(
                                     channel = channel,
                                     pinned = pinned,
                                     muted = muted,
+                                    hasDraft = hasDraft,
                                     onClick = { onChannelClick(networkWithChannels.network.slug, channel.name) },
                                     onLongClick = {
                                         actionsTarget = ChannelActionsTarget(networkWithChannels.network.slug, channel)
@@ -440,6 +444,7 @@ private fun ChannelRow(
     channel: ChannelEntity,
     pinned: Boolean,
     muted: Boolean,
+    hasDraft: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
@@ -492,8 +497,16 @@ private fun ChannelRow(
             Spacer(Modifier.width(8.dp))
             UnreadBadge(count = channel.unreadMessages, isMention = hasMention)
         }
-        if (pinned || muted) {
+        if (hasDraft || pinned || muted) {
             Spacer(Modifier.width(6.dp))
+            if (hasDraft) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = stringResource(R.string.cd_chat_draft),
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
             if (pinned) {
                 Icon(
                     Icons.Default.PushPin,

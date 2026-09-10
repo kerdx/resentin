@@ -46,6 +46,7 @@
     <string name="channel_no_topic">No topic set</string>
     <string name="cd_network_settings">Network settings</string>
     <string name="cd_direct_message">Direct message</string>
+    <string name="cd_chat_draft">Saved draft</string>
     <string name="home_unknown_error">Unknown error</string>
     <string name="home_action_mark_read">Mark as read</string>
     <string name="home_action_leave_channel">Leave channel</string>
@@ -169,6 +170,27 @@
     <string name="chat_unread_divider">You\'ve read up to here</string>
     <string name="cd_reply">Reply</string>
     <string name="chat_upload_failed">Unable to read the file</string>
+    <string name="chat_slash_syntax_me">/me &lt;text&gt;</string>
+    <string name="chat_slash_syntax_join">/join &lt;#channel&gt;</string>
+    <string name="chat_slash_syntax_part">/part [#channel]</string>
+    <string name="chat_slash_syntax_whois">/whois &lt;nick&gt;</string>
+    <string name="chat_slash_syntax_query">/query &lt;nick&gt;</string>
+    <string name="chat_slash_syntax_away">/away [reason]</string>
+    <string name="chat_slash_syntax_reconnect">/reconnect [network]</string>
+    <string name="chat_slash_syntax_unknown">Command</string>
+    <string name="chat_slash_description_me">Send an action</string>
+    <string name="chat_slash_description_join">Join a channel</string>
+    <string name="chat_slash_description_part">Leave a channel</string>
+    <string name="chat_slash_description_whois">Show a nickname profile</string>
+    <string name="chat_slash_description_query">Open a private conversation</string>
+    <string name="chat_slash_description_away">Mark yourself away</string>
+    <string name="chat_slash_description_reconnect">Reconnect a network</string>
+    <string name="chat_slash_description_unknown">IRC command</string>
+    <string name="chat_slash_command_incomplete">Enter a command after /</string>
+    <string name="chat_slash_command_unknown">Unknown command: %1$s</string>
+    <string name="chat_slash_command_missing_argument">Enter an argument for %1$s</string>
+    <string name="chat_slash_command_invalid_argument">Invalid argument for %1$s</string>
+    <string name="chat_slash_command_unsupported">Command not available yet: %1$s</string>
     <string name="server_pseudo_channel_title">Server</string>
 
     <!-- Channel system events (join/part/quit/kick/mode/nick/topic lines) -->

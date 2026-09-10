@@ -245,6 +245,9 @@ fun AppRoot(
                     navController.navigate("channelsettings/$networkSlug/${encode(channelName)}")
                 },
                 onOpenQuery = onOpenQuery,
+                onOpenChannel = { slug, channel ->
+                    navController.navigate("chat/$slug/${encode(channel)}")
+                },
             )
         }
         composable(

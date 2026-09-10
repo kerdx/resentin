@@ -46,6 +46,7 @@
     <string name="channel_no_topic">Nessun topic impostato</string>
     <string name="cd_network_settings">Impostazioni rete</string>
     <string name="cd_direct_message">Messaggio privato</string>
+    <string name="cd_chat_draft">Bozza salvata</string>
     <string name="home_unknown_error">Errore sconosciuto</string>
     <string name="home_action_mark_read">Segna come letto</string>
     <string name="home_action_leave_channel">Abbandona canale</string>
@@ -169,6 +170,27 @@
     <string name="chat_unread_divider">Hai letto fino a qui</string>
     <string name="cd_reply">Rispondi</string>
     <string name="chat_upload_failed">Impossibile leggere il file</string>
+    <string name="chat_slash_syntax_me">/me &lt;testo&gt;</string>
+    <string name="chat_slash_syntax_join">/join &lt;#canale&gt;</string>
+    <string name="chat_slash_syntax_part">/part [#canale]</string>
+    <string name="chat_slash_syntax_whois">/whois &lt;nick&gt;</string>
+    <string name="chat_slash_syntax_query">/query &lt;nick&gt;</string>
+    <string name="chat_slash_syntax_away">/away [motivo]</string>
+    <string name="chat_slash_syntax_reconnect">/reconnect [rete]</string>
+    <string name="chat_slash_syntax_unknown">Comando</string>
+    <string name="chat_slash_description_me">Invia un\'azione</string>
+    <string name="chat_slash_description_join">Entra in un canale</string>
+    <string name="chat_slash_description_part">Abbandona un canale</string>
+    <string name="chat_slash_description_whois">Mostra il profilo del nick</string>
+    <string name="chat_slash_description_query">Apri una conversazione privata</string>
+    <string name="chat_slash_description_away">Segna la tua assenza</string>
+    <string name="chat_slash_description_reconnect">Riconnetti una rete</string>
+    <string name="chat_slash_description_unknown">Comando IRC</string>
+    <string name="chat_slash_command_incomplete">Inserisci un comando dopo /</string>
+    <string name="chat_slash_command_unknown">Comando non riconosciuto: %1$s</string>
+    <string name="chat_slash_command_missing_argument">Inserisci un argomento per %1$s</string>
+    <string name="chat_slash_command_invalid_argument">Argomento non valido per %1$s</string>
+    <string name="chat_slash_command_unsupported">Comando non ancora disponibile: %1$s</string>
     <string name="server_pseudo_channel_title">Server</string>
 
     <!-- Channel system events (join/part/quit/kick/mode/nick/topic lines) -->

@@ -57,6 +57,15 @@ class AppPreferences(private val context: Context) {
 
     val pinnedChannels: Flow<Set<String>> = context.dataStore.data.map { it[keyPinnedChannels] ?: emptySet() }
 
+    /** Canonical network/target keys whose local draft is currently non-empty. */
+    val chatDrafts: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+        preferences.asMap().mapNotNull { (key, value) ->
+            key.name.removePrefix("draft_").takeIf {
+                key.name.startsWith("draft_") && value is String && value.isNotEmpty()
+            }
+        }.toSet()
+    }
+
     suspend fun setChannelPinned(networkSlug: String, channel: String, pinned: Boolean) {
         context.dataStore.edit {
             val current = it[keyPinnedChannels] ?: emptySet()

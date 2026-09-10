@@ -74,6 +74,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -131,6 +132,7 @@ fun ChatScreen(
     onMembersClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onOpenQuery: (networkSlug: String, nick: String) -> Unit,
+    onOpenChannel: (networkSlug: String, channelName: String) -> Unit,
 ) {
     val messages by viewModel.messages.collectAsState()
     val topic by viewModel.topic.collectAsState()
@@ -163,6 +165,9 @@ fun ChatScreen(
     val mentionSuggestions = remember(activeMention, members) {
         activeMention?.let { findMentionSuggestions(it.query, members) }.orEmpty()
     }
+    val slashSuggestions = remember(draftFieldValue.text) {
+        suggestSlashCommands(draftFieldValue.text)
+    }
 
     fun completeMention(nick: String) {
         val mention = activeMention ?: return
@@ -174,6 +179,14 @@ fun ChatScreen(
         val newValue = TextFieldValue(newText, TextRange(newCursor))
         draftFieldValue = newValue
         viewModel.onDraftChange(newText)
+        draftFocusRequester.requestFocus()
+    }
+
+    fun completeSlashCommand(command: SlashCommandSpec) {
+        val completion = completeSlashCommandInput(draftFieldValue.text, command)
+        val newValue = TextFieldValue(completion.text, TextRange(completion.cursor))
+        draftFieldValue = newValue
+        viewModel.onDraftChange(completion.text)
         draftFocusRequester.requestFocus()
     }
     val displayMode by viewModel.chatDisplayMode.collectAsState()
@@ -196,6 +209,15 @@ fun ChatScreen(
 
     LaunchedEffect(Unit) {
         viewModel.navigateToQuery.collect { nick -> onOpenQuery(networkSlug, nick) }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.commandEffects.collect { effect ->
+            when (effect) {
+                is ChatCommandEffect.OpenChannel -> onOpenChannel(networkSlug, effect.channelName)
+                ChatCommandEffect.CloseChat -> onBack()
+            }
+        }
     }
 
     // Position (within `messages`) of the first message past where the reader left off —
@@ -368,6 +390,12 @@ fun ChatScreen(
                     .navigationBarsPadding()
                     .imePadding(),
             ) {
+                if (slashSuggestions.isNotEmpty()) {
+                    SlashCommandSuggestions(
+                        suggestions = slashSuggestions,
+                        onSelect = ::completeSlashCommand,
+                    )
+                }
                 if (mentionSuggestions.isNotEmpty()) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -465,9 +493,10 @@ fun ChatScreen(
                 }
             }
             error?.let { message ->
-                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
-                    Text(message)
-                }
+                ChatErrorSnackbar(
+                    message = message,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                )
             }
             if (hasScrolledInitially && messages.isNotEmpty() && !isAtBottom) {
                 val scope = rememberCoroutineScope()
@@ -525,6 +554,71 @@ fun ChatScreen(
     }
 }
 
+@Composable
+internal fun SlashCommandSuggestions(
+    suggestions: List<SlashCommandSpec>,
+    onSelect: (SlashCommandSpec) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("slash-command-suggestions"),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 3.dp,
+    ) {
+        LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+            suggestions.forEach { command ->
+                item(key = "slash-command-${command.name}") {
+                    DropdownMenuItem(
+                        modifier = Modifier.testTag("slash-command-${command.name}"),
+                        text = {
+                            Column {
+                                Text("/${command.name}", fontWeight = FontWeight.Medium)
+                                Text(
+                                    stringResource(slashCommandSyntaxRes(command.name)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                                Text(
+                                    stringResource(slashCommandDescriptionRes(command.name)),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        onClick = { onSelect(command) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ChatErrorSnackbar(message: String, modifier: Modifier = Modifier) {
+    Snackbar(modifier = modifier.testTag("chat-error-snackbar")) {
+        Text(message)
+    }
+}
+
+private fun slashCommandSyntaxRes(name: String): Int = when (name) {
+    "me" -> R.string.chat_slash_syntax_me
+    "join" -> R.string.chat_slash_syntax_join
+    "part" -> R.string.chat_slash_syntax_part
+    "whois" -> R.string.chat_slash_syntax_whois
+    "query" -> R.string.chat_slash_syntax_query
+    "away" -> R.string.chat_slash_syntax_away
+    "reconnect" -> R.string.chat_slash_syntax_reconnect
+    else -> R.string.chat_slash_syntax_unknown
+}
+
+private fun slashCommandDescriptionRes(name: String): Int = when (name) {
+    "me" -> R.string.chat_slash_description_me
+    "join" -> R.string.chat_slash_description_join
+    "part" -> R.string.chat_slash_description_part
+    "whois" -> R.string.chat_slash_description_whois
+    "query" -> R.string.chat_slash_description_query
+    "away" -> R.string.chat_slash_description_away
+    "reconnect" -> R.string.chat_slash_description_reconnect
+    else -> R.string.chat_slash_description_unknown
+}
 private data class MentionQuery(
     val start: Int,
     val end: Int,
