@@ -63,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -381,9 +382,9 @@ private fun HomeSectionHeader(networkCount: Int) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Le tue reti", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.home_networks_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.width(8.dp))
-        Text(networkCount.toString() + " reti", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        Text(pluralStringResource(R.plurals.home_network_count, networkCount, networkCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
     }
 }
 
@@ -480,7 +481,7 @@ private fun ChannelRow(
                 maxLines = 1,
             )
             MircText(
-                text = if (isQuery) "Conversazione privata" else channel.topic?.takeIf { it.isNotBlank() } ?: "Nessun topic impostato",
+                text = if (isQuery) stringResource(R.string.channel_private_conversation) else channel.topic?.takeIf { it.isNotBlank() } ?: stringResource(R.string.channel_no_topic),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

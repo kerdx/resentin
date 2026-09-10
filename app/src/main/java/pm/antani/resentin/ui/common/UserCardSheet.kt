@@ -168,10 +168,10 @@ fun UserCardSheet(
             val badges = buildList {
                 if (whois.isRegistered) add(stringResource(R.string.whois_registered_nick))
                 if (whois.secure || whois.usingSsl) add(stringResource(R.string.whois_secure_connection))
-                if (whois.isOperator) add("IRC Operator")
-                if (whois.isHelper) add("Network Helper")
-                if (whois.isAdmin) add("Server Administrator")
-                if (whois.isServicesAdmin) add("Services Administrator")
+                if (whois.isOperator) add(stringResource(R.string.irc_badge_operator))
+                if (whois.isHelper) add(stringResource(R.string.irc_badge_network_helper))
+                if (whois.isAdmin) add(stringResource(R.string.irc_badge_server_administrator))
+                if (whois.isServicesAdmin) add(stringResource(R.string.irc_badge_services_administrator))
             }
             if (badges.isNotEmpty()) {
                 FlowRow(modifier = Modifier.padding(top = 12.dp)) {
@@ -259,7 +259,7 @@ fun UserCardSheet(
                         onClick = { onKick(target) },
                         modifier = Modifier.weight(1f).padding(end = 8.dp),
                     ) {
-                        Text("Kick")
+                        Text(stringResource(R.string.irc_action_kick))
                     }
                     Button(
                         onClick = { onBan(target) },
@@ -269,23 +269,24 @@ fun UserCardSheet(
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ),
                     ) {
-                        Text("Ban")
+                        Text(stringResource(R.string.irc_action_ban))
                     }
                 }
 
                 val privilegedModes =
-                    PRIVILEGE_MODES.filter { (letter, _) -> availableModes.containsKey(letter.toString()) }
+                    PRIVILEGE_MODES.filter { mode -> availableModes.containsKey(mode.letter.toString()) }
                 if (isPrivileged(ownSigils) && privilegedModes.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(stringResource(R.string.whois_channel_privileges), style = MaterialTheme.typography.labelLarge)
                     FlowRow(modifier = Modifier.padding(top = 8.dp)) {
-                        privilegedModes.forEach { (letter, label) ->
+                        privilegedModes.forEach { mode ->
+                            val letter = mode.letter
                             val sigil = sigilOfMode(letter)
                             val hasIt = sigil != null && targetSigils.contains(sigil)
                             FilterChip(
                                 selected = hasIt,
                                 onClick = { onSetMode(target, letter, !hasIt) },
-                                label = { Text(label) },
+                                label = { Text(stringResource(mode.labelRes)) },
                                 modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
                             )
                         }

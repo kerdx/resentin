@@ -414,12 +414,13 @@ private fun BanlistRow(entry: BanlistEntryDto, canRemove: Boolean, onRemove: () 
     }
 }
 
+@Composable
 private fun listModeLabel(letter: String): String = when (letter) {
-    "b" -> "Ban (+b)"
-    "e" -> "Exempt (+e)"
-    "I" -> "Invite (+I)"
-    "q" -> "Quiet (+q)"
-    "z" -> "Restrict (+z)"
+    "b" -> stringResource(R.string.irc_list_ban)
+    "e" -> stringResource(R.string.irc_list_exempt)
+    "I" -> stringResource(R.string.irc_list_invite)
+    "q" -> stringResource(R.string.irc_list_quiet)
+    "z" -> stringResource(R.string.irc_list_restrict)
     else -> "+$letter"
 }
 

@@ -37,6 +37,13 @@
     <string name="home_sign_out_quit_hint">Also disconnects from the IRC networks before closing the session.</string>
     <string name="home_sign_out_quit">Quit IRC</string>
     <string name="home_no_networks">No networks</string>
+    <string name="home_networks_title">Your networks</string>
+    <plurals name="home_network_count">
+        <item quantity="one">%d network</item>
+        <item quantity="other">%d networks</item>
+    </plurals>
+    <string name="channel_private_conversation">Private conversation</string>
+    <string name="channel_no_topic">No topic set</string>
     <string name="cd_network_settings">Network settings</string>
     <string name="cd_direct_message">Direct message</string>
     <string name="home_unknown_error">Unknown error</string>
@@ -121,6 +128,15 @@
 
     <!-- Chat -->
     <string name="cd_members">Members</string>
+    <string name="members_title_with_count">%1$s · %2$s</string>
+    <plurals name="member_count">
+        <item quantity="one">%d user</item>
+        <item quantity="other">%d users</item>
+    </plurals>
+    <plurals name="cd_members_count">
+        <item quantity="one">Members, %d user</item>
+        <item quantity="other">Members, %d users</item>
+    </plurals>
     <string name="members_search_hint">Search users…</string>
     <string name="members_search_empty">No users found</string>
     <string name="members_group_header">%1$s (%2$d)</string>
@@ -131,6 +147,11 @@
     <string name="members_role_operator">Op</string>
     <string name="members_role_halfop">Half-op</string>
     <string name="members_role_voice">Voice</string>
+    <string name="irc_role_owner">Owner</string>
+    <string name="irc_role_protect">Protect</string>
+    <string name="irc_role_operator">Op</string>
+    <string name="irc_role_halfop">Halfop</string>
+    <string name="irc_role_voice">Voice</string>
     <string name="cd_user_info">User info</string>
     <string name="cd_channel_settings">Channel settings</string>
     <string name="cd_attach_file">Attach file</string>
@@ -241,7 +262,12 @@
     <string name="channel_settings_presence_hide">Hide</string>
     <string name="channel_settings_apply_mode">Apply</string>
     <string name="channel_settings_lists_title">Ban / invite / exception list</string>
-    <string name="channel_settings_list_empty">List is empty</string>
+
+    <string name="irc_list_ban">Ban (+b)</string>
+    <string name="irc_list_exempt">Exempt (+e)</string>
+    <string name="irc_list_invite">Invite (+I)</string>
+    <string name="irc_list_quiet">Quiet (+q)</string>
+    <string name="irc_list_restrict">Restrict (+z)</string>    <string name="channel_settings_list_empty">List is empty</string>
     <string name="channel_settings_list_set_by">set by %1$s</string>
     <string name="channel_settings_new_mask_hint">nick or mask</string>
     <string name="channel_settings_add_mask">Add</string>
@@ -275,9 +301,15 @@
     <string name="whois_channels_line">Channels: %1$s</string>
     <string name="whois_registered_nick">Registered nickname</string>
     <string name="whois_secure_connection">Secure connection (SSL/TLS)</string>
-    <string name="whois_message_privately">Message privately</string>
+
+    <string name="irc_badge_operator">IRC Operator</string>
+    <string name="irc_badge_network_helper">Network Helper</string>
+    <string name="irc_badge_server_administrator">Server Administrator</string>
+    <string name="irc_badge_services_administrator">Services Administrator</string>    <string name="whois_message_privately">Message privately</string>
     <string name="whois_moderation">Moderation</string>
-    <string name="whois_ignore">Ignore</string>
+
+    <string name="irc_action_kick">Kick</string>
+    <string name="irc_action_ban">Ban</string>    <string name="whois_ignore">Ignore</string>
     <string name="whois_unignore">Unignore</string>
     <string name="whois_channel_privileges">Channel privileges</string>
     <string name="whois_remove_privilege">Remove %1$s</string>

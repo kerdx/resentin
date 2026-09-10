@@ -2,7 +2,9 @@ package pm.antani.resentin.ui.common
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.annotation.StringRes
 import kotlinx.coroutines.CoroutineScope
+import pm.antani.resentin.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -33,12 +35,15 @@ import pm.antani.resentin.net.dto.WhoisBundleDto
 /** Standard IRC channel-privilege sigil hierarchy, highest first: ~ owner, & admin
  * (protect), @ op, % half-op, + voice. Only shown for letters the network's own
  * ISUPPORT PREFIX actually advertises — not every ircd has owner/admin. */
-val PRIVILEGE_MODES: List<Pair<Char, String>> = listOf(
-    'q' to "Owner",
-    'a' to "Protect",
-    'o' to "Op",
-    'h' to "Halfop",
-    'v' to "Voice",
+@Suppress("unused")
+data class PrivilegeMode(val letter: Char, @StringRes val labelRes: Int)
+
+val PRIVILEGE_MODES: List<PrivilegeMode> = listOf(
+    PrivilegeMode('q', R.string.irc_role_owner),
+    PrivilegeMode('a', R.string.irc_role_protect),
+    PrivilegeMode('o', R.string.irc_role_operator),
+    PrivilegeMode('h', R.string.irc_role_halfop),
+    PrivilegeMode('v', R.string.irc_role_voice),
 )
 
 private val PRIVILEGE_SIGILS = mapOf('q' to '~', 'a' to '&', 'o' to '@', 'h' to '%', 'v' to '+')
