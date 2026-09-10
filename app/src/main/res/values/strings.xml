@@ -346,7 +346,6 @@
     <string name="whois_copy_message_partial_title">Seleziona il testo da copiare</string>
 
     <!-- Notifications -->
-    <string name="notif_content_title">%1$s in %2$s</string>
     <string name="notif_action_reply">Rispondi</string>
     <string name="notif_action_mark_read">Segna come letto</string>
     <string name="notif_channel_messages">Messaggi</string>

@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
@@ -268,8 +269,14 @@ class NotificationRouter(
         postNotification(message, bucket)
     }
 
+    /** One notification per conversation (not per message): reuses the same
+     * [NotificationCompat.MessagingStyle], appending each new message, so several
+     * messages from the same person show as a single growing thread — like every other
+     * messenger — instead of stacking a separate notification per message under
+     * `setGroup`'s collapsed header. */
     private fun postNotification(message: ScrollbackMessageDto, bucket: String) {
         ensureChannel()
+        val conversationId = conversationNotificationId(message.network, bucket)
         val intent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
             putExtra(EXTRA_NETWORK_SLUG, message.network)
@@ -278,19 +285,23 @@ class NotificationRouter(
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            message.id.toInt(),
+            conversationId,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val style = existingMessagingStyle(conversationId)
+            ?: NotificationCompat.MessagingStyle(Person.Builder().setName("").build())
+        style.conversationTitle = bucket
+        style.addMessage(message.body, message.serverTime, Person.Builder().setName(message.sender).build())
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle(context.getString(R.string.notif_content_title, message.sender, bucket))
-            .setContentText(message.body)
+            .setStyle(style)
             .setSmallIcon(R.drawable.ic_notification)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setGroup(bucket)
-            .addAction(replyAction(message, bucket))
-            .addAction(markReadAction(message, bucket))
+            .addAction(replyAction(message, bucket, conversationId))
+            .addAction(markReadAction(message, bucket, conversationId))
             .build()
 
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -300,29 +311,41 @@ class NotificationRouter(
             return
         }
         Log.d(TAG, "posting notification for #${message.id}")
-        NotificationManagerCompat.from(context).notify(message.id.toInt(), notification)
+        NotificationManagerCompat.from(context).notify(conversationId, notification)
     }
 
-    private fun actionIntent(action: String, message: ScrollbackMessageDto, bucket: String): Intent =
+    private fun conversationNotificationId(networkSlug: String, bucket: String): Int =
+        "$networkSlug/$bucket".hashCode()
+
+    /** Recovers prior messages from the currently-posted notification for this
+     * conversation (if any) so a new message is appended to the existing thread instead
+     * of starting a fresh one-message style each time. */
+    private fun existingMessagingStyle(conversationId: Int): NotificationCompat.MessagingStyle? {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val active = manager.activeNotifications.firstOrNull { it.id == conversationId } ?: return null
+        return NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(active.notification)
+    }
+
+    private fun actionIntent(action: String, message: ScrollbackMessageDto, bucket: String, notificationId: Int): Intent =
         Intent(context, NotificationActionReceiver::class.java).apply {
             setAction(action)
             putExtra(NotificationActionReceiver.EXTRA_NETWORK_SLUG, message.network)
             putExtra(NotificationActionReceiver.EXTRA_CHANNEL_NAME, bucket)
             putExtra(NotificationActionReceiver.EXTRA_MESSAGE_ID, message.id)
-            putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_ID, message.id.toInt())
+            putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
         }
 
     /** Inline quick reply — the `PendingIntent` MUST be mutable, or the system has
      * nowhere to attach the [RemoteInput] result before firing it. */
-    private fun replyAction(message: ScrollbackMessageDto, bucket: String): NotificationCompat.Action {
+    private fun replyAction(message: ScrollbackMessageDto, bucket: String, notificationId: Int): NotificationCompat.Action {
         val replyLabel = context.getString(R.string.notif_action_reply)
         val remoteInput = RemoteInput.Builder(NotificationActionReceiver.KEY_REPLY_TEXT)
             .setLabel(replyLabel)
             .build()
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            message.id.toInt() * 10 + 1,
-            actionIntent(NotificationActionReceiver.ACTION_REPLY, message, bucket),
+            notificationId * 2,
+            actionIntent(NotificationActionReceiver.ACTION_REPLY, message, bucket, notificationId),
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         return NotificationCompat.Action.Builder(R.drawable.ic_notification, replyLabel, pendingIntent)
@@ -331,11 +354,11 @@ class NotificationRouter(
             .build()
     }
 
-    private fun markReadAction(message: ScrollbackMessageDto, bucket: String): NotificationCompat.Action {
+    private fun markReadAction(message: ScrollbackMessageDto, bucket: String, notificationId: Int): NotificationCompat.Action {
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            message.id.toInt() * 10 + 2,
-            actionIntent(NotificationActionReceiver.ACTION_MARK_READ, message, bucket),
+            notificationId * 2 + 1,
+            actionIntent(NotificationActionReceiver.ACTION_MARK_READ, message, bucket, notificationId),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val label = context.getString(R.string.notif_action_mark_read)
