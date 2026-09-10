@@ -21,6 +21,7 @@ import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.repository.AdminRepository
 import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
+import pm.antani.resentin.domain.repository.IgnoresRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
 import pm.antani.resentin.domain.repository.PushRepository
@@ -43,13 +44,14 @@ class AppContainer(private val context: Context) {
     val networksRepository = NetworksRepository(authRepository, database, connectionManager)
     val chatRepository = ChatRepository(authRepository, database, context.applicationContext)
     val membersRepository = MembersRepository(connectionManager, database)
+    val ignoresRepository = IgnoresRepository(authRepository)
     val userSettingsRepository = UserSettingsRepository(authRepository, connectionManager)
     val pushRepository = PushRepository(authRepository, appPreferences)
     val adminRepository = AdminRepository(authRepository)
     val openChatTracker = OpenChatTracker()
     val pendingShareHolder = PendingShareHolder()
     val notificationRouter =
-        NotificationRouter(context.applicationContext, connectionManager, database, openChatTracker, chatRepository, appPreferences, tokenStore)
+        NotificationRouter(context.applicationContext, connectionManager, database, openChatTracker, chatRepository, appPreferences, userSettingsRepository, tokenStore)
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -61,6 +63,23 @@ class AppContainer(private val context: Context) {
         notificationRouter.startListening(appScope)
 
         appScope.launch { chatRepository.pruneOldMessages() }
+
+        // Warms the server notification-prefs cache the live WS notification path
+        // gates server mutes on — refreshed again on every push wake-up, so a
+        // cold-started process never notifies for a muted chat.
+        appScope.launch {
+            tokenStore.session.filterNotNull().collect {
+                runCatching { userSettingsRepository.refreshNotificationPrefs() }
+            }
+        }
+
+        // Warm the server-owned presence pins too. The chat applies them to live
+        // rows, while the REST endpoint already applies them to historical pages.
+        appScope.launch {
+            tokenStore.session.filterNotNull().collect {
+                runCatching { userSettingsRepository.refreshDisplayPrefs() }
+            }
+        }
 
         // Battery-friendly sync: the WS stays open only while the app is actually
         // foreground (ProcessLifecycleOwner.currentStateFlow reaches STARTED on the

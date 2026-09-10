@@ -74,6 +74,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -130,7 +131,9 @@ fun ChatScreen(
     onBack: () -> Unit,
     onMembersClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onAppSettings: () -> Unit = {},
     onOpenQuery: (networkSlug: String, nick: String) -> Unit,
+    onOpenChannel: (networkSlug: String, channelName: String) -> Unit,
 ) {
     val messages by viewModel.messages.collectAsState()
     val topic by viewModel.topic.collectAsState()
@@ -163,6 +166,19 @@ fun ChatScreen(
     val mentionSuggestions = remember(activeMention, members) {
         activeMention?.let { findMentionSuggestions(it.query, members) }.orEmpty()
     }
+    val slashSuggestions = remember(draftFieldValue.text) {
+        suggestSlashCommands(draftFieldValue.text)
+    }
+    val availableChannels by viewModel.availableChannels.collectAsState()
+    val availableNetworks by viewModel.availableNetworks.collectAsState()
+    val slashArgumentSuggestions = remember(draftFieldValue.text, members, availableChannels, availableNetworks) {
+        suggestSlashArguments(
+            draftFieldValue.text,
+            members.map { it.nick },
+            availableChannels,
+            availableNetworks,
+        )
+    }
 
     fun completeMention(nick: String) {
         val mention = activeMention ?: return
@@ -176,9 +192,25 @@ fun ChatScreen(
         viewModel.onDraftChange(newText)
         draftFocusRequester.requestFocus()
     }
+
+    fun completeSlashCommand(command: SlashCommandSpec) {
+        val completion = completeSlashCommandInput(draftFieldValue.text, command)
+        val newValue = TextFieldValue(completion.text, TextRange(completion.cursor))
+        draftFieldValue = newValue
+        viewModel.onDraftChange(completion.text)
+        draftFocusRequester.requestFocus()
+    }
+    fun completeSlashArgument(suggestion: SlashArgumentSuggestion) {
+        val completion = completeSlashArgumentInput(draftFieldValue.text, suggestion)
+        val newValue = TextFieldValue(completion.text, TextRange(completion.cursor))
+        draftFieldValue = newValue
+        viewModel.onDraftChange(completion.text)
+        draftFocusRequester.requestFocus()
+    }
     val displayMode by viewModel.chatDisplayMode.collectAsState()
     val showSeconds by viewModel.showSeconds.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
+    val isSending by viewModel.isSending.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val coloredNicklist by viewModel.coloredNicklist.collectAsState()
     val showHostmaskInEvents by viewModel.showHostmaskInEvents.collectAsState()
@@ -196,6 +228,17 @@ fun ChatScreen(
 
     LaunchedEffect(Unit) {
         viewModel.navigateToQuery.collect { nick -> onOpenQuery(networkSlug, nick) }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.commandEffects.collect { effect ->
+            when (effect) {
+                is ChatCommandEffect.OpenChannel -> onOpenChannel(networkSlug, effect.channelName)
+                ChatCommandEffect.CloseChat -> onBack()
+                ChatCommandEffect.OpenChannelSettings -> onSettingsClick()
+                ChatCommandEffect.OpenAppSettings -> onAppSettings()
+            }
+        }
     }
 
     // Position (within `messages`) of the first message past where the reader left off —
@@ -368,6 +411,18 @@ fun ChatScreen(
                     .navigationBarsPadding()
                     .imePadding(),
             ) {
+                if (slashSuggestions.isNotEmpty()) {
+                    SlashCommandSuggestions(
+                        suggestions = slashSuggestions,
+                        onSelect = ::completeSlashCommand,
+                    )
+                }
+                if (slashArgumentSuggestions.isNotEmpty()) {
+                    SlashArgumentSuggestions(
+                        suggestions = slashArgumentSuggestions,
+                        onSelect = ::completeSlashArgument,
+                    )
+                }
                 if (mentionSuggestions.isNotEmpty()) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -429,9 +484,18 @@ fun ChatScreen(
                 )
                 IconButton(
                     onClick = viewModel::send,
+                    enabled = !isSending,
                     modifier = Modifier.size(44.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send), tint = MaterialTheme.colorScheme.onPrimary)
+                    if (isSending) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send), tint = MaterialTheme.colorScheme.onPrimary)
+                    }
                 }
                     }
                 }
@@ -465,9 +529,10 @@ fun ChatScreen(
                 }
             }
             error?.let { message ->
-                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
-                    Text(message)
-                }
+                ChatErrorSnackbar(
+                    message = message,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                )
             }
             if (hasScrolledInitially && messages.isNotEmpty() && !isAtBottom) {
                 val scope = rememberCoroutineScope()
@@ -486,6 +551,8 @@ fun ChatScreen(
 
     val whoisValue = whois
     if (whoisValue != null) {
+        val ignored by viewModel.isIgnored(whoisValue.target).collectAsState(initial = false)
+        val avatar by viewModel.avatarBitmap.collectAsState()
         UserCardSheet(
             whois = whoisValue,
             viewerUsername = viewerUsername,
@@ -502,6 +569,10 @@ fun ChatScreen(
             onBan = viewModel::banFromCard,
             onSetMode = viewModel::setModeFromCard,
             showChannelActions = !isQuery,
+            isIgnored = ignored,
+            onIgnore = viewModel::ignore,
+            onUnignore = viewModel::unignore,
+            avatarBitmap = avatar,
         )
     }
 
@@ -516,6 +587,74 @@ fun ChatScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+internal fun SlashCommandSuggestions(
+    suggestions: List<SlashCommandSpec>,
+    onSelect: (SlashCommandSpec) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("slash-command-suggestions"),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 3.dp,
+    ) {
+        LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+            suggestions.forEach { command ->
+                item(key = "slash-command-${command.name}") {
+                    DropdownMenuItem(
+                        modifier = Modifier.testTag("slash-command-${command.name}"),
+                        text = {
+                            Column {
+                                Text("/${command.name}", fontWeight = FontWeight.Medium)
+                                Text(
+                                    stringResource(command.syntaxRes),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                                Text(
+                                    stringResource(command.descriptionRes),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        onClick = { onSelect(command) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SlashArgumentSuggestions(
+    suggestions: List<SlashArgumentSuggestion>,
+    onSelect: (SlashArgumentSuggestion) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("slash-argument-suggestions"),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 3.dp,
+    ) {
+        LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+            suggestions.forEach { suggestion ->
+                item(key = "slash-argument-${suggestion.value}") {
+                    DropdownMenuItem(
+                        modifier = Modifier.testTag("slash-argument-${suggestion.value}"),
+                        text = { Text(suggestion.label) },
+                        onClick = { onSelect(suggestion) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ChatErrorSnackbar(message: String, modifier: Modifier = Modifier) {
+    Snackbar(modifier = modifier.testTag("chat-error-snackbar")) {
+        Text(message)
     }
 }
 

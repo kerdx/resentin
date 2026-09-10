@@ -129,9 +129,9 @@ class ChatRepository(
         )
     }
 
-    suspend fun sendMessage(networkSlug: String, channelName: String, body: String): Result<Unit> = runCatching {
+    suspend fun sendMessage(networkSlug: String, channelName: String, body: String, ctcpTarget: String? = null): Result<Unit> = runCatching {
         val api = authRepository.api(MessagesApi::class.java)
-        val response = api.sendMessage(networkSlug, channelName, SendMessageDto(body))
+        val response = api.sendMessage(networkSlug, channelName, SendMessageDto(body, ctcpTarget))
         if (response.code() == 429) {
             val retryAfterMs = runCatching {
                 AppJson.decodeFromString(RateLimitErrorDto.serializer(), response.errorBody()?.string().orEmpty())

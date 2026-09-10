@@ -1,6 +1,12 @@
 package pm.antani.resentin.ui.common
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.annotation.StringRes
 import kotlinx.coroutines.CoroutineScope
+import pm.antani.resentin.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -8,28 +14,36 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import pm.antani.resentin.data.db.MemberEntity
+import pm.antani.resentin.domain.repository.AuthRepository
+import pm.antani.resentin.domain.repository.IgnoresRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
+import pm.antani.resentin.domain.repository.coveringMasks
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.net.dto.WhoisBundleDto
 
 /** Standard IRC channel-privilege sigil hierarchy, highest first: ~ owner, & admin
  * (protect), @ op, % half-op, + voice. Only shown for letters the network's own
  * ISUPPORT PREFIX actually advertises — not every ircd has owner/admin. */
-val PRIVILEGE_MODES: List<Pair<Char, String>> = listOf(
-    'q' to "Owner",
-    'a' to "Protect",
-    'o' to "Op",
-    'h' to "Halfop",
-    'v' to "Voice",
+@Suppress("unused")
+data class PrivilegeMode(val letter: Char, @StringRes val labelRes: Int)
+
+val PRIVILEGE_MODES: List<PrivilegeMode> = listOf(
+    PrivilegeMode('q', R.string.irc_role_owner),
+    PrivilegeMode('a', R.string.irc_role_protect),
+    PrivilegeMode('o', R.string.irc_role_operator),
+    PrivilegeMode('h', R.string.irc_role_halfop),
+    PrivilegeMode('v', R.string.irc_role_voice),
 )
 
 private val PRIVILEGE_SIGILS = mapOf('q' to '~', 'a' to '&', 'o' to '@', 'h' to '%', 'v' to '+')
@@ -53,6 +67,8 @@ fun isPrivileged(sigils: String): Boolean = sigils.any { it in setOf('~', '&', '
 class UserCardController(
     private val membersRepository: MembersRepository,
     private val networksRepository: NetworksRepository,
+    private val ignoresRepository: IgnoresRepository,
+    private val authRepository: AuthRepository,
     private val networkSlug: String,
     private val channelName: String,
     private val username: String,
@@ -79,8 +95,63 @@ class UserCardController(
     private val _navigateToQuery = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val navigateToQuery: SharedFlow<String> = _navigateToQuery.asSharedFlow()
 
+    /** Server /ignore masks for this network — refreshed whenever a card opens, so
+     * the ignore toggle below never renders a stale membership. */
+    val ignoredMasks: StateFlow<List<String>> = ignoresRepository.ignores
+        .map { it[networkSlug].orEmpty() }
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Reactive "is this nick covered" for the card's ignore toggle. */
+    fun isIgnored(nick: String): Flow<Boolean> =
+        ignoredMasks.map { coveringMasks(it, nick).isNotEmpty() }
+
+    /** Avatar URL for the open card: the bundle's seed, patched live by avatar
+     * events. Null with no card open (dismiss clears it via selectedWhois). */
+    private val _avatarUrl = MutableStateFlow<String?>(null)
+    val avatarUrl: StateFlow<String?> = _avatarUrl.asStateFlow()
+
+    private val _avatarBitmap = MutableStateFlow<Bitmap?>(null)
+    val avatarBitmap: StateFlow<Bitmap?> = _avatarBitmap.asStateFlow()
+
+    // WHOIS replies are broadcast to every screen-level controller because the
+    // repository owns one WebSocket event stream. Keep the requested nick here so a
+    // reply opened from the members screen cannot also resurrect the chat's card.
+    private val _pendingWhoisTarget = MutableStateFlow<String?>(null)
+
+    private suspend fun fetchAvatar(url: String): Bitmap? = withContext(Dispatchers.IO) {
+        runCatching {
+            authRepository.fetchBytes(url)?.let { bytes ->
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
+        }.getOrNull()
+    }
+
     init {
-        membersRepository.whoisEvents.onEach { _selectedWhois.value = it }.launchIn(scope)
+        membersRepository.whoisEvents
+            .filter { it.target.equals(_pendingWhoisTarget.value, ignoreCase = true) }
+            .onEach {
+                _pendingWhoisTarget.value = null
+                _selectedWhois.value = it
+                _avatarUrl.value = it.avatarUrl
+            }.launchIn(scope)
+        // Late avatar patch for the open card (M3b) — replaces the URL and kicks the
+        // fetch below via avatarUrl; ignored when the card moved on to another nick.
+        membersRepository.avatarEvents.onEach { event ->
+            if (event.nick.equals(_selectedWhois.value?.target, ignoreCase = true) && event.avatarUrl != null) {
+                _selectedWhois.value = _selectedWhois.value?.copy(avatarUrl = event.avatarUrl)
+                _avatarUrl.value = event.avatarUrl
+            }
+        }.launchIn(scope)
+        avatarUrl.onEach { url ->
+            _avatarBitmap.value = null
+            if (url != null) {
+                val bitmap = fetchAvatar(url)
+                // Drop stale results: the card may have closed or moved on mid-fetch.
+                if (_avatarUrl.value == url && bitmap != null) {
+                    _avatarBitmap.value = bitmap
+                }
+            }
+        }.launchIn(scope)
     }
 
     fun sigilsFor(nick: String): String =
@@ -88,6 +159,8 @@ class UserCardController(
 
     fun onNickClick(nick: String) {
         scope.launch {
+            _pendingWhoisTarget.value = nick
+            runCatching { ignoresRepository.refresh(networkSlug) }
             runCatching {
                 val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
                 membersRepository.requestWhois(subject, networkId, nick)
@@ -96,13 +169,35 @@ class UserCardController(
     }
 
     fun dismissWhois() {
+        _pendingWhoisTarget.value = null
         _selectedWhois.value = null
+        _avatarUrl.value = null
     }
 
     fun kick(nick: String) = runVerb { networkId -> membersRepository.kick(subject, networkId, channelName, nick) }
 
     fun ban(nick: String) =
         runVerb { networkId -> membersRepository.ban(subject, networkId, channelName, "$nick!*@*") }
+
+    /** Server /ignore toggle — personal, needs no channel privilege. The server
+     * normalises a bare nick to `nick!*@*`; unignoring drops every mask covering
+     * the nick (usually exactly that one). */
+    fun ignore(nick: String) {
+        scope.launch {
+            runCatching { ignoresRepository.addIgnore(networkSlug, nick) }
+                .onFailure { _error.value = it.message }
+        }
+    }
+
+    fun unignore(nick: String) {
+        scope.launch {
+            runCatching {
+                ignoresRepository.covering(networkSlug, nick).forEach { mask ->
+                    ignoresRepository.removeIgnore(networkSlug, mask).getOrThrow()
+                }
+            }.onFailure { _error.value = it.message }
+        }
+    }
 
     fun contactPrivately(nick: String) {
         scope.launch {

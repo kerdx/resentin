@@ -25,6 +25,7 @@ import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.session.ConnectionManager
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.net.dto.BanlistBundleDto
+import pm.antani.resentin.net.dto.AvatarReadyDto
 import pm.antani.resentin.net.dto.IsupportChangedDto
 import pm.antani.resentin.net.dto.MembersSeededDto
 import pm.antani.resentin.net.dto.ScrollbackMessageDto
@@ -168,6 +169,12 @@ class MembersRepository(
         .filterIsInstance<WsEvent.WhoisBundle>()
         .map { it.whois }
 
+    /** Incremental avatar patches for open WHOIS cards (M3b) — same shape as
+     * [whoisEvents], consumed by whoever currently shows that nick's card. */
+    val avatarEvents: Flow<AvatarReadyDto> = connectionManager.events
+        .filterIsInstance<WsEvent.AvatarReady>()
+        .map { it.avatar }
+
     /** Queries one of the channel's type-A list modes (`b` bans, `e` exempts, `I`
      * invex, `q`/`z` quiet/restrict) — the reply streams back as a [banlistEvents]
      * bundle, not a push ack. A letter this network doesn't support just never gets
@@ -188,7 +195,7 @@ class MembersRepository(
         .filterIsInstance<WsEvent.BanlistBundle>()
         .map { it.bundle }
 
-    suspend fun kick(subject: String, networkId: Int, channel: String, nick: String) {
+    suspend fun kick(subject: String, networkId: Int, channel: String, nick: String, reason: String? = null) {
         connectionManager.sendVerb(
             "grappa:user:$subject",
             "kick",
@@ -196,7 +203,30 @@ class MembersRepository(
                 put("network_id", networkId)
                 put("channel", channel)
                 put("nick", nick)
-                put("reason", "")
+                put("reason", reason.orEmpty())
+            },
+        )
+    }
+
+    suspend fun invite(subject: String, networkId: Int, channel: String, nick: String) {
+        connectionManager.sendVerb(
+            "grappa:user:$subject",
+            "invite",
+            buildJsonObject {
+                put("network_id", networkId)
+                put("channel", channel)
+                put("nick", nick)
+            },
+        )
+    }
+
+    suspend fun requestNames(subject: String, networkId: Int, channel: String) {
+        connectionManager.sendVerb(
+            "grappa:user:$subject",
+            "names",
+            buildJsonObject {
+                put("network_id", networkId)
+                put("channel", channel)
             },
         )
     }
@@ -225,26 +255,19 @@ class MembersRepository(
         )
     }
 
-    suspend fun op(subject: String, networkId: Int, channel: String, nick: String) =
-        nickListVerb(subject, "op", networkId, channel, nick)
+    suspend fun op(subject: String, networkId: Int, channel: String, nick: String) = setNickModes(subject, networkId, channel, "op", listOf(nick))
+    suspend fun deop(subject: String, networkId: Int, channel: String, nick: String) = setNickModes(subject, networkId, channel, "deop", listOf(nick))
+    suspend fun voice(subject: String, networkId: Int, channel: String, nick: String) = setNickModes(subject, networkId, channel, "voice", listOf(nick))
+    suspend fun devoice(subject: String, networkId: Int, channel: String, nick: String) = setNickModes(subject, networkId, channel, "devoice", listOf(nick))
 
-    suspend fun deop(subject: String, networkId: Int, channel: String, nick: String) =
-        nickListVerb(subject, "deop", networkId, channel, nick)
-
-    suspend fun voice(subject: String, networkId: Int, channel: String, nick: String) =
-        nickListVerb(subject, "voice", networkId, channel, nick)
-
-    suspend fun devoice(subject: String, networkId: Int, channel: String, nick: String) =
-        nickListVerb(subject, "devoice", networkId, channel, nick)
-
-    private suspend fun nickListVerb(subject: String, verb: String, networkId: Int, channel: String, nick: String) {
+    suspend fun setNickModes(subject: String, networkId: Int, channel: String, verb: String, nicks: List<String>) {
         connectionManager.sendVerb(
             "grappa:user:$subject",
             verb,
             buildJsonObject {
                 put("network_id", networkId)
                 put("channel", channel)
-                put("nicks", buildJsonArray { add(JsonPrimitive(nick)) })
+                put("nicks", buildJsonArray { nicks.forEach { add(JsonPrimitive(it)) } })
             },
         )
     }

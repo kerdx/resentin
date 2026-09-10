@@ -22,6 +22,17 @@ data class DirectoryPageDto(
 )
 
 @Serializable
+data class FeaturedChannelDto(
+    val name: String,
+    val description: String? = null,
+)
+
+@Serializable
+data class FeaturedChannelsResponseDto(
+    val channels: List<FeaturedChannelDto> = emptyList(),
+)
+
+@Serializable
 data class JoinChannelRequestDto(
     val name: String,
     val key: String? = null,

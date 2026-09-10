@@ -14,6 +14,7 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface NetworkSettingsApi {
     @PATCH("networks/{slug}/identity")
@@ -39,5 +40,9 @@ interface NetworkSettingsApi {
     ): Response<ResponseBody>
 
     @DELETE("networks/{slug}/channels/{channel}")
-    suspend fun partChannel(@Path("slug") slug: String, @Path("channel") channel: String): Response<ResponseBody>
+    suspend fun partChannel(
+        @Path("slug") slug: String,
+        @Path("channel") channel: String,
+        @Query("reason") reason: String? = null,
+    ): Response<ResponseBody>
 }

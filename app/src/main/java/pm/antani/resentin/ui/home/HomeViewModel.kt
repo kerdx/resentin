@@ -12,28 +12,70 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.ChannelEntity
 import pm.antani.resentin.data.db.NetworkWithChannels
+import pm.antani.resentin.data.prefs.AppPreferences
+import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
+import pm.antani.resentin.domain.repository.UserSettingsRepository
 
 class HomeViewModel(
     private val networksRepository: NetworksRepository,
     private val chatRepository: ChatRepository,
     private val membersRepository: MembersRepository,
     private val authRepository: AuthRepository,
+    private val userSettingsRepository: UserSettingsRepository,
+    private val appPreferences: AppPreferences,
     private val subject: String,
     val isVisitor: Boolean,
     private val context: Context,
 ) : ViewModel() {
 
-    val networks: StateFlow<List<NetworkWithChannels>> = networksRepository.networksWithChannels
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    // Pinned chats first per network, then (optionally) most-unread first — stable
+    // sorts keep the server order everywhere else.
+    val networks: StateFlow<List<NetworkWithChannels>> = combine(
+        networksRepository.networksWithChannels,
+        appPreferences.pinnedChannels,
+        appPreferences.unreadFirst,
+    ) { list, pinned, unreadFirst ->
+        list.map { nwc ->
+            nwc.copy(
+                channels = nwc.channels.sortedWith(
+                    compareByDescending<ChannelEntity> { channel ->
+                        channelKey(nwc.network.slug, channel.name) in pinned
+                    }.thenByDescending { channel ->
+                        if (unreadFirst) channel.unreadMessages else 0
+                    },
+                ),
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val draftChannels: StateFlow<Set<String>> = appPreferences.chatDrafts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    val pinnedChannels: StateFlow<Set<String>> = appPreferences.pinnedChannels
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** Server mute keys (muted_targets) — unexpired only, so the mute icon never
+     * outlives a snooze the server already dropped. */
+    val mutedChannels: StateFlow<Set<String>> = userSettingsRepository.notificationPrefs
+        .map { prefs ->
+            val nowSec = System.currentTimeMillis() / 1000
+            prefs?.mutedTargets
+                ?.filterValues { it.until == null || it.until > nowSec }
+                ?.keys
+                .orEmpty()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -131,6 +173,8 @@ class HomeViewModel(
             chatRepository: ChatRepository,
             membersRepository: MembersRepository,
             authRepository: AuthRepository,
+            userSettingsRepository: UserSettingsRepository,
+            appPreferences: AppPreferences,
             subject: String,
             isVisitor: Boolean,
             context: Context,
@@ -143,6 +187,8 @@ class HomeViewModel(
                         chatRepository,
                         membersRepository,
                         authRepository,
+                        userSettingsRepository,
+                        appPreferences,
                         subject,
                         isVisitor,
                         context.applicationContext,

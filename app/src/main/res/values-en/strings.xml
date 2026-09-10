@@ -37,8 +37,16 @@
     <string name="home_sign_out_quit_hint">Also disconnects from the IRC networks before closing the session.</string>
     <string name="home_sign_out_quit">Quit IRC</string>
     <string name="home_no_networks">No networks</string>
+    <string name="home_networks_title">Your networks</string>
+    <plurals name="home_network_count">
+        <item quantity="one">%d network</item>
+        <item quantity="other">%d networks</item>
+    </plurals>
+    <string name="channel_private_conversation">Private conversation</string>
+    <string name="channel_no_topic">No topic set</string>
     <string name="cd_network_settings">Network settings</string>
     <string name="cd_direct_message">Direct message</string>
+    <string name="cd_chat_draft">Saved draft</string>
     <string name="home_unknown_error">Unknown error</string>
     <string name="home_action_mark_read">Mark as read</string>
     <string name="home_action_leave_channel">Leave channel</string>
@@ -62,6 +70,12 @@
     <string name="directory_refreshing">Refreshing…</string>
     <string name="directory_captured_at_label">Updated: %1$s</string>
     <string name="directory_featured">Featured</string>
+    <string name="directory_featured_title">Featured channels</string>
+    <string name="directory_all_channels">All channels</string>
+    <string name="directory_featured_join">Join</string>
+    <string name="directory_featured_open">Open</string>
+    <string name="directory_featured_loading">Loading featured channels…</string>
+    <string name="directory_featured_unavailable">Featured channels unavailable</string>
     <string name="directory_load_more">Load more</string>
 
     <!-- Admin -->
@@ -121,6 +135,30 @@
 
     <!-- Chat -->
     <string name="cd_members">Members</string>
+    <string name="members_title_with_count">%1$s · %2$s</string>
+    <plurals name="member_count">
+        <item quantity="one">%d user</item>
+        <item quantity="other">%d users</item>
+    </plurals>
+    <plurals name="cd_members_count">
+        <item quantity="one">Members, %d user</item>
+        <item quantity="other">Members, %d users</item>
+    </plurals>
+    <string name="members_search_hint">Search users…</string>
+    <string name="members_search_empty">No users found</string>
+    <string name="members_group_header">%1$s (%2$d)</string>
+    <string name="members_group_ops">Ops</string>
+    <string name="members_group_halfops">Half-ops</string>
+    <string name="members_group_voiced">Voiced</string>
+    <string name="members_group_users">Users</string>
+    <string name="members_role_operator">Op</string>
+    <string name="members_role_halfop">Half-op</string>
+    <string name="members_role_voice">Voice</string>
+    <string name="irc_role_owner">Owner</string>
+    <string name="irc_role_protect">Protect</string>
+    <string name="irc_role_operator">Op</string>
+    <string name="irc_role_halfop">Halfop</string>
+    <string name="irc_role_voice">Voice</string>
     <string name="cd_user_info">User info</string>
     <string name="cd_channel_settings">Channel settings</string>
     <string name="cd_attach_file">Attach file</string>
@@ -132,6 +170,27 @@
     <string name="chat_unread_divider">You\'ve read up to here</string>
     <string name="cd_reply">Reply</string>
     <string name="chat_upload_failed">Unable to read the file</string>
+    <string name="chat_slash_syntax_me">/me &lt;text&gt;</string>
+    <string name="chat_slash_syntax_join">/join &lt;#channel&gt;</string>
+    <string name="chat_slash_syntax_part">/part [#channel]</string>
+    <string name="chat_slash_syntax_whois">/whois &lt;nick&gt;</string>
+    <string name="chat_slash_syntax_query">/query &lt;nick&gt;</string>
+    <string name="chat_slash_syntax_away">/away [reason]</string>
+    <string name="chat_slash_syntax_reconnect">/reconnect [network]</string>
+    <string name="chat_slash_syntax_unknown">Command</string>
+    <string name="chat_slash_description_me">Send an action</string>
+    <string name="chat_slash_description_join">Join a channel</string>
+    <string name="chat_slash_description_part">Leave a channel</string>
+    <string name="chat_slash_description_whois">Show a nickname profile</string>
+    <string name="chat_slash_description_query">Open a private conversation</string>
+    <string name="chat_slash_description_away">Mark yourself away</string>
+    <string name="chat_slash_description_reconnect">Reconnect a network</string>
+    <string name="chat_slash_description_unknown">IRC command</string>
+    <string name="chat_slash_command_incomplete">Enter a command after /</string>
+    <string name="chat_slash_command_unknown">Unknown command: %1$s</string>
+    <string name="chat_slash_command_missing_argument">Enter an argument for %1$s</string>
+    <string name="chat_slash_command_invalid_argument">Invalid argument for %1$s</string>
+    <string name="chat_slash_command_unsupported">Command not available yet: %1$s</string>
     <string name="server_pseudo_channel_title">Server</string>
 
     <!-- Channel system events (join/part/quit/kick/mode/nick/topic lines) -->
@@ -164,6 +223,10 @@
     <string name="settings_show_seconds_desc">Shows [HH:mm:ss] instead of [HH:mm], in both display modes</string>
     <string name="settings_show_hostmask">Show hostmask in events</string>
     <string name="settings_show_hostmask_desc">Shows [ident@host] next to the nick on join/part/quit events, when the server provides one</string>
+    <string name="settings_unread_first">Unread first</string>
+    <string name="settings_unread_first_desc">Channels with unread messages move up, below pinned ones</string>
+    <string name="settings_font_size">Text size</string>
+    <string name="settings_font_size_preview">Preview: how text looks in chat</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_system">System</string>
     <string name="settings_language_italian">Italiano</string>
@@ -207,11 +270,30 @@
     <string name="channel_settings_topic_updated">Topic updated</string>
     <string name="channel_settings_update_topic">Update topic</string>
     <string name="channel_settings_part">Leave the channel</string>
+    <string name="channel_settings_device_title">On this device</string>
+    <string name="channel_settings_pin">Pin to top</string>
+    <string name="channel_settings_mute">Mute notifications</string>
+    <string name="channel_settings_mute_desc">No notifications for this channel or conversation</string>
+    <string name="channel_settings_mute_on">Muted</string>
+    <string name="channel_settings_mute_off">Notifying</string>
+    <string name="channel_settings_mute_forever">Forever</string>
+    <string name="channel_settings_mute_tomorrow">Until tomorrow</string>
+    <string name="channel_settings_muted_until">Until %1$s</string>
     <string name="channel_settings_modes_title">Modes</string>
     <string name="channel_settings_raw_mode_hint">e.g. +l 50</string>
+    <string name="channel_settings_presence_title">Joins and parts</string>
+    <string name="channel_settings_presence_desc">Show or hide this channel\'s joins, parts, quits, nick changes and modes</string>
+    <string name="channel_settings_presence_show">Show</string>
+    <string name="channel_settings_presence_default">Default</string>
+    <string name="channel_settings_presence_hide">Hide</string>
     <string name="channel_settings_apply_mode">Apply</string>
     <string name="channel_settings_lists_title">Ban / invite / exception list</string>
-    <string name="channel_settings_list_empty">List is empty</string>
+
+    <string name="irc_list_ban">Ban (+b)</string>
+    <string name="irc_list_exempt">Exempt (+e)</string>
+    <string name="irc_list_invite">Invite (+I)</string>
+    <string name="irc_list_quiet">Quiet (+q)</string>
+    <string name="irc_list_restrict">Restrict (+z)</string>    <string name="channel_settings_list_empty">List is empty</string>
     <string name="channel_settings_list_set_by">set by %1$s</string>
     <string name="channel_settings_new_mask_hint">nick or mask</string>
     <string name="channel_settings_add_mask">Add</string>
@@ -245,7 +327,16 @@
     <string name="whois_channels_line">Channels: %1$s</string>
     <string name="whois_registered_nick">Registered nickname</string>
     <string name="whois_secure_connection">Secure connection (SSL/TLS)</string>
-    <string name="whois_message_privately">Message privately</string>
+
+    <string name="irc_badge_operator">IRC Operator</string>
+    <string name="irc_badge_network_helper">Network Helper</string>
+    <string name="irc_badge_server_administrator">Server Administrator</string>
+    <string name="irc_badge_services_administrator">Services Administrator</string>    <string name="whois_message_privately">Message privately</string>
+    <string name="whois_moderation">Moderation</string>
+
+    <string name="irc_action_kick">Kick</string>
+    <string name="irc_action_ban">Ban</string>    <string name="whois_ignore">Ignore</string>
+    <string name="whois_unignore">Unignore</string>
     <string name="whois_channel_privileges">Channel privileges</string>
     <string name="whois_remove_privilege">Remove %1$s</string>
     <string name="whois_copy_message">Copy message</string>
@@ -273,4 +364,63 @@
     <!-- Upload errors -->
     <string name="upload_error_http">Upload failed: HTTP %1$d</string>
     <string name="upload_error_invalid_response">Invalid upload response</string>
-</resources>
+    <!-- Complete slash command catalog -->
+    <string name="chat_slash_syntax_cycle">/cycle [#channel] [reason]</string>
+    <string name="chat_slash_syntax_topic">/topic &lt;text&gt;</string>
+    <string name="chat_slash_syntax_nick">/nick &lt;new nick&gt;</string>
+    <string name="chat_slash_syntax_msg">/msg &lt;nick&gt; &lt;text&gt;</string>
+    <string name="chat_slash_syntax_whowas">/whowas &lt;nick&gt;</string>
+    <string name="chat_slash_syntax_who">/who &lt;#channel-or-mask&gt;</string>
+    <string name="chat_slash_syntax_names">/names &lt;#channel&gt;</string>
+    <string name="chat_slash_syntax_lusers">/lusers</string>
+    <string name="chat_slash_syntax_privilege">/op|/deop|/voice|/devoice &lt;nick&gt;…</string>
+    <string name="chat_slash_syntax_kick">/kick &lt;nick&gt; [reason]</string>
+    <string name="chat_slash_syntax_kickban">/kb|/kickban &lt;nick&gt; [reason]</string>
+    <string name="chat_slash_syntax_ban">/ban &lt;nick-or-mask&gt;</string>
+    <string name="chat_slash_syntax_unban">/unban &lt;mask&gt;</string>
+    <string name="chat_slash_syntax_banlist">/banlist</string>
+    <string name="chat_slash_syntax_invite">/invite &lt;nick&gt; [#channel]</string>
+    <string name="chat_slash_syntax_umode">/umode [modes]</string>
+    <string name="chat_slash_syntax_mode">/mode [#channel] &lt;modes&gt; [arguments]</string>
+    <string name="chat_slash_syntax_service">/ns|/cs|/ms|/os|/hs|/rs &lt;command&gt;</string>
+    <string name="chat_slash_syntax_notify">/notify|/watch &lt;nick&gt;…</string>
+    <string name="chat_slash_syntax_hilight">/hilight|/highlight &lt;text&gt;</string>
+    <string name="chat_slash_syntax_dehilight">/dehilight &lt;text&gt;</string>
+    <string name="chat_slash_syntax_alias">/alias &lt;name&gt; &lt;expansion&gt;</string>
+    <string name="chat_slash_syntax_unalias">/unalias &lt;name&gt;</string>
+    <string name="chat_slash_syntax_credits">/credits</string>
+    <string name="chat_slash_syntax_connect">/connect &lt;network&gt;</string>
+    <string name="chat_slash_syntax_disconnect">/disconnect [network] [reason]</string>
+    <string name="chat_slash_syntax_quit">/quit [reason]</string>
+    <string name="chat_slash_description_cycle">Leave and rejoin the channel</string>
+    <string name="chat_slash_description_topic">Set the channel topic</string>
+    <string name="chat_slash_description_nick">Change nickname</string>
+    <string name="chat_slash_description_msg">Send a private message</string>
+    <string name="chat_slash_description_whowas">Show historical information for a nickname</string>
+    <string name="chat_slash_description_who">Search server users</string>
+    <string name="chat_slash_description_names">Request the nickname list</string>
+    <string name="chat_slash_description_lusers">Show server statistics</string>
+    <string name="chat_slash_description_op">Grant operator privilege</string>
+    <string name="chat_slash_description_deop">Remove operator privilege</string>
+    <string name="chat_slash_description_voice">Grant voice</string>
+    <string name="chat_slash_description_devoice">Remove voice</string>
+    <string name="chat_slash_description_kick">Kick a nickname from the channel</string>
+    <string name="chat_slash_description_kickban">Kick and ban a nickname</string>
+    <string name="chat_slash_description_ban">Ban a nickname or mask</string>
+    <string name="chat_slash_description_unban">Remove a ban</string>
+    <string name="chat_slash_description_banlist">Show the channel ban list</string>
+    <string name="chat_slash_description_invite">Invite a nickname to the channel</string>
+    <string name="chat_slash_description_umode">Set your nickname modes</string>
+    <string name="chat_slash_description_mode">Set channel modes</string>
+    <string name="chat_slash_description_service">Send a command to a service</string>
+    <string name="chat_slash_description_notify">Add nicknames to notifications</string>
+    <string name="chat_slash_description_hilight">Add a highlighted term</string>
+    <string name="chat_slash_description_dehilight">Remove a highlighted term</string>
+    <string name="chat_slash_description_alias">Save a personal alias</string>
+    <string name="chat_slash_description_unalias">Remove a personal alias</string>
+    <string name="chat_slash_description_credits">Show credits</string>
+    <string name="chat_slash_description_connect">Connect a network</string>
+    <string name="chat_slash_description_disconnect">Disconnect a network</string>
+    <string name="chat_slash_description_quit">Close the IRC session</string>
+    <string name="chat_slash_channel_only">This command is only available in channels</string>
+    <string name="chat_slash_alias_builtin">Built-in commands cannot be shadowed</string></resources>

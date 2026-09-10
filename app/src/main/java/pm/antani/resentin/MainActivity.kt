@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -28,7 +29,10 @@ class MainActivity : ComponentActivity() {
         val container = (application as AppApplication).container
         handleIntent(intent)
         setContent {
-            ResentinTheme {
+            // Global text size (Settings slider) — read here so the whole theme,
+            // every screen included, rescales live with it.
+            val fontScale by container.appPreferences.fontScale.collectAsState(initial = 1f)
+            ResentinTheme(fontScale = fontScale) {
                 AppRoot(
                     container = container,
                     deepLink = pendingDeepLink.value,

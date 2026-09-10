@@ -114,6 +114,8 @@ fun AppRoot(
                     container.chatRepository,
                     container.membersRepository,
                     container.authRepository,
+                    container.userSettingsRepository,
+                    container.appPreferences,
                     currentSession.wsSubject,
                     currentSession.isVisitor,
                     appContext,
@@ -183,6 +185,8 @@ fun AppRoot(
                     container.chatRepository,
                     container.membersRepository,
                     container.authRepository,
+                    container.userSettingsRepository,
+                    container.appPreferences,
                     currentSession.wsSubject,
                     currentSession.isVisitor,
                     appContext,
@@ -213,6 +217,9 @@ fun AppRoot(
                     container.chatRepository,
                     container.networksRepository,
                     container.membersRepository,
+                    container.ignoresRepository,
+                    container.authRepository,
+                    container.userSettingsRepository,
                     container.appPreferences,
                     container.connectionManager,
                     container.openChatTracker,
@@ -237,7 +244,11 @@ fun AppRoot(
                 onSettingsClick = {
                     navController.navigate("channelsettings/$networkSlug/${encode(channelName)}")
                 },
+                onAppSettings = { navController.navigate(ROUTE_APP_SETTINGS) },
                 onOpenQuery = onOpenQuery,
+                onOpenChannel = { slug, channel ->
+                    navController.navigate("chat/$slug/${encode(channel)}")
+                },
             )
         }
         composable(
@@ -254,6 +265,8 @@ fun AppRoot(
                 factory = MembersViewModel.factory(
                     container.membersRepository,
                     container.networksRepository,
+                    container.ignoresRepository,
+                    container.authRepository,
                     container.appPreferences,
                     networkSlug,
                     channelName,
@@ -325,6 +338,8 @@ fun AppRoot(
                 factory = ChannelSettingsViewModel.factory(
                     container.networksRepository,
                     container.membersRepository,
+                    container.userSettingsRepository,
+                    container.appPreferences,
                     networkSlug,
                     channelName,
                     currentSession.username,

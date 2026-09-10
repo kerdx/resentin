@@ -25,7 +25,10 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Tag
@@ -61,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +72,9 @@ import androidx.compose.ui.unit.dp
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.ChannelEntity
 import pm.antani.resentin.data.db.NetworkEntity
+import pm.antani.resentin.data.prefs.channelKey
+import pm.antani.resentin.domain.repository.serverChannelKey
+import pm.antani.resentin.ui.common.MircText
 
 private data class ChannelActionsTarget(val networkSlug: String, val channel: ChannelEntity)
 
@@ -88,6 +95,16 @@ fun HomeScreen(
     val networks by viewModel.networks.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val error by viewModel.error.collectAsState()
+    val draftChannels by viewModel.draftChannels.collectAsState()
+    val pinnedChannels by viewModel.pinnedChannels.collectAsState()
+    val mutedChannels by viewModel.mutedChannels.collectAsState()
+    // Pin is local-only (slash key), mute is the server muted_targets map (space key)
+    // — resolved here so ChannelRow stays a dumb renderer.
+    val pinMutedOf: (networkSlug: String, channel: ChannelEntity) -> Pair<Boolean, Boolean> =
+        { networkSlug, channel ->
+            (channelKey(networkSlug, channel.name) in pinnedChannels) to
+                (serverChannelKey(networkSlug, channel.name) in mutedChannels)
+        }
 
     var actionsTarget by remember { mutableStateOf<ChannelActionsTarget?>(null) }
     var leaveConfirmTarget by remember { mutableStateOf<ChannelActionsTarget?>(null) }
@@ -168,8 +185,13 @@ fun HomeScreen(
                                     .sortedBy { it.source == "query" },
                                 key = { "${networkWithChannels.network.slug}-${it.name}" },
                             ) { channel ->
+                                val (pinned, muted) = pinMutedOf(networkWithChannels.network.slug, channel)
+                                val hasDraft = channelKey(networkWithChannels.network.slug, channel.name) in draftChannels
                                 ChannelRow(
                                     channel = channel,
+                                    pinned = pinned,
+                                    muted = muted,
+                                    hasDraft = hasDraft,
                                     onClick = { onChannelClick(networkWithChannels.network.slug, channel.name) },
                                     onLongClick = {
                                         actionsTarget = ChannelActionsTarget(networkWithChannels.network.slug, channel)
@@ -364,9 +386,9 @@ private fun HomeSectionHeader(networkCount: Int) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Le tue reti", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.home_networks_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.width(8.dp))
-        Text(networkCount.toString() + " reti", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        Text(pluralStringResource(R.plurals.home_network_count, networkCount, networkCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
     }
 }
 
@@ -418,7 +440,14 @@ private fun NetworkHeader(network: NetworkEntity, onClick: () -> Unit, onSetting
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChannelRow(channel: ChannelEntity, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun ChannelRow(
+    channel: ChannelEntity,
+    pinned: Boolean,
+    muted: Boolean,
+    hasDraft: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
     val hasUnread = channel.unreadMessages > 0
     val hasMention = channel.unreadMentions > 0
     val isQuery = channel.source == "query"
@@ -456,8 +485,8 @@ private fun ChannelRow(channel: ChannelEntity, onClick: () -> Unit, onLongClick:
                 color = if (hasMention) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
             )
-            Text(
-                text = if (isQuery) "Conversazione privata" else channel.topic?.takeIf { it.isNotBlank() } ?: "Nessun topic impostato",
+            MircText(
+                text = if (isQuery) stringResource(R.string.channel_private_conversation) else channel.topic?.takeIf { it.isNotBlank() } ?: stringResource(R.string.channel_no_topic),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -467,6 +496,33 @@ private fun ChannelRow(channel: ChannelEntity, onClick: () -> Unit, onLongClick:
         if (hasUnread) {
             Spacer(Modifier.width(8.dp))
             UnreadBadge(count = channel.unreadMessages, isMention = hasMention)
+        }
+        if (hasDraft || pinned || muted) {
+            Spacer(Modifier.width(6.dp))
+            if (hasDraft) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = stringResource(R.string.cd_chat_draft),
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            if (pinned) {
+                Icon(
+                    Icons.Default.PushPin,
+                    contentDescription = stringResource(R.string.channel_settings_pin),
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (muted) {
+                Icon(
+                    Icons.Default.NotificationsOff,
+                    contentDescription = stringResource(R.string.channel_settings_mute),
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

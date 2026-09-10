@@ -140,4 +140,23 @@ class AuthRepository(
         val retrofit = HttpClients.retrofit(currentSession.host, okHttpClient)
         return retrofit.create(serviceClass)
     }
+
+    /** Raw authenticated GET for byte-serving routes (peer avatars) — the URL the
+     * server hands out may be absolute or a bare path, hence resolved here.
+     *
+     * This intentionally does not persist avatar bytes on disk: only the avatar for
+     * the currently opened user card is fetched, then the UI may keep its decoded
+     * bitmap in memory while the screen is alive. */
+    suspend fun fetchBytes(url: String): ByteArray? = withContext(Dispatchers.IO) {
+        val session = tokenStore.session.value ?: return@withContext null
+        val absolute = if (url.startsWith("http")) url else "https://${session.host}$url"
+        val client = HttpClients.okHttpClient(tokenProvider = { tokenStore.session.value?.token })
+        val request = okhttp3.Request.Builder().url(absolute).build()
+        runCatching {
+            client.newCall(request).execute().use { response ->
+                check(response.isSuccessful) { "HTTP ${response.code}" }
+                checkNotNull(response.body).bytes()
+            }
+        }.getOrNull()
+    }
 }

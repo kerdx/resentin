@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import org.unifiedpush.android.connector.UnifiedPush
 import pm.antani.resentin.data.prefs.AppPreferences
@@ -58,6 +60,7 @@ class AppSettingsViewModel(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AppSettingsUiState())
+    private val coloredNicklistSaveMutex = Mutex()
     val uiState: StateFlow<AppSettingsUiState> = _uiState.asStateFlow()
 
     private val _messageDbSizeBytes = MutableStateFlow(0L)
@@ -99,6 +102,20 @@ class AppSettingsViewModel(
         viewModelScope.launch { appPreferences.setShowHostmaskInEvents(enabled) }
     }
 
+    val unreadFirst: StateFlow<Boolean> = appPreferences.unreadFirst
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setUnreadFirst(enabled: Boolean) {
+        viewModelScope.launch { appPreferences.setUnreadFirst(enabled) }
+    }
+
+    val fontScale: StateFlow<Float> = appPreferences.fontScale
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
+
+    fun setFontScale(scale: Float) {
+        viewModelScope.launch { appPreferences.setFontScale(scale) }
+    }
+
     val replyStyle: StateFlow<ReplyStyle> = appPreferences.replyStyle
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReplyStyle.NICK)
 
@@ -127,7 +144,8 @@ class AppSettingsViewModel(
                     displayPrefs = prefs,
                     aliases = aliasesResult.getOrNull().orEmpty(),
                     isLoading = false,
-                    error = prefsResult.exceptionOrNull()?.message ?: aliasesResult.exceptionOrNull()?.message,
+                    error = prefsResult.exceptionOrNull()?.message
+                        ?: aliasesResult.exceptionOrNull()?.message
                 )
             }
             appPreferences.setColoredNicklist(prefs.coloredNicklist)
@@ -295,12 +313,40 @@ class AppSettingsViewModel(
     fun toggleColoredNicklist() {
         // Round-trip the full object — the server rejects a PUT missing fields like
         // presence_filter even when they're unrelated to this toggle.
-        val updated = _uiState.value.displayPrefs.copy(coloredNicklist = !_uiState.value.displayPrefs.coloredNicklist)
-        _uiState.update { it.copy(displayPrefs = updated) }
+        val previous = _uiState.value.displayPrefs
+        val updated = previous.copy(coloredNicklist = !previous.coloredNicklist)
+        _uiState.update { it.copy(displayPrefs = updated, error = null) }
         viewModelScope.launch {
-            appPreferences.setColoredNicklist(updated.coloredNicklist)
-            userSettingsRepository.updateDisplayPrefs(updated)
-                .onFailure { _uiState.update { s -> s.copy(error = it.message) } }
+            coloredNicklistSaveMutex.withLock {
+                userSettingsRepository.updateDisplayPrefs(updated)
+                    .onSuccess { serverPrefs ->
+                        // Persist the local mirror only after the server accepted the
+                        // change. The server response is authoritative if it normalizes
+                        // any part of the full display-prefs object.
+                        appPreferences.setColoredNicklist(serverPrefs.coloredNicklist)
+                        _uiState.update { state ->
+                            if (state.displayPrefs == updated) {
+                                state.copy(displayPrefs = serverPrefs, error = null)
+                            } else {
+                                state.copy(error = null)
+                            }
+                        }
+                    }
+                    .onFailure { error ->
+                        _uiState.update { state ->
+                            if (state.displayPrefs == updated) {
+                                state.copy(displayPrefs = previous, error = error.message)
+                            } else {
+                                state.copy(error = error.message)
+                            }
+                        }
+                        // Do not overwrite a newer toggle, but roll back the local
+                        // mirror when this request still represents the visible state.
+                        if (_uiState.value.displayPrefs == previous) {
+                            appPreferences.setColoredNicklist(previous.coloredNicklist)
+                        }
+                    }
+            }
         }
     }
 

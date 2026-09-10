@@ -3,9 +3,11 @@ package pm.antani.resentin.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 
 private val DarkColorScheme = darkColorScheme(
@@ -64,6 +66,7 @@ private val ResentinShapes = Shapes(
 fun ResentinTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
+    fontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -73,8 +76,33 @@ fun ResentinTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = Typography.scaled(fontScale),
         shapes = ResentinShapes,
         content = content,
+    )
+}
+
+/** Global text-size multiplier (see the font-size slider in Settings): scales every
+ * type style's size and line height, leaving the custom palette untouched. */
+private fun Typography.scaled(scale: Float): Typography {
+    if (scale == 1f) return this
+    fun TextStyle.scaled(): TextStyle =
+        copy(fontSize = fontSize * scale, lineHeight = lineHeight * scale)
+    return copy(
+        displayLarge = displayLarge.scaled(),
+        displayMedium = displayMedium.scaled(),
+        displaySmall = displaySmall.scaled(),
+        headlineLarge = headlineLarge.scaled(),
+        headlineMedium = headlineMedium.scaled(),
+        headlineSmall = headlineSmall.scaled(),
+        titleLarge = titleLarge.scaled(),
+        titleMedium = titleMedium.scaled(),
+        titleSmall = titleSmall.scaled(),
+        bodyLarge = bodyLarge.scaled(),
+        bodyMedium = bodyMedium.scaled(),
+        bodySmall = bodySmall.scaled(),
+        labelLarge = labelLarge.scaled(),
+        labelMedium = labelMedium.scaled(),
+        labelSmall = labelSmall.scaled(),
     )
 }

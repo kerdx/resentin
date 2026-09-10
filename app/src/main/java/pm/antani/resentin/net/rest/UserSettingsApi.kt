@@ -3,6 +3,7 @@ package pm.antani.resentin.net.rest
 import kotlinx.serialization.json.JsonObject
 import pm.antani.resentin.net.dto.AliasesEnvelopeDto
 import pm.antani.resentin.net.dto.AutoAwayDebounceDto
+import pm.antani.resentin.net.dto.NotificationPrefsEnvelopeDto
 import pm.antani.resentin.net.dto.DisplayPrefsEnvelopeDto
 import pm.antani.resentin.net.dto.VhostSelectionUpdateDto
 import pm.antani.resentin.net.dto.VhostSettingsDto
@@ -22,6 +23,17 @@ interface UserSettingsApi {
 
     @PUT("me/settings/aliases")
     suspend fun updateAliases(@Body body: AliasesEnvelopeDto): AliasesEnvelopeDto
+
+    /** Server notification prefs (triggers + whitelists + muted_targets). GET falls
+     * back to server defaults when the subject never saved any. PUT takes the FULL
+     * map (hand-built JsonObject — a permanent mute is an explicit null `until`,
+     * which AppJson's explicitNulls=false would drop from a data-class body, same
+     * trap as [updateAutoAwayDebounce]). */
+    @GET("me/settings/notification-prefs")
+    suspend fun getNotificationPrefs(): NotificationPrefsEnvelopeDto
+
+    @PUT("me/settings/notification-prefs")
+    suspend fun updateNotificationPrefs(@Body body: JsonObject): NotificationPrefsEnvelopeDto
 
     /** Account-wide (not per-network) self-service vhost pick — see
      * `Grappa.Vhosts` moduledoc: an admin curates AVAILABILITY, the subject

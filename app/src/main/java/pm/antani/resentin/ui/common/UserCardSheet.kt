@@ -1,14 +1,28 @@
 package pm.antani.resentin.ui.common
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -22,20 +36,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import android.graphics.Bitmap
 import pm.antani.resentin.R
 import pm.antani.resentin.net.dto.WhoisBundleDto
 
 /**
- * The "user card": whois details + moderation actions, reached both by tapping a
- * member in the channel list and by long-pressing a chat message. [ownSigils] and
- * [targetSigils] are this channel's sigils (empty outside a real channel, e.g. in a
- * query), and gate the privilege-toggle row: only shown when the viewer is themself
- * privileged (op or higher) and only for the sigils this network's ircd advertises.
+ * The "user card": whois details + personal/moderation actions, reached both by
+ * tapping a member in the channel list and by long-pressing a chat message.
+ * [ownSigils] and [targetSigils] are this channel's sigils (empty outside a real
+ * channel, e.g. in a query), and gate the privilege-toggle row: only shown when the
+ * viewer is themself privileged (op or higher) and only for the sigils this
+ * network's ircd advertises.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -50,6 +69,14 @@ fun UserCardSheet(
     onKick: (String) -> Unit,
     onBan: (String) -> Unit,
     onSetMode: (nick: String, letter: Char, grant: Boolean) -> Unit,
+    // Server /ignore toggle — personal like the DM button (needs no privilege),
+    // so it stays visible wherever the card is.
+    isIgnored: Boolean = false,
+    onIgnore: (String) -> Unit = {},
+    onUnignore: (String) -> Unit = {},
+    // Peer avatar bitmap when the subject has one (M3b) — null while loading or
+    // without one, in which case the tinted initial below stands in.
+    avatarBitmap: Bitmap? = null,
     // Kick/ban/privilege toggles only make sense inside a real channel — hidden for a
     // query or the "$server" pseudo-chat, where there's no channel to moderate.
     showChannelActions: Boolean = true,
@@ -57,39 +84,153 @@ fun UserCardSheet(
     // to tapping a member in the channel list) — gates the two copy buttons below.
     messageText: String? = null,
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    // WHOIS cards can contain badges, channels and moderation controls. The default
+    // bottom-sheet state may stop at the half-expanded anchor, which hides the action
+    // rows until the user drags the sheet manually. Open this card fully every time;
+    // the content itself remains scrollable on smaller screens.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val clipboardManager = LocalClipboardManager.current
     var showPartialCopyDialog by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-            Text(whois.target, style = MaterialTheme.typography.headlineSmall)
-            whois.user?.let { user -> Text("$user@${whois.host ?: "?"}") }
-            whois.realname?.let { Text(it) }
+        // Scrollable: on small screens the action rows would otherwise sit below
+        // the fold with no way to reach them.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+        ) {
+            val target = whois.target
+            val nickColor = colorForNick(target)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Real avatar when the subject has one, else the same deterministic
+                // tinted initial as the member list rows.
+                val avatar = avatarBitmap
+                if (avatar != null) {
+                    Image(
+                        bitmap = avatar.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(56.dp).clip(CircleShape),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(nickColor.copy(alpha = 0.18f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = target.firstOrNull()?.uppercase().orEmpty(),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = nickColor,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(target, style = MaterialTheme.typography.headlineSmall)
+                    val handle = listOfNotNull(
+                        whois.user?.let { "$it@${whois.host ?: "?"}" },
+                        whois.realname,
+                    ).joinToString(" · ").takeIf { it.isNotBlank() }
+                    if (handle != null) {
+                        Text(
+                            handle,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (!targetSigils.isBlank()) {
+                        Text(
+                            targetSigils,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+
+            whois.awayMessage?.let { away ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.whois_away_line, away),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+
+            // Status badges — display-only chips, no actions.
+            val badges = buildList {
+                if (whois.isRegistered) add(stringResource(R.string.whois_registered_nick))
+                if (whois.secure || whois.usingSsl) add(stringResource(R.string.whois_secure_connection))
+                if (whois.isOperator) add(stringResource(R.string.irc_badge_operator))
+                if (whois.isHelper) add(stringResource(R.string.irc_badge_network_helper))
+                if (whois.isAdmin) add(stringResource(R.string.irc_badge_server_administrator))
+                if (whois.isServicesAdmin) add(stringResource(R.string.irc_badge_services_administrator))
+            }
+            if (badges.isNotEmpty()) {
+                FlowRow(modifier = Modifier.padding(top = 12.dp)) {
+                    badges.forEach { badge ->
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(badge) },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    }
+                }
+            }
+            if (whois.isOperator && whois.operText != null) {
+                Text(
+                    whois.operText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             whois.server?.let { server ->
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     stringResource(R.string.whois_server_line, "$server${whois.serverInfo?.let { " ($it)" }.orEmpty()}"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            whois.account?.let { Text(stringResource(R.string.whois_account_line, it)) }
-            whois.awayMessage?.let { Text(stringResource(R.string.whois_away_line, it)) }
-            whois.channels?.takeIf { it.isNotEmpty() }?.let { Text(stringResource(R.string.whois_channels_line, it.joinToString(" "))) }
-            if (whois.isOperator) {
+            whois.account?.let {
                 Text(
-                    text = "⚡ IRC Operator" + (whois.operText?.let { " — $it" } ?: ""),
-                    color = MaterialTheme.colorScheme.error,
+                    stringResource(R.string.whois_account_line, it),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (whois.isServicesAdmin) Text("Services Administrator", color = MaterialTheme.colorScheme.error)
-            if (whois.isAdmin) Text("Server Administrator", color = MaterialTheme.colorScheme.error)
-            if (whois.isHelper) Text("Network Helper")
-            if (whois.isRegistered) Text(stringResource(R.string.whois_registered_nick))
-            if (whois.secure || whois.usingSsl) Text(stringResource(R.string.whois_secure_connection))
+            whois.channels?.takeIf { it.isNotEmpty() }?.let {
+                Text(
+                    stringResource(R.string.whois_channels_line, it.joinToString(" ")),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
-            val target = whois.target
             val showContact = !target.equals(viewerUsername, ignoreCase = true)
             if (showContact) {
-                OutlinedButton(onClick = { onContactPrivately(target) }, modifier = Modifier.padding(top = 16.dp)) {
-                    Text(stringResource(R.string.whois_message_privately))
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = { onContactPrivately(target) },
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    ) {
+                        Text(stringResource(R.string.whois_message_privately))
+                    }
+                    OutlinedButton(
+                        onClick = { if (isIgnored) onUnignore(target) else onIgnore(target) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(if (isIgnored) R.string.whois_unignore else R.string.whois_ignore))
+                    }
                 }
             }
 
@@ -108,30 +249,46 @@ fun UserCardSheet(
             }
 
             if (showChannelActions) {
-                Row(modifier = Modifier.padding(top = 8.dp)) {
-                    OutlinedButton(onClick = { onKick(target) }, modifier = Modifier.padding(end = 8.dp)) {
-                        Text("Kick")
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(stringResource(R.string.whois_moderation), style = MaterialTheme.typography.labelLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { onKick(target) },
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    ) {
+                        Text(stringResource(R.string.irc_action_kick))
                     }
-                    Button(onClick = { onBan(target) }) {
-                        Text("Ban")
+                    Button(
+                        onClick = { onBan(target) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ),
+                    ) {
+                        Text(stringResource(R.string.irc_action_ban))
                     }
                 }
 
                 val privilegedModes =
-                    PRIVILEGE_MODES.filter { (letter, _) -> availableModes.containsKey(letter.toString()) }
+                    PRIVILEGE_MODES.filter { mode -> availableModes.containsKey(mode.letter.toString()) }
                 if (isPrivileged(ownSigils) && privilegedModes.isNotEmpty()) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(stringResource(R.string.whois_channel_privileges), style = MaterialTheme.typography.labelLarge)
                     FlowRow(modifier = Modifier.padding(top = 8.dp)) {
-                        privilegedModes.forEach { (letter, label) ->
+                        privilegedModes.forEach { mode ->
+                            val letter = mode.letter
                             val sigil = sigilOfMode(letter)
                             val hasIt = sigil != null && targetSigils.contains(sigil)
-                            OutlinedButton(
+                            FilterChip(
+                                selected = hasIt,
                                 onClick = { onSetMode(target, letter, !hasIt) },
+                                label = { Text(stringResource(mode.labelRes)) },
                                 modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                            ) {
-                                Text(if (hasIt) stringResource(R.string.whois_remove_privilege, label) else label)
-                            }
+                            )
                         }
                     }
                 }

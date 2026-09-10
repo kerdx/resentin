@@ -2,6 +2,7 @@ package pm.antani.resentin.domain.events
 
 import kotlinx.serialization.json.JsonObject
 import pm.antani.resentin.net.dto.AutoAwayDebounceDto
+import pm.antani.resentin.net.dto.AvatarReadyDto
 import pm.antani.resentin.net.dto.BanlistBundleDto
 import pm.antani.resentin.net.dto.ChannelModesChangedDto
 import pm.antani.resentin.net.dto.IsupportChangedDto
@@ -17,6 +18,10 @@ sealed interface WsEvent {
     data class IsupportChanged(val isupport: IsupportChangedDto) : WsEvent
     data class MembersSeeded(val seeded: MembersSeededDto) : WsEvent
     data class WhoisBundle(val whois: WhoisBundleDto) : WsEvent
+
+    /** Incremental WHOIS-card patch for a peer avatar fetch that finished after the
+     * bundle (M3b) — the card updates in place if still open on that nick. */
+    data class AvatarReady(val avatar: AvatarReadyDto) : WsEvent
 
     /** Reply to a `banlist` verb query for one type-A list mode of a channel. */
     data class BanlistBundle(val bundle: BanlistBundleDto) : WsEvent

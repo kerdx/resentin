@@ -26,15 +26,18 @@ import pm.antani.resentin.net.dto.ChannelDto
 import pm.antani.resentin.net.dto.ChannelModesEntryDto
 import pm.antani.resentin.net.dto.ConnectionStateUpdateDto
 import pm.antani.resentin.net.dto.DirectoryPageDto
+import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.net.dto.IdentityUpdateDto
 import pm.antani.resentin.net.dto.JoinChannelRequestDto
 import pm.antani.resentin.net.dto.NetworkDto
+import pm.antani.resentin.net.dto.NotifyRequestDto
 import pm.antani.resentin.net.dto.PerformDto
 import pm.antani.resentin.net.dto.PerformUpdateDto
 import pm.antani.resentin.net.dto.QueryWindowsListDto
 import pm.antani.resentin.net.dto.TopicUpdateDto
 import pm.antani.resentin.net.rest.NetworkSettingsApi
 import pm.antani.resentin.net.rest.NetworksApi
+import pm.antani.resentin.net.rest.NotifyApi
 
 private const val SERVER_PSEUDO_CHANNEL = "\$server"
 
@@ -154,11 +157,9 @@ class NetworksRepository(
         for ((networkIdRaw, windows) in dto.windows) {
             val networkId = networkIdRaw.toIntOrNull() ?: continue
             val slug = db.networkDao().slugForId(networkId) ?: continue
-            db.channelDao().upsertAll(
-                windows.map { window ->
-                    ChannelEntity(networkSlug = slug, name = window.targetNick, source = "query", joined = true)
-                },
-            )
+            syncMembership(slug, windows.map { window ->
+                ChannelEntity(networkSlug = slug, name = window.targetNick, source = "query", joined = true)
+            })
             db.channelDao().deleteMissingQueries(slug, windows.map { it.targetNick })
         }
     }
@@ -172,17 +173,26 @@ class NetworksRepository(
 
         for (network in networks) {
             val channels = api.getChannels(network.slug)
-            db.channelDao().upsertAll(channels.map { it.toEntity(network.slug) })
+            syncMembership(network.slug, channels.map { it.toEntity(network.slug) })
             db.channelDao().deleteMissing(network.slug, channels.map { it.name })
 
             // "$server" is a fixed per-network pseudo-channel carrying MOTD/service
             // notices (NickServ, ChanServ, ...) — always present, not listed by
             // GET .../channels, joined/fetched via the same generic (network, channel)
             // pipeline as a real channel.
-            db.channelDao().upsertAll(
+            syncMembership(
+                network.slug,
                 listOf(ChannelEntity(networkSlug = network.slug, name = SERVER_PSEUDO_CHANNEL, source = "server", joined = true)),
             )
         }
+    }
+
+    /** Membership-only sync: inserts unknown channels, refreshes source/joined on the
+     * known ones, and never touches the live WS-fed fields (topic, modes, read cursor,
+     * unread badges) — the REST payloads simply don't carry them. */
+    private suspend fun syncMembership(networkSlug: String, channels: List<ChannelEntity>) {
+        db.channelDao().insertMissing(channels)
+        channels.forEach { db.channelDao().updateMembership(networkSlug, it.name, it.source, it.joined) }
     }
 
     suspend fun updateIdentity(slug: String, nick: String?, ident: String?, realname: String?): Result<Unit> =
@@ -193,14 +203,23 @@ class NetworksRepository(
             refresh().getOrThrow()
         }
 
-    suspend fun updateConnectionState(slug: String, connected: Boolean): Result<Unit> = runCatching {
+    suspend fun updateConnectionState(slug: String, connected: Boolean, reason: String? = null): Result<Unit> = runCatching {
         val api = authRepository.api(NetworkSettingsApi::class.java)
         val state = if (connected) "connected" else "parked"
-        val response = api.updateConnectionState(slug, ConnectionStateUpdateDto(state))
+        val response = api.updateConnectionState(slug, ConnectionStateUpdateDto(state, reason))
         check(response.isSuccessful) { "HTTP ${response.code()}" }
         refresh().getOrThrow()
     }
 
+    suspend fun addNotify(slug: String, nicks: List<String>): Result<Unit> = runCatching {
+        val response = authRepository.api(NotifyApi::class.java).add(slug, NotifyRequestDto(nicks))
+        check(response.isSuccessful) { "HTTP ${response.code()}" }
+    }
+
+    suspend fun removeNotify(slug: String, nick: String): Result<Unit> = runCatching {
+        val response = authRepository.api(NotifyApi::class.java).remove(slug, nick)
+        check(response.isSuccessful) { "HTTP ${response.code()}" }
+    }
     suspend fun getPerform(slug: String): Result<PerformDto> = runCatching {
         authRepository.api(NetworkSettingsApi::class.java).getPerform(slug)
     }
@@ -222,9 +241,9 @@ class NetworksRepository(
      * full reconnect. Best-effort: the subject may be unknown (signed out mid-call) or
      * the topic may never have been joined this session, either of which is harmless to
      * skip — there's nothing live to tear down. */
-    suspend fun partChannel(slug: String, channel: String): Result<Unit> = runCatching {
+    suspend fun partChannel(slug: String, channel: String, reason: String? = null): Result<Unit> = runCatching {
         val api = authRepository.api(NetworkSettingsApi::class.java)
-        val response = api.partChannel(slug, channel)
+        val response = api.partChannel(slug, channel, reason)
         check(response.isSuccessful) { "HTTP ${response.code()}" }
         authRepository.session.value?.wsSubject?.let { subject ->
             connectionManager.leaveChannel(channelTopic(subject, slug, channel))
@@ -245,6 +264,11 @@ class NetworksRepository(
     suspend fun getDirectory(slug: String, sort: String, q: String? = null, cursor: String? = null): Result<DirectoryPageDto> =
         runCatching {
             authRepository.api(NetworksApi::class.java).getDirectory(slug, sort, q, cursor)
+        }
+
+    suspend fun getFeaturedChannels(slug: String): Result<List<FeaturedChannelDto>> =
+        runCatching {
+            authRepository.api(NetworksApi::class.java).getFeaturedChannels(slug).channels
         }
 
     suspend fun refreshDirectory(slug: String): Result<Unit> = runCatching {

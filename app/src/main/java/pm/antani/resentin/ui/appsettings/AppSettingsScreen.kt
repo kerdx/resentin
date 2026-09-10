@@ -8,6 +8,7 @@ import android.os.LocaleList
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -36,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import org.unifiedpush.android.connector.UnifiedPush
@@ -77,6 +80,11 @@ private val AUTO_AWAY_PRESETS = listOf(
 )
 private val AUTO_AWAY_PRESET_SECONDS = AUTO_AWAY_PRESETS.map { it.first }.toSet()
 
+// Text-size ladder for the slider below — labels need no translation (XS–XXL are
+// universal), the scale applies app-wide through ResentinTheme.
+private val FONT_SCALES = listOf(0.8f, 0.9f, 1f, 1.15f, 1.3f)
+private val FONT_SCALE_LABELS = listOf("XS", "S", "M", "L", "XXL")
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdminClick: () -> Unit = {}) {
@@ -88,6 +96,8 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     val chatDisplayMode by viewModel.chatDisplayMode.collectAsState()
     val showSeconds by viewModel.showSeconds.collectAsState()
     val showHostmaskInEvents by viewModel.showHostmaskInEvents.collectAsState()
+    val unreadFirst by viewModel.unreadFirst.collectAsState()
+    val fontScale by viewModel.fontScale.collectAsState()
     val replyStyle by viewModel.replyStyle.collectAsState()
     val messageDbSizeBytes by viewModel.messageDbSizeBytes.collectAsState()
     var showClearMessagesConfirm by remember { mutableStateOf(false) }
@@ -222,6 +232,7 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         onCheckedChange = { viewModel.toggleColoredNicklist() },
                     )
                 }
+
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.settings_chat_display), style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(8.dp))
@@ -270,6 +281,44 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     }
                     Switch(checked = showHostmaskInEvents, onCheckedChange = viewModel::setShowHostmaskInEvents)
                 }
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_unread_first))
+                        Text(
+                            stringResource(R.string.settings_unread_first_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(checked = unreadFirst, onCheckedChange = viewModel::setUnreadFirst)
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.settings_font_size), style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(8.dp))
+                // Fixed five-stop slider (XS–XXL): discrete writes, live theme preview.
+                val scaleIndex = FONT_SCALES.indices.minByOrNull { kotlin.math.abs(FONT_SCALES[it] - fontScale) } ?: 2
+                Slider(
+                    value = scaleIndex.toFloat(),
+                    onValueChange = { viewModel.setFontScale(FONT_SCALES[it.roundToInt()]) },
+                    valueRange = 0f..(FONT_SCALES.size - 1).toFloat(),
+                    steps = FONT_SCALES.size - 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    FONT_SCALE_LABELS.forEach { label ->
+                        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("AaBbCc 123", style = MaterialTheme.typography.displaySmall)
+                Text(
+                    stringResource(R.string.settings_font_size_preview),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.settings_reply_style_title), style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(8.dp))

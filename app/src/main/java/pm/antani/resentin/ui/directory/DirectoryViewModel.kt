@@ -9,18 +9,23 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pm.antani.resentin.R
 import pm.antani.resentin.net.dto.DirectoryEntryDto
 import pm.antani.resentin.net.dto.DirectoryPageDto
+import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.domain.repository.NetworksRepository
+import pm.antani.resentin.irc.canonicalTarget
 
 private const val REFRESH_POLL_INTERVAL_MS = 2_000L
 private const val REFRESH_POLL_MAX_ATTEMPTS = 8
 
 data class DirectoryUiState(
     val entries: List<DirectoryEntryDto> = emptyList(),
+    val featured: List<FeaturedChannelDto> = emptyList(),
+    val joinedChannels: Set<String> = emptySet(),
     val status: String = "empty",
     val capturedAt: String? = null,
     val sort: String = "users",
@@ -29,7 +34,9 @@ data class DirectoryUiState(
     val isLoading: Boolean = false,
     val isLoadingMore: Boolean = false,
     val isRefreshing: Boolean = false,
+    val isFeaturedLoading: Boolean = false,
     val error: String? = null,
+    val featuredError: String? = null,
     val joined: String? = null,
 )
 
@@ -41,9 +48,22 @@ class DirectoryViewModel(
 
     private val _uiState = MutableStateFlow(DirectoryUiState())
     val uiState: StateFlow<DirectoryUiState> = _uiState.asStateFlow()
+    private var featuredRequestId = 0
 
     init {
         load()
+        loadFeatured()
+        viewModelScope.launch {
+            networksRepository.networksWithChannels.collect { networks ->
+                val joined = networks.firstOrNull { it.network.slug == networkSlug }
+                    ?.channels
+                    ?.filter { it.joined }
+                    ?.map { canonicalTarget(it.name) }
+                    ?.toSet()
+                    ?: emptySet()
+                _uiState.update { it.copy(joinedChannels = joined) }
+            }
+        }
     }
 
     fun load() {
@@ -53,6 +73,22 @@ class DirectoryViewModel(
                 _uiState.update { it.copy(isLoading = false, entries = page.entries, nextCursor = page.nextCursor, status = page.status, capturedAt = page.capturedAt) }
             }.onFailure {
                 _uiState.update { state -> state.copy(isLoading = false, error = it.message ?: context.getString(R.string.home_unknown_error)) }
+            }
+        }
+    }
+
+    fun loadFeatured() {
+        val requestId = ++featuredRequestId
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFeaturedLoading = true, featuredError = null) }
+            val result = networksRepository.getFeaturedChannels(networkSlug)
+            if (requestId != featuredRequestId) return@launch
+            _uiState.update { state ->
+                reduceFeaturedResult(
+                    state,
+                    result,
+                    context.getString(R.string.directory_featured_unavailable),
+                )
             }
         }
     }
@@ -95,6 +131,7 @@ class DirectoryViewModel(
      * so this is the pragmatic client-side wait. Stops early once the status is no
      * longer "refreshing". */
     fun refresh() {
+        loadFeatured()
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true, error = null) }
             networksRepository.refreshDirectory(networkSlug).onFailure {
@@ -112,6 +149,10 @@ class DirectoryViewModel(
     }
 
     fun joinChannel(name: String) {
+        if (isJoinedChannel(name, _uiState.value.joinedChannels)) {
+            _uiState.update { it.copy(joined = name) }
+            return
+        }
         viewModelScope.launch {
             networksRepository.joinChannel(networkSlug, name)
                 .onSuccess { _uiState.update { it.copy(joined = name) } }
@@ -138,3 +179,20 @@ class DirectoryViewModel(
             }
     }
 }
+
+
+internal fun reduceFeaturedResult(
+    state: DirectoryUiState,
+    result: Result<List<FeaturedChannelDto>>,
+    errorMessage: String,
+): DirectoryUiState = result.fold(
+    onSuccess = { featured ->
+        state.copy(featured = featured, isFeaturedLoading = false, featuredError = null)
+    },
+    onFailure = {
+        state.copy(isFeaturedLoading = false, featuredError = errorMessage)
+    },
+)
+
+internal fun isJoinedChannel(name: String, joinedChannels: Set<String>): Boolean =
+    canonicalTarget(name) in joinedChannels
