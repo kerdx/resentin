@@ -232,28 +232,7 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         onCheckedChange = { viewModel.toggleColoredNicklist() },
                     )
                 }
-                Spacer(Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_show_peer_profiles))
-                        Text(
-                            stringResource(R.string.settings_show_peer_profiles_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Switch(
-                        checked = state.showPeerProfiles,
-                        enabled = state.showPeerProfilesLoaded,
-                        onCheckedChange = viewModel::setShowPeerProfiles,
-                    )
-                }
-                state.showPeerProfilesError?.let { error ->
-                    Spacer(Modifier.height(4.dp))
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
+
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.settings_chat_display), style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(8.dp))

@@ -208,8 +208,6 @@
     <string name="settings_stay_connected">Resta connesso in background</string>
     <string name="settings_stay_connected_desc">Mantiene la connessione attiva e mostra notifiche per i messaggi privati e le menzioni</string>
     <string name="settings_colored_nicklist">Nick colorati</string>
-    <string name="settings_show_peer_profiles">Mostra profili/avatar degli utenti</string>
-    <string name="settings_show_peer_profiles_desc">Permette al server di recuperare gli avatar degli utenti. Si applica alla prossima connessione e può generare richieste per più utenti del canale.</string>
     <string name="settings_reply_style_title">Comportamento di risposta</string>
     <string name="settings_reply_style_nick">Nick</string>
     <string name="settings_reply_style_quote">Citazione</string>

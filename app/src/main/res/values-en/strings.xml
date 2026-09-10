@@ -208,8 +208,6 @@
     <string name="settings_stay_connected">Stay connected in background</string>
     <string name="settings_stay_connected_desc">Keeps the connection alive and shows notifications for direct messages and mentions</string>
     <string name="settings_colored_nicklist">Colored nicks</string>
-    <string name="settings_show_peer_profiles">Show user profiles/avatars</string>
-    <string name="settings_show_peer_profiles_desc">Allows the server to retrieve users’ avatars. It applies on the next connection and may request profiles for multiple channel users.</string>
     <string name="settings_reply_style_title">Reply behavior</string>
     <string name="settings_reply_style_nick">Nick</string>
     <string name="settings_reply_style_quote">Quote</string>
