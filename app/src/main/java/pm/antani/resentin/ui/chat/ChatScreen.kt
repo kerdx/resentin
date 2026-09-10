@@ -192,6 +192,7 @@ fun ChatScreen(
     val displayMode by viewModel.chatDisplayMode.collectAsState()
     val showSeconds by viewModel.showSeconds.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
+    val isSending by viewModel.isSending.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val coloredNicklist by viewModel.coloredNicklist.collectAsState()
     val showHostmaskInEvents by viewModel.showHostmaskInEvents.collectAsState()
@@ -457,9 +458,18 @@ fun ChatScreen(
                 )
                 IconButton(
                     onClick = viewModel::send,
+                    enabled = !isSending,
                     modifier = Modifier.size(44.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send), tint = MaterialTheme.colorScheme.onPrimary)
+                    if (isSending) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send), tint = MaterialTheme.colorScheme.onPrimary)
+                    }
                 }
                     }
                 }

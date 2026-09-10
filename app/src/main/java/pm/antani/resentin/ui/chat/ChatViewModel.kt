@@ -162,6 +162,9 @@ class ChatViewModel(
 
     private var lastMarkedRead = 0L
 
+    private val _isSending = MutableStateFlow(false)
+    val isSending: StateFlow<Boolean> = _isSending.asStateFlow()
+
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
@@ -290,14 +293,23 @@ class ChatViewModel(
     }
 
     private fun sendMessage(text: String) {
+        // Set this synchronously before launching the coroutine: a second tap can
+        // otherwise enqueue another identical request while the first one awaits the
+        // network response and before the draft is cleared.
+        if (_isSending.value) return
+        _isSending.value = true
         viewModelScope.launch {
-            runCatching {
-                channelReady.await()
-                chatRepository.sendMessage(networkSlug, channelName, text).getOrThrow()
-            }.onSuccess {
-                // Do not erase text typed while the request was in flight.
-                if (_draft.value.trim() == text) setDraft("")
-            }.onFailure { _error.value = it.message }
+            try {
+                runCatching {
+                    channelReady.await()
+                    chatRepository.sendMessage(networkSlug, channelName, text).getOrThrow()
+                }.onSuccess {
+                    // Do not erase text typed while the request was in flight.
+                    if (_draft.value.trim() == text) setDraft("")
+                }.onFailure { _error.value = it.message }
+            } finally {
+                _isSending.value = false
+            }
         }
     }
 
