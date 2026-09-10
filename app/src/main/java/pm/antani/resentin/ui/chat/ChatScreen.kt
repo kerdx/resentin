@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,18 +31,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,7 +47,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
@@ -89,6 +88,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -106,6 +106,7 @@ import pm.antani.resentin.irc.containsMention
 import pm.antani.resentin.irc.highestSigil
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.ui.common.MircText
+import pm.antani.resentin.ui.common.ResentinHeaderAction
 import pm.antani.resentin.ui.common.UserCardSheet
 import pm.antani.resentin.ui.common.colorForNick
 import pm.antani.resentin.ui.common.mircAnnotatedString
@@ -333,12 +334,26 @@ fun ChatScreen(
                             title,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        Text(
-                            networkSlug,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                            ),
+                        ) {
+                            Text(
+                                networkSlug,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            )
+                        }
                         // "(+rnt) topic text" — modes prefix the topic line the way a
                         // classic IRC client's status bar does, shown even without a
                         // topic set so the channel's mode flags stay visible either way.
@@ -358,48 +373,39 @@ fun ChatScreen(
                     }
                     }
                 },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
-                    }
-                },
                 actions = {
-                    IconButton(onClick = viewModel::refresh, enabled = !isRefreshing) {
-                        if (isRefreshing) {
-                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh))
-                        }
-                    }
+                    ResentinHeaderAction(
+                        onClick = viewModel::refresh,
+                        icon = Icons.Outlined.Refresh,
+                        contentDescription = stringResource(R.string.cd_refresh),
+                        enabled = !isRefreshing,
+                        loading = isRefreshing,
+                    )
                     if (isQuery) {
                         // In a query, `title` IS the partner's nick (see AppRoot's
                         // ChatScreen call site) — the same nick onMessageLongPress
                         // already knows how to resolve into a WHOIS lookup.
-                        IconButton(onClick = { viewModel.onMessageLongPress(title) }) {
-                            Icon(Icons.Default.Person, contentDescription = stringResource(R.string.cd_user_info))
-                        }
+                        ResentinHeaderAction(
+                            onClick = { viewModel.onMessageLongPress(title) },
+                            icon = Icons.Outlined.Person,
+                            contentDescription = stringResource(R.string.cd_user_info),
+                        )
                     } else {
-                        IconButton(onClick = onMembersClick) {
-                            BadgedBox(
-                                badge = {
-                                    Badge {
-                                        Text(members.size.toString())
-                                    }
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Default.Group,
-                                    contentDescription = pluralStringResource(
-                                        R.plurals.cd_members_count,
-                                        members.size,
-                                        members.size,
-                                    ),
-                                )
-                            }
-                        }
-                        IconButton(onClick = onSettingsClick) {
-                            Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_channel_settings))
-                        }
+                        ResentinHeaderAction(
+                            onClick = onMembersClick,
+                            icon = Icons.Outlined.Group,
+                            contentDescription = pluralStringResource(
+                                R.plurals.cd_members_count,
+                                members.size,
+                                members.size,
+                            ),
+                            badgeText = members.size.toString(),
+                        )
+                        ResentinHeaderAction(
+                            onClick = onSettingsClick,
+                            icon = Icons.Outlined.Settings,
+                            contentDescription = stringResource(R.string.cd_channel_settings),
+                        )
                     }
                 },
             )
@@ -445,9 +451,13 @@ fun ChatScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 2.dp,
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    ),
+                    tonalElevation = 0.dp,
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(4.dp),
@@ -456,14 +466,15 @@ fun ChatScreen(
                 IconButton(
                     onClick = { filePicker.launch("*/*") },
                     enabled = !isUploading,
+                    modifier = Modifier.size(40.dp),
                 ) {
                     if (isUploading) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
-                        Icon(Icons.Default.AttachFile, contentDescription = stringResource(R.string.cd_attach_file))
+                        Icon(Icons.Outlined.AttachFile, contentDescription = stringResource(R.string.cd_attach_file))
                     }
                 }
-                OutlinedTextField(
+                TextField(
                     value = draftFieldValue,
                     onValueChange = { newValue ->
                         draftFieldValue = newValue
@@ -481,11 +492,18 @@ fun ChatScreen(
                         },
                     placeholder = { Text(stringResource(R.string.chat_message_placeholder)) },
                     shape = RoundedCornerShape(20.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                        unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                        disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                        focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    ),
                 )
                 IconButton(
                     onClick = viewModel::send,
                     enabled = !isSending,
-                    modifier = Modifier.size(44.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+                    modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
                 ) {
                     if (isSending) {
                         CircularProgressIndicator(
@@ -494,7 +512,12 @@ fun ChatScreen(
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
                     } else {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.cd_send), tint = MaterialTheme.colorScheme.onPrimary)
+                        Icon(
+                            Icons.AutoMirrored.Outlined.Send,
+                            contentDescription = stringResource(R.string.cd_send),
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(20.dp),
+                        )
                     }
                 }
                     }
@@ -509,6 +532,10 @@ fun ChatScreen(
                         item(key = "unread-divider") { UnreadDivider() }
                     }
                     item(key = message.id) {
+                        val previous = messages.getOrNull(index - 1)
+                        val tight = previous != null &&
+                            previous.sender.equals(message.sender, ignoreCase = true) &&
+                            previous.kind == message.kind
                         MessageRow(
                             message = message,
                             members = members,
@@ -524,6 +551,7 @@ fun ChatScreen(
                                 longPressedMessageText = text
                                 viewModel.onMessageLongPress(nick)
                             },
+                            tight = tight,
                         )
                     }
                 }
@@ -534,6 +562,29 @@ fun ChatScreen(
                     modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
                 )
             }
+            // Pill con la data in cima mentre si scorre, stile Telegram: mostra il
+            // giorno del primo messaggio visibile (Oggi / Ieri / 8 settembre).
+            val topVisibleTime by remember {
+                derivedStateOf {
+                    if (messages.isEmpty()) {
+                        null
+                    } else {
+                        val first = listState.firstVisibleItemIndex
+                        val messageIndex = if (dividerIndex != null && first > dividerIndex) {
+                            first - 1
+                        } else {
+                            first
+                        }
+                        messages.getOrNull(messageIndex.coerceIn(messages.indices))?.serverTime
+                    }
+                }
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = listState.isScrollInProgress && topVisibleTime != null,
+                modifier = Modifier.align(Alignment.TopCenter),
+            ) {
+                topVisibleTime?.let { DateChip(timeMillis = it) }
+            }
             if (hasScrolledInitially && messages.isNotEmpty() && !isAtBottom) {
                 val scope = rememberCoroutineScope()
                 SmallFloatingActionButton(
@@ -543,7 +594,7 @@ fun ChatScreen(
                     },
                     modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                 ) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.cd_scroll_to_bottom))
+                    Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = stringResource(R.string.cd_scroll_to_bottom))
                 }
             }
         }
@@ -579,7 +630,16 @@ fun ChatScreen(
     if (showTopicDialog && topic != null) {
         AlertDialog(
             onDismissRequest = { showTopicDialog = false },
-            title = { Text(stringResource(R.string.chat_topic_dialog_title)) },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 0.dp,
+            title = {
+                Text(
+                    stringResource(R.string.chat_topic_dialog_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
             text = { MircText(text = topic!!, style = MaterialTheme.typography.bodyMedium) },
             confirmButton = {
                 TextButton(onClick = { showTopicDialog = false }) {
@@ -686,19 +746,61 @@ private fun findMentionSuggestions(query: String, members: List<MemberEntity>): 
         .toList()
 
 @Composable
+private fun DateChip(timeMillis: Long, modifier: Modifier = Modifier) {
+    val zone = ZoneId.systemDefault()
+    val date = Instant.ofEpochMilli(timeMillis).atZone(zone).toLocalDate()
+    val today = LocalDate.now(zone)
+    val label = when (date) {
+        today -> stringResource(R.string.chat_date_today)
+        today.minusDays(1) -> stringResource(R.string.chat_date_yesterday)
+        else -> {
+            val pattern = if (date.year == today.year) "d MMMM" else "d MMMM yyyy"
+            DateTimeFormatter.ofPattern(pattern, java.util.Locale.getDefault()).format(date)
+        }
+    }
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        shadowElevation = 4.dp,
+        modifier = modifier.padding(top = 8.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+        )
+    }
+}
+
+@Composable
 private fun UnreadDivider() {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
-        Text(
-            text = stringResource(R.string.chat_unread_divider),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 8.dp),
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
         )
-        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+            modifier = Modifier.padding(horizontal = 8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.chat_unread_divider),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            )
+        }
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
+        )
     }
 }
 
@@ -779,6 +881,7 @@ private fun MessageRow(
     isMine: Boolean,
     onReply: (nick: String, body: String) -> Unit,
     onLongPress: (nick: String, text: String) -> Unit,
+    tight: Boolean = false,
 ) {
     val meta = remember(message.metaJson) {
         runCatching { AppJson.parseToJsonElement(message.metaJson).jsonObject }
@@ -793,17 +896,47 @@ private fun MessageRow(
     when (formatted) {
         is FormattedEvent.System -> {
             val eventText = systemEventText(formatted, showHostmaskInEvents)
-            MircText(
-                text = "$eventText · $time",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp)
-                    .pointerInput(formatted.sender, eventText) {
-                        detectTapGestures(onLongPress = { onLongPress(formatted.sender, eventText) })
-                    },
-            )
+            if (displayMode == ChatDisplayMode.IRC_LINE) {
+                // Monoriga IRC anche per gli eventi: stessa riga compatta
+                // monospace della conversazione, niente pill.
+                MircText(
+                    text = "[$time] -!- $eventText",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 2.dp)
+                        .pointerInput(formatted.sender, eventText) {
+                            detectTapGestures(onLongPress = { onLongPress(formatted.sender, eventText) })
+                        },
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        ),
+                        modifier = Modifier.pointerInput(formatted.sender, eventText) {
+                            detectTapGestures(onLongPress = { onLongPress(formatted.sender, eventText) })
+                        },
+                    ) {
+                        MircText(
+                            text = "$eventText · $time",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+            }
         }
         is FormattedEvent.Chat -> {
             SwipeToReply(
@@ -817,6 +950,7 @@ private fun MessageRow(
                         message, formatted, prefix, time, coloredNicklist, isMention,
                         isPrivate = isQuery,
                         isMine = isMine,
+                        tight = tight,
                     )
                 }
             }
@@ -856,26 +990,46 @@ private fun BubbleRow(
     isMention: Boolean,
     isPrivate: Boolean,
     isMine: Boolean,
+    tight: Boolean = false,
 ) {
+    val isOwnPrivate = isPrivate && isMine
+    val bubbleColor = when {
+        isMention -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)
+        isOwnPrivate -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val bubbleBorder = when {
+        isMention -> BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f))
+        isOwnPrivate -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+        else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(mentionHighlight(isMention))
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = if (tight) 2.dp else 8.dp),
         // Query messages use the same left-aligned conversation flow as IRC chat.
         // The sender is still differentiated by the bubble tint below, not by
         // switching sides of the conversation.
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.Top,
     ) {
+        if (isMention) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 4.dp, end = 6.dp)
+                    .size(width = 2.dp, height = 40.dp)
+                    .background(MaterialTheme.colorScheme.tertiary, CircleShape),
+            )
+        }
         Surface(
             modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(18.dp),
-            color = if (isPrivate && isMine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
-            tonalElevation = 1.dp,
+            shape = RoundedCornerShape(20.dp),
+            color = bubbleColor,
+            border = bubbleBorder,
+            tonalElevation = 0.dp,
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 if (formatted.isAction) {
                     Row(verticalAlignment = Alignment.Bottom) {
@@ -890,7 +1044,8 @@ private fun BubbleRow(
                         Text(
                             text = time,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(top = 2.dp),
                         )
                     }
                 } else {
@@ -901,14 +1056,15 @@ private fun BubbleRow(
                             } else {
                                 prefix + message.sender
                             },
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                             color = if (coloredNicklist) colorForNick(message.sender) else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.weight(1f),
                         )
                         Text(
                             text = time,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(top = 2.dp),
                         )
                     }
                     MircText(text = formatted.text, style = MaterialTheme.typography.bodyLarge)
@@ -980,7 +1136,7 @@ private fun SwipeToReply(onReply: () -> Unit, onLongPress: () -> Unit, content: 
             .pointerInput(Unit) { detectTapGestures(onLongPress = { onLongPress() }) },
     ) {
         Icon(
-            Icons.AutoMirrored.Filled.ArrowForward,
+            Icons.AutoMirrored.Outlined.ArrowForward,
             contentDescription = stringResource(R.string.cd_reply),
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier

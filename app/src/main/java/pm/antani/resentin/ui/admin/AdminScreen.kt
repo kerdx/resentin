@@ -1,24 +1,32 @@
 package pm.antani.resentin.ui.admin
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -43,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import pm.antani.resentin.R
 import pm.antani.resentin.net.dto.NetworkAdminDto
@@ -50,6 +59,7 @@ import pm.antani.resentin.net.dto.SessionAdminDto
 import pm.antani.resentin.net.dto.UserAdminDto
 import pm.antani.resentin.net.dto.VhostAdminDto
 import pm.antani.resentin.net.dto.VisitorAdminDto
+import pm.antani.resentin.ui.common.ResentinHeaderAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,21 +78,33 @@ fun AdminScreen(viewModel: AdminViewModel, onBack: () -> Unit) {
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text(stringResource(R.string.admin_title)) },
+                    title = {
+                        Text(
+                            stringResource(R.string.admin_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    },
                     navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
-                        }
+                        ResentinHeaderAction(
+                            onClick = onBack,
+                            icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back),
+                        )
                     },
                     actions = {
                         if (state.tab == AdminTab.NETWORKS || state.tab == AdminTab.VHOSTS || state.tab == AdminTab.USERS) {
-                            IconButton(onClick = { showCreateDialog = true }) {
-                                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_new_chat))
-                            }
+                            ResentinHeaderAction(
+                                onClick = { showCreateDialog = true },
+                                icon = Icons.Outlined.Add,
+                                contentDescription = stringResource(R.string.cd_new_chat),
+                            )
                         }
-                        IconButton(onClick = viewModel::refreshAll) {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh))
-                        }
+                        ResentinHeaderAction(
+                            onClick = viewModel::refreshAll,
+                            icon = Icons.Outlined.Refresh,
+                            contentDescription = stringResource(R.string.cd_refresh),
+                        )
                     },
                 )
                 TabRow(selectedTabIndex = state.tab.ordinal) {
@@ -168,14 +190,15 @@ private fun NetworksTab(networks: List<NetworkAdminDto>, viewModel: AdminViewMod
     if (networks.isEmpty()) {
         EmptyHint(stringResource(R.string.admin_networks_empty))
     } else {
-        LazyColumn(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = adminListPadding(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             items(networks, key = { it.id }) { network ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                AdminRowCard {
                     Column(Modifier.weight(1f)) {
-                        Text(network.slug, style = MaterialTheme.typography.bodyLarge)
+                        Text(network.slug, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                         Text(
                             stringResource(
                                 R.string.admin_network_caps,
@@ -189,13 +212,13 @@ private fun NetworksTab(networks: List<NetworkAdminDto>, viewModel: AdminViewMod
                     Text(stringResource(R.string.admin_network_visitors_label), style = MaterialTheme.typography.bodySmall)
                     Switch(checked = network.visitorEnabled, onCheckedChange = { viewModel.toggleVisitorEnabled(network) })
                     IconButton(onClick = { editing = network }) {
-                        Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.admin_edit_network))
+                        Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.admin_edit_network))
                     }
                     IconButton(onClick = { addServerFor = network }) {
-                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.admin_add_server))
+                        Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.admin_add_server))
                     }
                     IconButton(onClick = { pendingDelete = network }) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_remove))
+                        Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
                     }
                 }
             }
@@ -243,7 +266,16 @@ private fun EditNetworkDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.admin_edit_network_title, network.slug)) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
+        title = {
+            Text(
+                stringResource(R.string.admin_edit_network_title, network.slug),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
         text = {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -261,6 +293,7 @@ private fun EditNetworkDialog(
                     onValueChange = { maxVisitor = it.filter(Char::isDigit) },
                     label = { Text(stringResource(R.string.admin_cap_visitor_label)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -268,6 +301,7 @@ private fun EditNetworkDialog(
                     onValueChange = { maxUser = it.filter(Char::isDigit) },
                     label = { Text(stringResource(R.string.admin_cap_user_label)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -275,6 +309,7 @@ private fun EditNetworkDialog(
                     onValueChange = { maxPerIp = it.filter(Char::isDigit) },
                     label = { Text(stringResource(R.string.admin_cap_per_ip_label)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -298,14 +333,15 @@ private fun VhostsTab(vhosts: List<VhostAdminDto>, viewModel: AdminViewModel) {
     if (vhosts.isEmpty()) {
         EmptyHint(stringResource(R.string.admin_vhosts_empty))
     } else {
-        LazyColumn(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = adminListPadding(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             items(vhosts, key = { it.id }) { vhost ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                AdminRowCard {
                     Column(Modifier.weight(1f)) {
-                        Text(vhost.address, style = MaterialTheme.typography.bodyLarge)
+                        Text(vhost.address, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                         val flags = listOfNotNull(
                             stringResource(R.string.admin_vhost_pool).takeIf { vhost.inPool },
                             stringResource(R.string.admin_vhost_available).takeIf { vhost.generallyAvailable },
@@ -315,7 +351,7 @@ private fun VhostsTab(vhosts: List<VhostAdminDto>, viewModel: AdminViewModel) {
                         }
                     }
                     IconButton(onClick = { pendingDelete = vhost }) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_remove))
+                        Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
                     }
                 }
             }
@@ -337,14 +373,15 @@ private fun UsersTab(users: List<UserAdminDto>, viewModel: AdminViewModel) {
     if (users.isEmpty()) {
         EmptyHint(stringResource(R.string.admin_users_empty))
     } else {
-        LazyColumn(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = adminListPadding(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             items(users, key = { it.id }) { user ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                AdminRowCard {
                     Column(Modifier.weight(1f)) {
-                        Text(user.name, style = MaterialTheme.typography.bodyLarge)
+                        Text(user.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                         Text(
                             stringResource(R.string.admin_user_sessions, user.liveSessionCount),
                             style = MaterialTheme.typography.bodySmall,
@@ -354,7 +391,7 @@ private fun UsersTab(users: List<UserAdminDto>, viewModel: AdminViewModel) {
                     Text(stringResource(R.string.admin_user_admin_label), style = MaterialTheme.typography.bodySmall)
                     Switch(checked = user.isAdmin, onCheckedChange = { viewModel.toggleUserAdmin(user) })
                     IconButton(onClick = { pendingDelete = user }) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_remove))
+                        Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
                     }
                 }
             }
@@ -376,14 +413,19 @@ private fun SessionsTab(sessions: List<SessionAdminDto>, networks: List<NetworkA
     if (sessions.isEmpty()) {
         EmptyHint(stringResource(R.string.admin_sessions_empty))
     } else {
-        LazyColumn(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = adminListPadding(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             items(sessions, key = { it.compositeId }) { session ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                AdminRowCard {
                     Column(Modifier.weight(1f)) {
-                        Text(session.subjectLabel ?: session.subjectId, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            session.subjectLabel ?: session.subjectId,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                        )
                         Text(
                             stringResource(
                                 R.string.admin_session_meta,
@@ -396,10 +438,10 @@ private fun SessionsTab(sessions: List<SessionAdminDto>, networks: List<NetworkA
                         )
                     }
                     IconButton(onClick = { viewModel.disconnectSession(session) }) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.admin_session_disconnect))
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.admin_session_disconnect))
                     }
                     IconButton(onClick = { viewModel.killSession(session) }) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.admin_session_kill))
+                        Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.admin_session_kill))
                     }
                 }
             }
@@ -424,21 +466,29 @@ private fun VisitorsTab(visitors: List<VisitorAdminDto>, lastSweepCount: Int?, v
                     )
                 }
             }
-            Button(onClick = viewModel::sweepVisitors) {
+            Button(
+                onClick = viewModel::sweepVisitors,
+                shape = RoundedCornerShape(16.dp),
+            ) {
                 Text(stringResource(R.string.admin_sweep_now))
             }
         }
         if (visitors.isEmpty()) {
             EmptyHint(stringResource(R.string.admin_visitors_empty))
         } else {
-            LazyColumn(Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = adminListPadding(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 items(visitors, key = { it.id }) { visitor ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                    AdminRowCard {
                         Column(Modifier.weight(1f)) {
-                            Text(visitor.ip ?: visitor.id, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                visitor.ip ?: visitor.id,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                            )
                             Text(
                                 if (visitor.identified) {
                                     stringResource(R.string.admin_visitor_identified)
@@ -450,7 +500,7 @@ private fun VisitorsTab(visitors: List<VisitorAdminDto>, lastSweepCount: Int?, v
                             )
                         }
                         IconButton(onClick = { pendingDelete = visitor }) {
-                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_remove))
+                            Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
                         }
                     }
                 }
@@ -470,15 +520,49 @@ private fun VisitorsTab(visitors: List<VisitorAdminDto>, lastSweepCount: Int?, v
 @Composable
 private fun EmptyHint(text: String) {
     Box(Modifier.fillMaxSize()) {
-        Text(text, modifier = Modifier.align(Alignment.Center))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.Center),
+        )
     }
 }
+
+@Composable
+private fun AdminRowCard(content: @Composable RowScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            content()
+        }
+    }
+}
+
+private fun adminListPadding() = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)
 
 @Composable
 private fun ConfirmDialog(title: String, message: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
+        title = {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
         text = { Text(message) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.archive_delete_action)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.home_dialog_cancel)) } },
@@ -490,9 +574,25 @@ private fun SingleFieldDialog(title: String, hint: String, onDismiss: () -> Unit
     var value by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
+        title = {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
         text = {
-            OutlinedTextField(value = value, onValueChange = { value = it }, placeholder = { Text(hint) }, singleLine = true)
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it },
+                placeholder = { Text(hint) },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+            )
         },
         confirmButton = {
             TextButton(onClick = { onCreate(value.trim()) }, enabled = value.isNotBlank()) {
@@ -508,13 +608,24 @@ private fun NewNetworkDialog(onDismiss: () -> Unit, onCreate: (slug: String) -> 
     var slug by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.admin_new_network_title)) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
+        title = {
+            Text(
+                stringResource(R.string.admin_new_network_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
         text = {
             OutlinedTextField(
                 value = slug,
                 onValueChange = { slug = it },
                 placeholder = { Text(stringResource(R.string.admin_new_network_hint)) },
                 singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
@@ -533,7 +644,16 @@ private fun AddServerDialog(networkSlug: String, onDismiss: () -> Unit, onCreate
     var tls by remember { mutableStateOf(true) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.admin_add_server_title, networkSlug)) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
+        title = {
+            Text(
+                stringResource(R.string.admin_add_server_title, networkSlug),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
         text = {
             Column {
                 OutlinedTextField(
@@ -541,14 +661,16 @@ private fun AddServerDialog(networkSlug: String, onDismiss: () -> Unit, onCreate
                     onValueChange = { host = it },
                     placeholder = { Text(stringResource(R.string.admin_server_host_hint)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = port,
                     onValueChange = { port = it.filter(Char::isDigit) },
                     placeholder = { Text(stringResource(R.string.admin_server_port_hint)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -575,7 +697,16 @@ private fun NewUserDialog(onDismiss: () -> Unit, onCreate: (name: String, passwo
     var password by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.admin_new_user_title)) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
+        title = {
+            Text(
+                stringResource(R.string.admin_new_user_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
         text = {
             Column {
                 OutlinedTextField(
@@ -583,14 +714,16 @@ private fun NewUserDialog(onDismiss: () -> Unit, onCreate: (name: String, passwo
                     onValueChange = { name = it },
                     placeholder = { Text(stringResource(R.string.admin_user_name_hint)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     placeholder = { Text(stringResource(R.string.admin_user_password_hint)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

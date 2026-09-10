@@ -20,17 +20,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -63,6 +69,7 @@ import pm.antani.resentin.data.prefs.ChatDisplayMode
 import pm.antani.resentin.data.prefs.ReplyStyle
 import pm.antani.resentin.net.dto.PushSubscriptionSummaryDto
 import pm.antani.resentin.net.dto.VhostOptionDto
+import pm.antani.resentin.ui.common.ResentinHeaderAction
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -197,44 +204,74 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
+                title = {
+                    Text(
+                        stringResource(R.string.settings_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
-                    }
+                    ResentinHeaderAction(
+                        onClick = onBack,
+                        icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = stringResource(R.string.cd_back),
+                    )
                 },
             )
         },
     ) { padding ->
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).imePadding().padding(16.dp)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 8.dp,
+                bottom = 24.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_stay_connected))
+                ResentinSectionCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.settings_stay_connected),
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            )
+                            Text(
+                                stringResource(R.string.settings_stay_connected_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = stayConnected, onCheckedChange = ::onStayConnectedChange)
+                    }
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Text(
-                            stringResource(R.string.settings_stay_connected_desc),
-                            style = MaterialTheme.typography.bodySmall,
+                            stringResource(R.string.settings_colored_nicklist),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(
+                            checked = state.displayPrefs.coloredNicklist,
+                            onCheckedChange = { viewModel.toggleColoredNicklist() },
                         )
                     }
-                    Switch(checked = stayConnected, onCheckedChange = ::onStayConnectedChange)
                 }
-                Spacer(Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_colored_nicklist), modifier = Modifier.weight(1f))
-                    Switch(
-                        checked = state.displayPrefs.coloredNicklist,
-                        onCheckedChange = { viewModel.toggleColoredNicklist() },
-                    )
-                }
-
-                Spacer(Modifier.height(24.dp))
-                Text(stringResource(R.string.settings_chat_display), style = MaterialTheme.typography.bodyLarge)
+            }
+            item {
+                ResentinSectionCard(title = stringResource(R.string.settings_chat_display)) {
                 Spacer(Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
                     FilterChip(
@@ -259,10 +296,14 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_show_seconds))
+                        Text(
+                            stringResource(R.string.settings_show_seconds),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        )
                         Text(
                             stringResource(R.string.settings_show_seconds_desc),
                             style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Switch(checked = showSeconds, onCheckedChange = viewModel::setShowSeconds)
@@ -273,10 +314,14 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_show_hostmask))
+                        Text(
+                            stringResource(R.string.settings_show_hostmask),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        )
                         Text(
                             stringResource(R.string.settings_show_hostmask_desc),
                             style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Switch(checked = showHostmaskInEvents, onCheckedChange = viewModel::setShowHostmaskInEvents)
@@ -287,16 +332,22 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_unread_first))
+                        Text(
+                            stringResource(R.string.settings_unread_first),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        )
                         Text(
                             stringResource(R.string.settings_unread_first_desc),
                             style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Switch(checked = unreadFirst, onCheckedChange = viewModel::setUnreadFirst)
                 }
-                Spacer(Modifier.height(16.dp))
-                Text(stringResource(R.string.settings_font_size), style = MaterialTheme.typography.bodyLarge)
+            }
+            }
+            item {
+                ResentinSectionCard(title = stringResource(R.string.settings_font_size)) {
                 Spacer(Modifier.height(8.dp))
                 // Fixed five-stop slider (XS–XXL): discrete writes, live theme preview.
                 val scaleIndex = FONT_SCALES.indices.minByOrNull { kotlin.math.abs(FONT_SCALES[it] - fontScale) } ?: 2
@@ -319,8 +370,10 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(24.dp))
-                Text(stringResource(R.string.settings_reply_style_title), style = MaterialTheme.typography.bodyLarge)
+            }
+            }
+            item {
+                ResentinSectionCard(title = stringResource(R.string.settings_reply_style_title)) {
                 Spacer(Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
                     FilterChip(
@@ -348,6 +401,7 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         onValueChange = viewModel::onReplyCustomTemplateChange,
                         placeholder = { Text(stringResource(R.string.settings_reply_custom_hint)) },
                         singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
@@ -356,7 +410,10 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Button(onClick = viewModel::saveReplyCustomTemplate) {
+                        Button(
+                            onClick = viewModel::saveReplyCustomTemplate,
+                            shape = RoundedCornerShape(16.dp),
+                        ) {
                             Text(stringResource(R.string.network_settings_save))
                         }
                         if (state.replyCustomTemplateSaved) {
@@ -365,8 +422,10 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         }
                     }
                 }
-                Spacer(Modifier.height(24.dp))
-                Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.bodyLarge)
+            }
+            }
+            item {
+                ResentinSectionCard(title = stringResource(R.string.settings_language)) {
                 Spacer(Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
                     FilterChip(
@@ -387,8 +446,10 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         label = { Text(stringResource(R.string.settings_language_english)) },
                     )
                 }
-                Spacer(Modifier.height(24.dp))
-                Text(stringResource(R.string.settings_auto_away_title), style = MaterialTheme.typography.bodyLarge)
+            }
+            }
+            item {
+                ResentinSectionCard(title = stringResource(R.string.settings_auto_away_title)) {
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.settings_auto_away_label))
                 Spacer(Modifier.height(8.dp))
@@ -435,28 +496,36 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         label = { Text(stringResource(R.string.settings_auto_away_custom_seconds)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
-                    Button(onClick = { viewModel.saveAutoAwayCustomDraft(autoAwayInvalidInputMessage) }) {
+                    Button(
+                        onClick = { viewModel.saveAutoAwayCustomDraft(autoAwayInvalidInputMessage) },
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
                         Text(stringResource(R.string.network_settings_save))
                     }
                 }
                 Text(
                     stringResource(R.string.settings_auto_away_desc),
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 state.autoAwaySavingError?.let { error ->
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
-                if (state.vhostOptions.isNotEmpty()) {
-                    Spacer(Modifier.height(24.dp))
-                    Text(stringResource(R.string.settings_vhost_title), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        stringResource(R.string.settings_vhost_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Spacer(Modifier.height(8.dp))
+            }
+            }
+            if (state.vhostOptions.isNotEmpty()) {
+                item {
+                    ResentinSectionCard(title = stringResource(R.string.settings_vhost_title)) {
+                        Text(
+                            stringResource(R.string.settings_vhost_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             items(state.vhostOptions, key = { it.address }) { option ->
@@ -469,20 +538,26 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
             item {
                 state.vhostError?.let { error ->
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(12.dp))
                 }
-                Spacer(Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_push_enabled))
-                        Text(
-                            stringResource(R.string.settings_push_enabled_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                ResentinSectionCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.settings_push_enabled),
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            )
+                            Text(
+                                stringResource(R.string.settings_push_enabled_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = pushEnabled, onCheckedChange = ::onPushEnabledChange)
                     }
-                    Switch(checked = pushEnabled, onCheckedChange = ::onPushEnabledChange)
                 }
                 state.pushError?.let { error ->
                     Spacer(Modifier.height(4.dp))
@@ -498,7 +573,11 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                 }
                 if (state.pushSubscriptions.isNotEmpty()) {
                     Spacer(Modifier.height(16.dp))
-                    Text(stringResource(R.string.settings_push_devices), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.settings_push_devices),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
             }
             items(state.pushSubscriptions, key = { it.id }) { subscription ->
@@ -509,9 +588,12 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                 )
             }
             item {
-                Spacer(Modifier.height(24.dp))
-                Text(stringResource(R.string.settings_aliases), style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.settings_aliases),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
             }
             items(state.aliases.entries.toList(), key = { it.key }) { (name, expansion) ->
                 Row(
@@ -523,48 +605,61 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         Text(expansion, style = MaterialTheme.typography.bodySmall)
                     }
                     IconButton(onClick = { viewModel.removeAlias(name) }) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_remove))
+                        Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
                     }
                 }
             }
             item {
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = state.newAliasName,
-                    onValueChange = viewModel::onNewAliasNameChange,
-                    label = { Text(stringResource(R.string.settings_alias_name_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = state.newAliasExpansion,
-                    onValueChange = viewModel::onNewAliasExpansionChange,
-                    label = { Text(stringResource(R.string.settings_alias_expansion_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = viewModel::addAlias, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.settings_add_alias))
-                }
-                state.error?.let { error ->
+                ResentinSectionCard {
+                    OutlinedTextField(
+                        value = state.newAliasName,
+                        onValueChange = viewModel::onNewAliasNameChange,
+                        label = { Text(stringResource(R.string.settings_alias_name_label)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     Spacer(Modifier.height(8.dp))
-                    Text(error, color = MaterialTheme.colorScheme.error)
+                    OutlinedTextField(
+                        value = state.newAliasExpansion,
+                        onValueChange = viewModel::onNewAliasExpansionChange,
+                        label = { Text(stringResource(R.string.settings_alias_expansion_label)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = viewModel::addAlias,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.settings_add_alias))
+                    }
+                    state.error?.let { error ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(error, color = MaterialTheme.colorScheme.error)
+                    }
                 }
-                Spacer(Modifier.height(24.dp))
-                Text(stringResource(R.string.settings_storage_title), style = MaterialTheme.typography.bodyLarge)
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { showClearMessagesConfirm = true },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.settings_clear_messages, formatByteSize(messageDbSizeBytes)))
-                }
-                if (state.isAdmin) {
-                    Spacer(Modifier.height(24.dp))
-                    OutlinedButton(onClick = onAdminClick, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.settings_admin_panel))
+            }
+            item {
+                ResentinSectionCard(title = stringResource(R.string.settings_storage_title)) {
+                    OutlinedButton(
+                        onClick = { showClearMessagesConfirm = true },
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.settings_clear_messages, formatByteSize(messageDbSizeBytes)))
+                    }
+                    if (state.isAdmin) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = onAdminClick,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.settings_admin_panel))
+                        }
                     }
                 }
             }
@@ -574,7 +669,16 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     if (showClearMessagesConfirm) {
         AlertDialog(
             onDismissRequest = { showClearMessagesConfirm = false },
-            title = { Text(stringResource(R.string.settings_clear_messages_confirm_title)) },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 0.dp,
+            title = {
+                Text(
+                    stringResource(R.string.settings_clear_messages_confirm_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
             text = { Text(stringResource(R.string.settings_clear_messages_confirm_body)) },
             confirmButton = {
                 TextButton(
@@ -592,6 +696,28 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun ResentinSectionCard(
+    title: String? = null,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            title?.let {
+                Text(it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+            }
+            content()
+        }
     }
 }
 
@@ -621,7 +747,7 @@ private fun PushSubscriptionRow(
             )
         }
         IconButton(onClick = onRevoke) {
-            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.settings_push_revoke))
+            Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.settings_push_revoke))
         }
     }
 }

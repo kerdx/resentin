@@ -168,6 +168,8 @@
     <string name="chat_topic_dialog_title">Topic</string>
     <string name="chat_dialog_close">Chiudi</string>
     <string name="chat_unread_divider">Hai letto fino a qui</string>
+    <string name="chat_date_today">Oggi</string>
+    <string name="chat_date_yesterday">Ieri</string>
     <string name="cd_reply">Rispondi</string>
     <string name="chat_upload_failed">Impossibile leggere il file</string>
     <string name="chat_slash_syntax_me">/me &lt;testo&gt;</string>

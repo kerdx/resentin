@@ -352,10 +352,21 @@ class ChatViewModel(
             }
             "part" -> {
                 val target = argument?.takeIf(::isChannelName) ?: channelName
-                val reason = if (argument != null && isChannelName(argument)) args.drop(1) else args
-                networksRepository.partChannel(networkSlug, target, reason.joinToString(" ").ifBlank { null }).getOrThrow()
-                setDraft("")
-                if (canonicalTarget(target) == canonicalTarget(channelName)) _commandEffects.emit(ChatCommandEffect.CloseChat)
+                if (!isChannelName(target)) {
+                    // Closing a DM window, not leaving a channel — a REST PART on a
+                    // nick is meaningless, so use the query-window verb plus the same
+                    // optimistic local removal as Home's close action.
+                    val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                    membersRepository.closeQueryWindow(subject, networkId, target)
+                    networksRepository.closeLocalQuery(networkSlug, target)
+                    setDraft("")
+                    _commandEffects.emit(ChatCommandEffect.CloseChat)
+                } else {
+                    val reason = if (argument != null && isChannelName(argument)) args.drop(1) else args
+                    networksRepository.partChannel(networkSlug, target, reason.joinToString(" ").ifBlank { null }).getOrThrow()
+                    setDraft("")
+                    if (canonicalTarget(target) == canonicalTarget(channelName)) _commandEffects.emit(ChatCommandEffect.CloseChat)
+                }
             }
             "cycle" -> {
                 val target = argument?.takeIf(::isChannelName) ?: channelName

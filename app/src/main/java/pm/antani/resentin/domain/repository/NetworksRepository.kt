@@ -241,14 +241,24 @@ class NetworksRepository(
      * full reconnect. Best-effort: the subject may be unknown (signed out mid-call) or
      * the topic may never have been joined this session, either of which is harmless to
      * skip — there's nothing live to tear down. */
-    suspend fun partChannel(slug: String, channel: String, reason: String? = null): Result<Unit> = runCatching {
-        val api = authRepository.api(NetworkSettingsApi::class.java)
+    suspend fun partChannel(slug: String, channel: String, reason: String? = null): Result<Unit> = runCatching {        val api = authRepository.api(NetworkSettingsApi::class.java)
         val response = api.partChannel(slug, channel, reason)
         check(response.isSuccessful) { "HTTP ${response.code()}" }
         authRepository.session.value?.wsSubject?.let { subject ->
             connectionManager.leaveChannel(channelTopic(subject, slug, channel))
         }
         refresh().getOrThrow()
+    }
+
+    /** Drops a DM window locally right after `close_query_window` succeeds. The server
+     * does not reliably re-broadcast `query_windows_list` on close, so waiting for it
+     * leaves dead query rows in Home (reported as "the DM never disappears"). Same
+     * Phoenix-topic teardown as [partChannel], best-effort. */
+    suspend fun closeLocalQuery(slug: String, nick: String) {
+        db.channelDao().deleteQuery(slug, nick)
+        authRepository.session.value?.wsSubject?.let { subject ->
+            connectionManager.leaveChannel(channelTopic(subject, slug, nick))
+        }
     }
 
     /** JOINs [name] (a channel, optionally +k-keyed) on [slug]. The row appears via the

@@ -1,6 +1,7 @@
 package pm.antani.resentin.ui.channelsettings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -14,22 +15,23 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.NotificationsOff
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -61,6 +63,7 @@ import java.time.format.FormatStyle
 import pm.antani.resentin.R
 import pm.antani.resentin.domain.repository.ServerMute
 import pm.antani.resentin.net.dto.BanlistEntryDto
+import pm.antani.resentin.ui.common.ResentinHeaderAction
 
 private val LIST_MODE_FALLBACK = listOf("b", "e", "I", "q")
 
@@ -84,11 +87,21 @@ fun ChannelSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
-                    }
+                    ResentinHeaderAction(
+                        onClick = onBack,
+                        icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = stringResource(R.string.cd_back),
+                    )
                 },
             )
         },
@@ -104,13 +117,14 @@ fun ChannelSettingsScreen(
         ) {
             item {
                 ChannelSettingsSection(
-                    icon = Icons.Default.Tag,
+                    icon = Icons.Outlined.Tag,
                     title = stringResource(R.string.channel_settings_topic_label),
                 ) {
                     OutlinedTextField(
                         value = state.topic,
                         onValueChange = viewModel::onTopicChange,
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
                         minLines = 2,
                     )
                     state.error?.let { error ->
@@ -122,7 +136,12 @@ fun ChannelSettingsScreen(
                         Text(stringResource(R.string.channel_settings_topic_updated), color = MaterialTheme.colorScheme.primary)
                     }
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = viewModel::saveTopic, enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = viewModel::saveTopic,
+                        enabled = !state.isSaving,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Text(stringResource(R.string.channel_settings_update_topic))
                     }
                 }
@@ -130,7 +149,7 @@ fun ChannelSettingsScreen(
 
             item {
                 ChannelSettingsSection(
-                    icon = Icons.Default.Settings,
+                    icon = Icons.Outlined.Settings,
                     title = stringResource(R.string.channel_settings_modes_title),
                 ) {
                     FlowRow(
@@ -154,12 +173,14 @@ fun ChannelSettingsScreen(
                             onValueChange = viewModel::onRawModeInputChange,
                             placeholder = { Text(stringResource(R.string.channel_settings_raw_mode_hint)) },
                             singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(8.dp))
                         Button(
                             onClick = viewModel::applyRawMode,
                             enabled = state.rawModeInput.isNotBlank(),
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(R.string.channel_settings_apply_mode))
@@ -169,7 +190,7 @@ fun ChannelSettingsScreen(
             }
             item {
                 ChannelSettingsSection(
-                    icon = Icons.Default.Settings,
+                    icon = Icons.Outlined.Settings,
                     title = stringResource(R.string.settings_title),
                 ) {
                     Row(
@@ -228,7 +249,10 @@ fun ChannelSettingsScreen(
                         }
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                    )
 
                     Column {
                         Text(stringResource(R.string.channel_settings_presence_title), style = MaterialTheme.typography.bodyLarge)
@@ -256,7 +280,10 @@ fun ChannelSettingsScreen(
                         }
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                    )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -276,7 +303,7 @@ fun ChannelSettingsScreen(
             }
             item {
                 ChannelSettingsSection(
-                    icon = Icons.Default.Tag,
+                    icon = Icons.Outlined.Tag,
                     title = stringResource(R.string.channel_settings_lists_title),
                 ) {
                     val letters = state.listModeLetters.ifEmpty { LIST_MODE_FALLBACK }
@@ -303,7 +330,10 @@ fun ChannelSettingsScreen(
                                 onRemove = { viewModel.removeListModeEntry(entry.mask) },
                             )
                             if (index < state.banlistEntries.lastIndex) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                )
                             }
                         }
                     }
@@ -318,10 +348,15 @@ fun ChannelSettingsScreen(
                                 onValueChange = viewModel::onNewMaskChange,
                                 placeholder = { Text(stringResource(R.string.channel_settings_new_mask_hint)) },
                                 singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier.weight(1f),
                             )
                             Spacer(Modifier.width(8.dp))
-                            Button(onClick = viewModel::addListModeEntry, enabled = state.newMaskInput.isNotBlank()) {
+                            Button(
+                                onClick = viewModel::addListModeEntry,
+                                enabled = state.newMaskInput.isNotBlank(),
+                                shape = RoundedCornerShape(16.dp),
+                            ) {
                                 Text(stringResource(R.string.channel_settings_add_mask))
                             }
                         }
@@ -331,12 +366,14 @@ fun ChannelSettingsScreen(
 
             item {
                 ChannelSettingsSection(
-                    icon = Icons.Default.Delete,
+                    icon = Icons.Outlined.Delete,
                     title = stringResource(R.string.channel_settings_part),
+                    danger = true,
                 ) {
                     OutlinedButton(
                         onClick = viewModel::part,
                         enabled = !state.isSaving,
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(stringResource(R.string.channel_settings_part), color = MaterialTheme.colorScheme.error)
@@ -352,27 +389,39 @@ private fun ChannelSettingsSection(
     icon: ImageVector,
     title: String,
     description: String? = null,
+    danger: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    ElevatedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier.size(40.dp),
                     shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = if (danger) {
+                        MaterialTheme.colorScheme.errorContainer
+                    } else {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    },
                 ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        modifier = Modifier.padding(10.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = if (danger) {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            },
+                        )
+                    }
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -408,7 +457,7 @@ private fun BanlistRow(entry: BanlistEntryDto, canRemove: Boolean, onRemove: () 
         }
         if (canRemove) {
             IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_remove))
+                Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
             }
         }
     }
