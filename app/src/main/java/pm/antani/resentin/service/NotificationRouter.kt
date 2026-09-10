@@ -125,7 +125,7 @@ class NotificationRouter(
         )
         val bucket = queryBucket(message, nick)
         if (!shouldNotify(message, openChatTracker.current.value, nick, bucket)) return
-        postNotification(message, bucket)
+        postNotification(message, bucket, nick)
     }
 
     /** Fallback for a push this client received but could not decrypt (see
@@ -245,7 +245,7 @@ class NotificationRouter(
             )
             val bucket = queryBucket(message, nick)
             if (shouldNotify(message, openChatTracker.current.value, nick, bucket)) {
-                postNotification(message, bucket)
+                postNotification(message, bucket, nick)
             }
         }
         return result.isSuccess
@@ -266,7 +266,7 @@ class NotificationRouter(
                 "bucket=$bucket myNick=$nick openChat=${openChatTracker.current.value} -> notify=$notify",
         )
         if (!notify) return
-        postNotification(message, bucket)
+        postNotification(message, bucket, nick)
     }
 
     /** One notification per conversation (not per message): reuses the same
@@ -274,7 +274,7 @@ class NotificationRouter(
      * messages from the same person show as a single growing thread — like every other
      * messenger — instead of stacking a separate notification per message under
      * `setGroup`'s collapsed header. */
-    private fun postNotification(message: ScrollbackMessageDto, bucket: String) {
+    private fun postNotification(message: ScrollbackMessageDto, bucket: String, myNick: String) {
         ensureChannel()
         val conversationId = conversationNotificationId(message.network, bucket)
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -290,7 +290,7 @@ class NotificationRouter(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val style = existingMessagingStyle(conversationId)
-            ?: NotificationCompat.MessagingStyle(Person.Builder().setName("").build())
+            ?: NotificationCompat.MessagingStyle(Person.Builder().setName(myNick).build())
         style.conversationTitle = bucket
         style.addMessage(message.body, message.serverTime, Person.Builder().setName(message.sender).build())
 
