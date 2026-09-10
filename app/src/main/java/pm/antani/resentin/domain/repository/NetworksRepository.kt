@@ -30,12 +30,14 @@ import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.net.dto.IdentityUpdateDto
 import pm.antani.resentin.net.dto.JoinChannelRequestDto
 import pm.antani.resentin.net.dto.NetworkDto
+import pm.antani.resentin.net.dto.NotifyRequestDto
 import pm.antani.resentin.net.dto.PerformDto
 import pm.antani.resentin.net.dto.PerformUpdateDto
 import pm.antani.resentin.net.dto.QueryWindowsListDto
 import pm.antani.resentin.net.dto.TopicUpdateDto
 import pm.antani.resentin.net.rest.NetworkSettingsApi
 import pm.antani.resentin.net.rest.NetworksApi
+import pm.antani.resentin.net.rest.NotifyApi
 
 private const val SERVER_PSEUDO_CHANNEL = "\$server"
 
@@ -201,14 +203,23 @@ class NetworksRepository(
             refresh().getOrThrow()
         }
 
-    suspend fun updateConnectionState(slug: String, connected: Boolean): Result<Unit> = runCatching {
+    suspend fun updateConnectionState(slug: String, connected: Boolean, reason: String? = null): Result<Unit> = runCatching {
         val api = authRepository.api(NetworkSettingsApi::class.java)
         val state = if (connected) "connected" else "parked"
-        val response = api.updateConnectionState(slug, ConnectionStateUpdateDto(state))
+        val response = api.updateConnectionState(slug, ConnectionStateUpdateDto(state, reason))
         check(response.isSuccessful) { "HTTP ${response.code()}" }
         refresh().getOrThrow()
     }
 
+    suspend fun addNotify(slug: String, nicks: List<String>): Result<Unit> = runCatching {
+        val response = authRepository.api(NotifyApi::class.java).add(slug, NotifyRequestDto(nicks))
+        check(response.isSuccessful) { "HTTP ${response.code()}" }
+    }
+
+    suspend fun removeNotify(slug: String, nick: String): Result<Unit> = runCatching {
+        val response = authRepository.api(NotifyApi::class.java).remove(slug, nick)
+        check(response.isSuccessful) { "HTTP ${response.code()}" }
+    }
     suspend fun getPerform(slug: String): Result<PerformDto> = runCatching {
         authRepository.api(NetworkSettingsApi::class.java).getPerform(slug)
     }
@@ -230,9 +241,9 @@ class NetworksRepository(
      * full reconnect. Best-effort: the subject may be unknown (signed out mid-call) or
      * the topic may never have been joined this session, either of which is harmless to
      * skip — there's nothing live to tear down. */
-    suspend fun partChannel(slug: String, channel: String): Result<Unit> = runCatching {
+    suspend fun partChannel(slug: String, channel: String, reason: String? = null): Result<Unit> = runCatching {
         val api = authRepository.api(NetworkSettingsApi::class.java)
-        val response = api.partChannel(slug, channel)
+        val response = api.partChannel(slug, channel, reason)
         check(response.isSuccessful) { "HTTP ${response.code()}" }
         authRepository.session.value?.wsSubject?.let { subject ->
             connectionManager.leaveChannel(channelTopic(subject, slug, channel))

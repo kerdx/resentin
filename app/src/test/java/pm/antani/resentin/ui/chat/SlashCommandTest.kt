@@ -37,11 +37,25 @@ class SlashCommandTest {
 
     @Test
     fun filtersSuggestionsOnlyBeforeArguments() {
-        assertEquals(listOf("whois"), suggestSlashCommands("/wh").map { it.name })
-        assertEquals(7, suggestSlashCommands("/").size)
+        assertEquals(listOf("whois", "whowas", "who"), suggestSlashCommands("/wh").map { it.name })
+        assertEquals(slashCommandCatalog.size, suggestSlashCommands("/").size)
         assertTrue(suggestSlashCommands("/whois ").isEmpty())
         assertTrue(suggestSlashCommands("hello /").isEmpty())
-        assertTrue(suggestSlashCommands("/not").isEmpty())
+        assertEquals(listOf("notify"), suggestSlashCommands("/not").map { it.name })
+    }
+
+    @Test
+    fun parsesQuotedArgumentsAndSuggestsDynamicValues() {
+        assertParsed("/kick mario \"via chat\"", "kick", listOf("mario", "via chat"))
+        assertEquals(listOf("luigi", "mario"), suggestSlashArguments("/whois ", listOf("mario", "luigi"), emptyList(), emptyList()).map { it.value })
+        assertEquals(listOf("#linux"), suggestSlashArguments("/join #l", emptyList(), listOf("#linux", "#offtopic"), emptyList()).map { it.value })
+        assertEquals(listOf("grappa"), suggestSlashArguments("/connect g", emptyList(), emptyList(), listOf("grappa", "libera")).map { it.value })
+    }
+
+    @Test
+    fun expandsUserAliasWithoutShadowingBuiltIns() {
+        assertEquals("/query mario", expandUserSlashAlias("/dm mario", mapOf("dm" to "/query " + '$' + "1")))
+        assertEquals(null, expandUserSlashAlias("/query mario", mapOf("query" to "/whois " + '$' + "1")))
     }
 
     @Test

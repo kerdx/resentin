@@ -45,13 +45,15 @@ import pm.antani.resentin.ui.common.UserCardController
 sealed interface ChatCommandEffect {
     data class OpenChannel(val channelName: String) : ChatCommandEffect
     data object CloseChat : ChatCommandEffect
+    data object OpenChannelSettings : ChatCommandEffect
+    data object OpenAppSettings : ChatCommandEffect
 }
 class ChatViewModel(
     private val chatRepository: ChatRepository,
     private val networksRepository: NetworksRepository,
-    membersRepository: MembersRepository,
+    private val membersRepository: MembersRepository,
     ignoresRepository: IgnoresRepository,
-    authRepository: AuthRepository,
+    private val authRepository: AuthRepository,
     private val userSettingsRepository: UserSettingsRepository,
     private val appPreferences: AppPreferences,
     private val connectionManager: ConnectionManager,
@@ -104,6 +106,14 @@ class ChatViewModel(
     val navigateToQuery = userCard.navigateToQuery
     // Exposed for the nick role-prefix (~&@%+) shown in both chat display modes.
     val members = userCard.members
+
+    val availableChannels: StateFlow<List<String>> = networksRepository.networksWithChannels
+        .map { networks -> networks.firstOrNull { it.network.slug.equals(networkSlug, ignoreCase = true) }?.channels.orEmpty().map { it.name }.filter { it.firstOrNull() in setOf('#', '&', '+', '!') }.distinct() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val availableNetworks: StateFlow<List<String>> = networksRepository.networksWithChannels
+        .map { networks -> networks.map { it.network.slug }.distinct() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val channelPresenceVisible: StateFlow<Boolean> = combine(
         userSettingsRepository.presencePinFlowFor(networkSlug, channelName),
@@ -277,25 +287,39 @@ class ChatViewModel(
         val rawText = _draft.value
         val text = rawText.trim()
         if (text.isBlank()) return
-        when (val parsed = parseSlashCommand(rawText)) {
-            SlashCommandParseResult.NotACommand -> sendMessage(text)
-            SlashCommandParseResult.Incomplete -> showSlashError(R.string.chat_slash_command_incomplete)
-            is SlashCommandParseResult.Invalid -> showSlashError(
-                when (parsed.error) {
-                    SlashCommandError.UnknownCommand -> R.string.chat_slash_command_unknown
-                    SlashCommandError.MissingArgument -> R.string.chat_slash_command_missing_argument
-                    SlashCommandError.InvalidArgument -> R.string.chat_slash_command_invalid_argument
-                },
-                "/${parsed.token}",
-            )
-            is SlashCommandParseResult.Parsed -> executeSlashCommand(parsed.command)
+        if (!rawText.startsWith("/")) {
+            sendMessage(text)
+            return
+        }
+        if (_isSending.value) return
+        _isSending.value = true
+        viewModelScope.launch {
+            try {
+                val aliases = userSettingsRepository.getAliases().getOrDefault(emptyMap())
+                val expanded = expandUserSlashAlias(rawText, aliases) ?: rawText
+                when (val parsed = parseSlashCommand(expanded)) {
+                    SlashCommandParseResult.NotACommand -> sendMessage(text)
+                    SlashCommandParseResult.Incomplete -> showSlashError(R.string.chat_slash_command_incomplete)
+                    is SlashCommandParseResult.Invalid -> showSlashError(
+                        when (parsed.error) {
+                            SlashCommandError.UnknownCommand -> R.string.chat_slash_command_unknown
+                            SlashCommandError.MissingArgument -> R.string.chat_slash_command_missing_argument
+                            SlashCommandError.InvalidArgument -> R.string.chat_slash_command_invalid_argument
+                        },
+                        "/${parsed.token}",
+                    )
+                    is SlashCommandParseResult.Parsed -> runCatching { executeSlashCommand(parsed.command) }
+                        .onFailure { failure -> _error.value = failure.message ?: appContext.getString(R.string.chat_slash_command_unsupported, "/${parsed.command.name}") }
+                }
+            } finally {
+                _isSending.value = false
+            }
         }
     }
 
     private fun sendMessage(text: String) {
-        // Set this synchronously before launching the coroutine: a second tap can
-        // otherwise enqueue another identical request while the first one awaits the
-        // network response and before the draft is cleared.
+        // Set this synchronously before launching: a second tap can otherwise enqueue
+        // another identical request while the first one awaits the network response.
         if (_isSending.value) return
         _isSending.value = true
         viewModelScope.launch {
@@ -304,7 +328,6 @@ class ChatViewModel(
                     channelReady.await()
                     chatRepository.sendMessage(networkSlug, channelName, text).getOrThrow()
                 }.onSuccess {
-                    // Do not erase text typed while the request was in flight.
                     if (_draft.value.trim() == text) setDraft("")
                 }.onFailure { _error.value = it.message }
             } finally {
@@ -313,54 +336,175 @@ class ChatViewModel(
         }
     }
 
+    private suspend fun executeSlashCommand(command: SlashCommand) {
+        val args = command.arguments
+        val argument = args.firstOrNull()
+        when (command.name) {
+            "me" -> {
+                chatRepository.sendMessage(networkSlug, channelName, args.joinToString(" "), channelName).getOrThrow()
+                setDraft("")
+            }
+            "join" -> {
+                channelReady.await()
+                networksRepository.joinChannel(networkSlug, requireNotNull(argument), args.getOrNull(1)).getOrThrow()
+                setDraft("")
+                _commandEffects.emit(ChatCommandEffect.OpenChannel(requireNotNull(argument)))
+            }
+            "part" -> {
+                val target = argument?.takeIf(::isChannelName) ?: channelName
+                val reason = if (argument != null && isChannelName(argument)) args.drop(1) else args
+                networksRepository.partChannel(networkSlug, target, reason.joinToString(" ").ifBlank { null }).getOrThrow()
+                setDraft("")
+                if (canonicalTarget(target) == canonicalTarget(channelName)) _commandEffects.emit(ChatCommandEffect.CloseChat)
+            }
+            "cycle" -> {
+                val target = argument?.takeIf(::isChannelName) ?: channelName
+                val reason = if (argument != null && isChannelName(argument)) args.drop(1) else args
+                networksRepository.partChannel(networkSlug, target, reason.joinToString(" ").ifBlank { null }).getOrThrow()
+                networksRepository.joinChannel(networkSlug, target).getOrThrow()
+                setDraft("")
+                _commandEffects.emit(ChatCommandEffect.OpenChannel(target))
+            }
+            "topic" -> {
+                check(!isQueryTarget(channelName)) { appContext.getString(R.string.chat_slash_channel_only) }
+                networksRepository.updateTopic(networkSlug, channelName, if (argument == "-delete") "" else args.joinToString(" ")).getOrThrow()
+                setDraft("")
+            }
+            "nick" -> {
+                networksRepository.updateIdentity(networkSlug, requireNotNull(argument), null, null).getOrThrow()
+                setDraft("")
+            }
+            "msg" -> {
+                val target = requireNotNull(argument)
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                membersRepository.openQueryWindow(subject, networkId, target)
+                chatRepository.sendMessage(networkSlug, target, args.drop(1).joinToString(" ")).getOrThrow()
+                setDraft("")
+                _commandEffects.emit(ChatCommandEffect.OpenChannel(target))
+            }
+            "query" -> {
+                contactPrivately(requireNotNull(argument))
+                setDraft("")
+            }
+            "whois" -> {
+                requestWhois(requireNotNull(argument))
+                setDraft("")
+            }
+            "names" -> {
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                membersRepository.requestNames(subject, networkId, requireNotNull(argument))
+                setDraft("")
+            }
+            "op", "deop", "voice", "devoice" -> {
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                membersRepository.setNickModes(subject, networkId, channelName, command.name, args)
+                setDraft("")
+            }
+            "kick" -> {
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                membersRepository.kick(subject, networkId, channelName, requireNotNull(argument), args.drop(1).joinToString(" ").ifBlank { null })
+                setDraft("")
+            }
+            "ban" -> {
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                membersRepository.ban(subject, networkId, channelName, requireNotNull(argument))
+                setDraft("")
+            }
+            "unban" -> {
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                membersRepository.unban(subject, networkId, channelName, requireNotNull(argument))
+                setDraft("")
+            }
+            "banlist" -> {
+                _commandEffects.emit(ChatCommandEffect.OpenChannelSettings)
+                setDraft("")
+            }
+            "invite" -> {
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                val targetChannel = args.getOrNull(1)?.takeIf(::isChannelName) ?: channelName
+                membersRepository.invite(subject, networkId, targetChannel, requireNotNull(argument))
+                setDraft("")
+            }
+            "umode" -> {
+                if (args.isEmpty()) {
+                    showSlashError(R.string.chat_slash_command_unsupported, "/umode")
+                } else {
+                    val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                    membersRepository.setMode(subject, networkId, myNick.value ?: username, args.first(), args.drop(1))
+                    setDraft("")
+                }
+            }
+            "mode" -> {
+                if (args.isEmpty()) {
+                    _commandEffects.emit(ChatCommandEffect.OpenChannelSettings)
+                } else {
+                    val target = args.first().takeIf(::isChannelName) ?: channelName
+                    val modeIndex = if (target == channelName) 0 else 1
+                    val modes = args.getOrNull(modeIndex) ?: error(appContext.getString(R.string.chat_slash_command_missing_argument, "/mode"))
+                    val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                    membersRepository.setMode(subject, networkId, target, modes, args.drop(modeIndex + 1))
+                }
+                setDraft("")
+            }
+            "notify" -> {
+                networksRepository.addNotify(networkSlug, args)
+                setDraft("")
+            }
+            "alias" -> {
+                if (args.isEmpty()) {
+                    _commandEffects.emit(ChatCommandEffect.OpenAppSettings)
+                } else {
+                    val name = requireNotNull(argument).lowercase()
+                    check(slashCommandCatalog.none { it.name.equals(name, true) || it.aliases.any { alias -> alias.equals(name, true) } }) { appContext.getString(R.string.chat_slash_alias_builtin) }
+                    val aliases = userSettingsRepository.getAliases().getOrThrow().toMutableMap()
+                    aliases[name] = args.drop(1).joinToString(" ")
+                    userSettingsRepository.updateAliases(aliases).getOrThrow()
+                    setDraft("")
+                }
+            }
+            "unalias" -> {
+                val aliases = userSettingsRepository.getAliases().getOrThrow().toMutableMap()
+                aliases.remove(requireNotNull(argument).lowercase())
+                userSettingsRepository.updateAliases(aliases).getOrThrow()
+                setDraft("")
+            }
+            "connect", "disconnect", "reconnect" -> {
+                val (targetNetwork, reason) = resolveNetworkAndReason(args, command.name == "connect")
+                when (command.name) {
+                    "connect" -> networksRepository.updateConnectionState(targetNetwork, true, reason.ifBlank { null }).getOrThrow()
+                    "disconnect" -> networksRepository.updateConnectionState(targetNetwork, false, reason.ifBlank { null }).getOrThrow()
+                    else -> {
+                        networksRepository.updateConnectionState(targetNetwork, false, reason.ifBlank { null }).getOrThrow()
+                        networksRepository.updateConnectionState(targetNetwork, true, reason.ifBlank { null }).getOrThrow()
+                    }
+                }
+                if (reason.isNotBlank()) Unit
+                setDraft("")
+            }
+            "quit" -> {
+                val reason = args.joinToString(" ").ifBlank { null }
+                networksRepository.networksWithChannels.first().forEach { networksRepository.updateConnectionState(it.network.slug, false, reason).getOrThrow() }
+                authRepository.detach()
+                setDraft("")
+            }
+            else -> showSlashError(R.string.chat_slash_command_unsupported, "/${command.name}")
+        }
+    }
+
+    private fun isChannelName(value: String): Boolean = value.firstOrNull() in setOf('#', '&', '+', '!')
+
+    private fun resolveNetworkAndReason(args: List<String>, networkRequired: Boolean): Pair<String, String> {
+        val candidate = args.firstOrNull()
+        val isNetwork = candidate != null && availableNetworks.value.any { it.equals(candidate, ignoreCase = true) }
+        if (networkRequired && !isNetwork) error(appContext.getString(R.string.chat_slash_command_invalid_argument, "/connect"))
+        return if (isNetwork) candidate!! to args.drop(1).joinToString(" ") else networkSlug to args.joinToString(" ")
+    }
+
     private fun showSlashError(messageRes: Int, argument: String? = null) {
         _error.value = if (argument == null) {
             appContext.getString(messageRes)
         } else {
             appContext.getString(messageRes, argument)
-        }
-    }
-
-    private fun executeSlashCommand(command: SlashCommand) {
-        val argument = command.arguments.firstOrNull()
-        when (command.name) {
-            "query" -> {
-                setDraft("")
-                contactPrivately(requireNotNull(argument))
-            }
-            "whois" -> {
-                setDraft("")
-                requestWhois(requireNotNull(argument))
-            }
-            "join" -> joinFromCommand(requireNotNull(argument))
-            "part" -> partFromCommand(argument)
-            else -> showSlashError(R.string.chat_slash_command_unsupported, "/${command.name}")
-        }
-    }
-
-    private fun joinFromCommand(channel: String) {
-        setDraft("")
-        viewModelScope.launch {
-            runCatching {
-                channelReady.await()
-                networksRepository.joinChannel(networkSlug, channel).getOrThrow()
-            }.onSuccess {
-                _commandEffects.emit(ChatCommandEffect.OpenChannel(channel))
-            }.onFailure { _error.value = it.message }
-        }
-    }
-
-    private fun partFromCommand(target: String?) {
-        val targetChannel = target ?: channelName
-        setDraft("")
-        viewModelScope.launch {
-            networksRepository.partChannel(networkSlug, targetChannel)
-                .onSuccess {
-                    if (canonicalTarget(targetChannel) == canonicalTarget(channelName)) {
-                        _commandEffects.emit(ChatCommandEffect.CloseChat)
-                    }
-                }
-                .onFailure { _error.value = it.message }
         }
     }
 

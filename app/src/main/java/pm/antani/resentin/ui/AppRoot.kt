@@ -244,6 +244,7 @@ fun AppRoot(
                 onSettingsClick = {
                     navController.navigate("channelsettings/$networkSlug/${encode(channelName)}")
                 },
+                onAppSettings = { navController.navigate(ROUTE_APP_SETTINGS) },
                 onOpenQuery = onOpenQuery,
                 onOpenChannel = { slug, channel ->
                     navController.navigate("chat/$slug/${encode(channel)}")

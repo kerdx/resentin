@@ -131,6 +131,7 @@ fun ChatScreen(
     onBack: () -> Unit,
     onMembersClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onAppSettings: () -> Unit = {},
     onOpenQuery: (networkSlug: String, nick: String) -> Unit,
     onOpenChannel: (networkSlug: String, channelName: String) -> Unit,
 ) {
@@ -168,6 +169,16 @@ fun ChatScreen(
     val slashSuggestions = remember(draftFieldValue.text) {
         suggestSlashCommands(draftFieldValue.text)
     }
+    val availableChannels by viewModel.availableChannels.collectAsState()
+    val availableNetworks by viewModel.availableNetworks.collectAsState()
+    val slashArgumentSuggestions = remember(draftFieldValue.text, members, availableChannels, availableNetworks) {
+        suggestSlashArguments(
+            draftFieldValue.text,
+            members.map { it.nick },
+            availableChannels,
+            availableNetworks,
+        )
+    }
 
     fun completeMention(nick: String) {
         val mention = activeMention ?: return
@@ -184,6 +195,13 @@ fun ChatScreen(
 
     fun completeSlashCommand(command: SlashCommandSpec) {
         val completion = completeSlashCommandInput(draftFieldValue.text, command)
+        val newValue = TextFieldValue(completion.text, TextRange(completion.cursor))
+        draftFieldValue = newValue
+        viewModel.onDraftChange(completion.text)
+        draftFocusRequester.requestFocus()
+    }
+    fun completeSlashArgument(suggestion: SlashArgumentSuggestion) {
+        val completion = completeSlashArgumentInput(draftFieldValue.text, suggestion)
         val newValue = TextFieldValue(completion.text, TextRange(completion.cursor))
         draftFieldValue = newValue
         viewModel.onDraftChange(completion.text)
@@ -217,6 +235,8 @@ fun ChatScreen(
             when (effect) {
                 is ChatCommandEffect.OpenChannel -> onOpenChannel(networkSlug, effect.channelName)
                 ChatCommandEffect.CloseChat -> onBack()
+                ChatCommandEffect.OpenChannelSettings -> onSettingsClick()
+                ChatCommandEffect.OpenAppSettings -> onAppSettings()
             }
         }
     }
@@ -395,6 +415,12 @@ fun ChatScreen(
                     SlashCommandSuggestions(
                         suggestions = slashSuggestions,
                         onSelect = ::completeSlashCommand,
+                    )
+                }
+                if (slashArgumentSuggestions.isNotEmpty()) {
+                    SlashArgumentSuggestions(
+                        suggestions = slashArgumentSuggestions,
+                        onSelect = ::completeSlashArgument,
                     )
                 }
                 if (mentionSuggestions.isNotEmpty()) {
@@ -583,11 +609,11 @@ internal fun SlashCommandSuggestions(
                             Column {
                                 Text("/${command.name}", fontWeight = FontWeight.Medium)
                                 Text(
-                                    stringResource(slashCommandSyntaxRes(command.name)),
+                                    stringResource(command.syntaxRes),
                                     style = MaterialTheme.typography.labelSmall,
                                 )
                                 Text(
-                                    stringResource(slashCommandDescriptionRes(command.name)),
+                                    stringResource(command.descriptionRes),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -602,33 +628,36 @@ internal fun SlashCommandSuggestions(
 }
 
 @Composable
+internal fun SlashArgumentSuggestions(
+    suggestions: List<SlashArgumentSuggestion>,
+    onSelect: (SlashArgumentSuggestion) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("slash-argument-suggestions"),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 3.dp,
+    ) {
+        LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+            suggestions.forEach { suggestion ->
+                item(key = "slash-argument-${suggestion.value}") {
+                    DropdownMenuItem(
+                        modifier = Modifier.testTag("slash-argument-${suggestion.value}"),
+                        text = { Text(suggestion.label) },
+                        onClick = { onSelect(suggestion) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 internal fun ChatErrorSnackbar(message: String, modifier: Modifier = Modifier) {
     Snackbar(modifier = modifier.testTag("chat-error-snackbar")) {
         Text(message)
     }
 }
 
-private fun slashCommandSyntaxRes(name: String): Int = when (name) {
-    "me" -> R.string.chat_slash_syntax_me
-    "join" -> R.string.chat_slash_syntax_join
-    "part" -> R.string.chat_slash_syntax_part
-    "whois" -> R.string.chat_slash_syntax_whois
-    "query" -> R.string.chat_slash_syntax_query
-    "away" -> R.string.chat_slash_syntax_away
-    "reconnect" -> R.string.chat_slash_syntax_reconnect
-    else -> R.string.chat_slash_syntax_unknown
-}
-
-private fun slashCommandDescriptionRes(name: String): Int = when (name) {
-    "me" -> R.string.chat_slash_description_me
-    "join" -> R.string.chat_slash_description_join
-    "part" -> R.string.chat_slash_description_part
-    "whois" -> R.string.chat_slash_description_whois
-    "query" -> R.string.chat_slash_description_query
-    "away" -> R.string.chat_slash_description_away
-    "reconnect" -> R.string.chat_slash_description_reconnect
-    else -> R.string.chat_slash_description_unknown
-}
 private data class MentionQuery(
     val start: Int,
     val end: Int,

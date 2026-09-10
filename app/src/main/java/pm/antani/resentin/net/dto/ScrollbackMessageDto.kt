@@ -23,4 +23,6 @@ data class MessageEventPayloadDto(
 @Serializable
 data class SendMessageDto(
     val body: String,
+    /** Optional CTCP relay target; grappa wraps the body as CTCP ACTION on the wire. */
+    val ctcpTarget: String? = null,
 )

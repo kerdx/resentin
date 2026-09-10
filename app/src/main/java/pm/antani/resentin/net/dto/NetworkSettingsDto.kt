@@ -12,6 +12,7 @@ data class IdentityUpdateDto(
 @Serializable
 data class ConnectionStateUpdateDto(
     val connectionState: String,
+    val reason: String? = null,
 )
 
 @Serializable
