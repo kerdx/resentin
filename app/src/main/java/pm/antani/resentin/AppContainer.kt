@@ -73,6 +73,14 @@ class AppContainer(private val context: Context) {
             }
         }
 
+        // Warm the server-owned presence pins too. The chat applies them to live
+        // rows, while the REST endpoint already applies them to historical pages.
+        appScope.launch {
+            tokenStore.session.filterNotNull().collect {
+                runCatching { userSettingsRepository.refreshDisplayPrefs() }
+            }
+        }
+
         // Battery-friendly sync: the WS stays open only while the app is actually
         // foreground (ProcessLifecycleOwner.currentStateFlow reaches STARTED on the
         // first Activity's onStart and drops below it once the last one stops — the

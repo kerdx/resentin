@@ -219,6 +219,7 @@ fun AppRoot(
                     container.membersRepository,
                     container.ignoresRepository,
                     container.authRepository,
+                    container.userSettingsRepository,
                     container.appPreferences,
                     container.connectionManager,
                     container.openChatTracker,

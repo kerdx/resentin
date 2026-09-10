@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -28,10 +29,14 @@ import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.IgnoresRepository
 import pm.antani.resentin.domain.repository.MembersRepository
 import pm.antani.resentin.domain.repository.NetworksRepository
+import pm.antani.resentin.domain.repository.UserSettingsRepository
 import pm.antani.resentin.domain.session.channelTopic
 import pm.antani.resentin.domain.session.ConnectionManager
 import pm.antani.resentin.domain.session.OpenChatTracker
 import pm.antani.resentin.domain.session.PendingShareHolder
+import pm.antani.resentin.irc.isMessageVisibleUnderPresenceFilter
+import pm.antani.resentin.irc.isQueryTarget
+import pm.antani.resentin.irc.presenceVisible
 import pm.antani.resentin.ui.common.UserCardController
 
 class ChatViewModel(
@@ -40,6 +45,7 @@ class ChatViewModel(
     membersRepository: MembersRepository,
     ignoresRepository: IgnoresRepository,
     authRepository: AuthRepository,
+    private val userSettingsRepository: UserSettingsRepository,
     private val appPreferences: AppPreferences,
     private val connectionManager: ConnectionManager,
     private val openChatTracker: OpenChatTracker,
@@ -50,9 +56,6 @@ class ChatViewModel(
     private val username: String,
     private val subject: String,
 ) : ViewModel() {
-
-    val messages: StateFlow<List<MessageEntity>> = chatRepository.observeMessages(networkSlug, channelName)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val topic: StateFlow<String?> = networksRepository.observeChannel(networkSlug, channelName)
         .map { it?.topic?.takeIf { topic -> topic.isNotBlank() } }
@@ -94,6 +97,24 @@ class ChatViewModel(
     val navigateToQuery = userCard.navigateToQuery
     // Exposed for the nick role-prefix (~&@%+) shown in both chat display modes.
     val members = userCard.members
+
+    private val channelPresenceVisible: StateFlow<Boolean> = combine(
+        userSettingsRepository.presencePinFlowFor(networkSlug, channelName),
+        members,
+    ) { pin, currentMembers ->
+        if (isQueryTarget(channelName)) true else presenceVisible(pin, currentMembers.size)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    // The server filters historical pages for a hidden presence pin. Apply the same
+    // rule locally to live WS rows, which the server still delivers for membership
+    // and window-state bookkeeping. Raw rows remain in Room.
+    val messages: StateFlow<List<MessageEntity>> = combine(
+        chatRepository.observeMessages(networkSlug, channelName),
+        channelPresenceVisible,
+        myNick,
+    ) { rows, visible, ownNick ->
+        rows.filter { row -> isMessageVisibleUnderPresenceFilter(row, visible, ownNick) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun onMessageLongPress(nick: String) = userCard.onNickClick(nick)
     fun dismissWhois() = userCard.dismissWhois()
@@ -277,6 +298,7 @@ class ChatViewModel(
             membersRepository: MembersRepository,
             ignoresRepository: IgnoresRepository,
             authRepository: AuthRepository,
+            userSettingsRepository: UserSettingsRepository,
             appPreferences: AppPreferences,
             connectionManager: ConnectionManager,
             openChatTracker: OpenChatTracker,
@@ -295,6 +317,7 @@ class ChatViewModel(
                     membersRepository,
                     ignoresRepository,
                     authRepository,
+                    userSettingsRepository,
                     appPreferences,
                     connectionManager,
                     openChatTracker,
