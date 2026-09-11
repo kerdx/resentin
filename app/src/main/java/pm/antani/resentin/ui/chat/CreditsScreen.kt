@@ -51,11 +51,21 @@ fun CreditsScreen(onClose: () -> Unit) {
                     setBackgroundColor(AndroidColor.BLACK)
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
+                    // Belt and braces alongside the classic-<script> fix in
+                    // index.html (module `import` across file:// origins was
+                    // the actual cause of the blank page): this WebView only
+                    // ever loads the one bundled asset page, never anything
+                    // remote, so relaxing file-origin access costs nothing here.
+                    @Suppress("DEPRECATION")
+                    settings.allowFileAccessFromFileURLs = true
+                    @Suppress("DEPRECATION")
+                    settings.allowUniversalAccessFromFileURLs = true
                     // The page's AudioContext starts on load, not on an in-page
                     // tap — the real user gesture was the /credits command
                     // itself, one layer up.
                     @Suppress("DEPRECATION")
                     settings.mediaPlaybackRequiresUserGesture = false
+                    if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
                     addJavascriptInterface(CreditsBridge(onClose), "ResentinCredits")
                     loadCreditsPage(this)
                 }

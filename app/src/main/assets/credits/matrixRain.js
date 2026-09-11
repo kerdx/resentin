@@ -13,7 +13,7 @@ const TRAIL_RGB = "255, 176, 0";
  * `{ glyphAlpha, fadeAlpha, leader, rowsPerFrame }`.
  * Returns a `stop()` that cancels the loop and disconnects the observer.
  */
-export function mountMatrixRain(canvas, look) {
+function mountMatrixRain(canvas, look) {
   const ctx = canvas.getContext("2d");
   if (ctx === null) return () => {};
 
@@ -90,5 +90,5 @@ export function mountMatrixRain(canvas, look) {
 }
 
 /** The two looks cicchetto's credits roll switches between (#1807/#1929). */
-export const CREDITS_RAIN_LOOK = { glyphAlpha: 0.3, fadeAlpha: 0.06, leader: "rgba(255, 232, 176, 0.95)", rowsPerFrame: 0.7 };
-export const CREDITS_RAIN_BURST_LOOK = { glyphAlpha: 0.45, fadeAlpha: 0.05, leader: "rgba(255, 255, 255, 1)", rowsPerFrame: 1 };
+const CREDITS_RAIN_LOOK = { glyphAlpha: 0.3, fadeAlpha: 0.06, leader: "rgba(255, 232, 176, 0.95)", rowsPerFrame: 0.7 };
+const CREDITS_RAIN_BURST_LOOK = { glyphAlpha: 0.45, fadeAlpha: 0.05, leader: "rgba(255, 255, 255, 1)", rowsPerFrame: 1 };

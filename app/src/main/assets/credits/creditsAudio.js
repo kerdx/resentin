@@ -173,10 +173,10 @@ const CADENCE_BAR = {
 };
 
 const STEP_S = 0.24;
-export const BAR_S = 8 * STEP_S;
-export const MOVEMENT_COUNT = MOVEMENTS.length;
-export const BAR_COUNT = MOVEMENTS[0].bars.length;
-export const PHRASE_S = BAR_COUNT * BAR_S;
+const BAR_S = 8 * STEP_S;
+const MOVEMENT_COUNT = MOVEMENTS.length;
+const BAR_COUNT = MOVEMENTS[0].bars.length;
+const PHRASE_S = BAR_COUNT * BAR_S;
 
 const ARP_S = STEP_S / 2;
 const HAT_S = 0.03;
@@ -184,7 +184,7 @@ const SNARE_S = 0.12;
 
 // Gain budget — quiet on purpose, this opens unasked for. PEAK_GAIN is the
 // master; every voice below declares its peak relative to it.
-export const PEAK_GAIN = 0.06;
+const PEAK_GAIN = 0.06;
 const LEAD_PEAK = 0.74;
 const LEAD_SOLO_PEAK = 1;
 const HARMONY_PEAK = 0.26;
@@ -227,19 +227,19 @@ function movementAtIndex(index) {
   return MOVEMENTS[wrap(index, MOVEMENT_COUNT)] ?? MOVEMENTS[0];
 }
 
-export function creditsBar(index, movement = 0) {
+function creditsBar(index, movement = 0) {
   return barEvents(movementAtIndex(movement), index);
 }
 
-export function creditsMovementName(index) {
+function creditsMovementName(index) {
   return movementAtIndex(index).name;
 }
 
-export function creditsManifestoBar(index) {
+function creditsManifestoBar(index) {
   return barEvents(MANIFESTO_MOVEMENT, index);
 }
 
-export function creditsCadence() {
+function creditsCadence() {
   return barEvents(CADENCE_BAR, 0);
 }
 
@@ -341,7 +341,7 @@ function pulseWave(ctx, duty) {
  * closes it. `movementAt` reads which pass of the roll is on screen; the
  * suite follows it, so the music turns over exactly when the titles do.
  */
-export function startCreditsArpeggio(ctx, muted, movementAt = () => 0) {
+function startCreditsArpeggio(ctx, muted, movementAt = () => 0) {
   const master = ctx.createGain();
   master.gain.value = muted ? 0 : PEAK_GAIN;
   master.connect(ctx.destination);

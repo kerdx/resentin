@@ -6,20 +6,14 @@
 // ponytail: dropped the "hold to read" touch-pause and the reading-speed-vs-
 // content-height pacing model — a fixed px/s crawl, which is what cic's own
 // pace amounts to for a set of typical length.
-
-import { startCreditsArpeggio, creditsMovementName, MOVEMENT_COUNT } from "./creditsAudio.js";
-import {
-  CREDITS_COW,
-  CREDITS_SPECIAL_THANKS,
-  RESENTIN_THANKS,
-  createProseDeck,
-  CREDITS_HEART,
-  CREDITS_FINALE_LINE,
-  CREDITS_CLOSE_LABEL,
-  CREDITS_MANIFESTO,
-  CREDITS_MANIFESTO_ATTRIBUTION,
-} from "./creditsText.js";
-import { mountMatrixRain, CREDITS_RAIN_LOOK, CREDITS_RAIN_BURST_LOOK } from "./matrixRain.js";
+//
+// Classic scripts, not ES modules: a WebView loading `file:///android_asset/`
+// treats each `file://` resource as its own opaque origin, and a
+// `<script type="module">` import across those is blocked by CORS (silently,
+// no visible error without remote debugging — the page just stays blank).
+// index.html loads creditsAudio.js / creditsText.js / matrixRain.js / main.js
+// as plain sequential <script> tags instead, so their top-level `const`s and
+// `function`s land in the one shared global scope this file reads directly.
 
 const params = new URLSearchParams(location.search);
 const RESENTIN_VERSION = params.get("version") ?? "";

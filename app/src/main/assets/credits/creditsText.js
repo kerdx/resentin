@@ -15,7 +15,7 @@ const COW_BODY = `        \\   ^__^
 
 const COW_SAYS = ["this grappa server", "has super cow powers"];
 
-export function cowSaying(said) {
+function cowSaying(said) {
   const spoken = typeof said === "string" ? [said] : said;
   const first = spoken[0] ?? "";
   if (spoken.length === 1) {
@@ -31,10 +31,10 @@ export function cowSaying(said) {
   return [rule("_"), ...walls, rule("-"), COW_BODY].join("\n");
 }
 
-export const CREDITS_COW = cowSaying(COW_SAYS);
+const CREDITS_COW = cowSaying(COW_SAYS);
 
 /** vjt's special thanks, exactly as dictated on issue 1929 — copied verbatim. */
-export const CREDITS_SPECIAL_THANKS = [
+const CREDITS_SPECIAL_THANKS = [
   { who: "Hypnotize, Mezmerize, Sonic, scorpion, joep", why: "for keeping Azzurra standing" },
   { who: "DeepSET / Johnny^Lizard", why: "for embracing grappa and spreading it far and wide" },
   { who: "tsk", why: "for suggesting Erlang" },
@@ -50,7 +50,7 @@ export const CREDITS_SPECIAL_THANKS = [
 // The prose deck — sixteen sets, shuffle-bagged so none repeats back to back.
 // ---------------------------------------------------------------------------
 
-export const CREDITS_PROSE = [
+const CREDITS_PROSE = [
   { title: "information wants to be free", paragraphs: [
     "Information wants to be free. The line gets quoted as if it meant free of charge. It never did. It means that something known costs nothing to pass on, and that every wall built to stop it is somebody's business model rather than a law of nature.",
     "Copyleft is that sentence written down as a licence: take this, change it, pass it on, and pass on the same permission you were given. It is the difference between a garden you are allowed to walk in and a garden you are allowed to plant in. The walled kind can be pleasant. It is still not yours, and the gate only opens one way.",
@@ -145,7 +145,7 @@ function shuffledIndices(count, random) {
 
 /** A shuffle bag: deals every set once before reshuffling, and never repeats
  * the previous bag's last set as the new bag's first. */
-export function createProseDeck(sets = CREDITS_PROSE, random = Math.random) {
+function createProseDeck(sets = CREDITS_PROSE, random = Math.random) {
   let bag = [];
   let last = null;
 
@@ -175,15 +175,15 @@ export function createProseDeck(sets = CREDITS_PROSE, random = Math.random) {
 // The finale — the manifesto and the closing line.
 // ---------------------------------------------------------------------------
 
-export const CREDITS_HEART = "<3";
-export const CREDITS_FINALE_LINE = "and that's the whole of the wire, folks.";
-export const CREDITS_CLOSE_LABEL = "click here to close";
+const CREDITS_HEART = "<3";
+const CREDITS_FINALE_LINE = "and that's the whole of the wire, folks.";
+const CREDITS_CLOSE_LABEL = "click here to close";
 
 /** "The Conscience of a Hacker" — The Mentor (Loyd Blankenship), Phrack Vol.
  * 1 Issue 7 Phile 3, 8 January 1986. Shipped in cic on vjt's explicit
  * decision (#grappa 2026-09-06): the project is open source and he will
  * comply with a takedown if one is ever asked for. */
-export const CREDITS_MANIFESTO = `\\/\\The Conscience of a Hacker/\\/
+const CREDITS_MANIFESTO = `\\/\\The Conscience of a Hacker/\\/
 
 by
 
@@ -226,7 +226,7 @@ I am a hacker, and this is my manifesto.  You may stop this individual, but you 
 
 +++The Mentor+++`;
 
-export const CREDITS_MANIFESTO_ATTRIBUTION =
+const CREDITS_MANIFESTO_ATTRIBUTION =
   "The Mentor (Loyd Blankenship) — Phrack Vol. 1, Issue 7, Phile 3, 8 January 1986";
 
 // ---------------------------------------------------------------------------
@@ -236,7 +236,7 @@ export const CREDITS_MANIFESTO_ATTRIBUTION =
 // `git shortlog`, mirroring grappa's own infra/packaging/credits.sh.
 // ---------------------------------------------------------------------------
 
-export const RESENTIN_THANKS = [
+const RESENTIN_THANKS = [
   { who: "grappa-irc & cicchetto", why: "the server and the API resentin talks to" },
   { who: "#grappa", why: "for the bug reports, the betatesting, and the company" },
 ];

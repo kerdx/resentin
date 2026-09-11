@@ -23,6 +23,13 @@
      when absent (a local/dev build that skipped the step) — see
      creditsText.js's buildResentinBlock(). -->
 <script src="credits-data.js"></script>
-<script type="module" src="main.js"></script>
+<!-- Classic scripts sharing one global scope, not ES modules — see main.js's
+     header comment: `type="module"` imports across file:// resources are
+     blocked by CORS in a WebView and fail silently. Order matters: each
+     later file reads names declared by the ones before it. -->
+<script src="creditsAudio.js"></script>
+<script src="creditsText.js"></script>
+<script src="matrixRain.js"></script>
+<script src="main.js"></script>
 </body>
 </html>
