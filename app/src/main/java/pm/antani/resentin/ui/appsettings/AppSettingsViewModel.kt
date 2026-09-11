@@ -50,6 +50,8 @@ data class AppSettingsUiState(
     val autoAwayCustomMode: Boolean = false,
     val autoAwayCustomDraft: String = "",
     val autoAwaySavingError: String? = null,
+    val newHighlight: String = "",
+    val highlightError: String? = null,
 )
 
 class AppSettingsViewModel(
@@ -182,6 +184,44 @@ class AppSettingsViewModel(
         }
         refreshVhostSettings()
         refreshAutoAwayDebounce()
+        refreshWatchlist()
+    }
+
+    // `/hilight` watchlist — server-side patterns, cached in the repository (same
+    // rationale as the auto-away preference above); this is just a passthrough plus
+    // the add/remove affordances, which need the WS subject for the user topic.
+    val highlightPatterns: StateFlow<List<String>?> = userSettingsRepository.highlightPatterns
+
+    private fun watchlistSubject(): String? = authRepository.session.value?.wsSubject
+
+    fun refreshWatchlist() {
+        viewModelScope.launch {
+            val subject = watchlistSubject() ?: return@launch
+            userSettingsRepository.refreshWatchlist(subject)
+                .onFailure { error -> _uiState.update { it.copy(highlightError = error.message) } }
+        }
+    }
+
+    fun onNewHighlightChange(value: String) =
+        _uiState.update { it.copy(newHighlight = value, highlightError = null) }
+
+    fun addHighlight() {
+        val pattern = _uiState.value.newHighlight.trim()
+        if (pattern.isEmpty()) return
+        viewModelScope.launch {
+            val subject = watchlistSubject() ?: return@launch
+            userSettingsRepository.addHighlight(subject, pattern)
+                .onSuccess { _uiState.update { it.copy(newHighlight = "", highlightError = null) } }
+                .onFailure { error -> _uiState.update { it.copy(highlightError = error.message) } }
+        }
+    }
+
+    fun removeHighlight(pattern: String) {
+        viewModelScope.launch {
+            val subject = watchlistSubject() ?: return@launch
+            userSettingsRepository.removeHighlight(subject, pattern)
+                .onFailure { error -> _uiState.update { it.copy(highlightError = error.message) } }
+        }
     }
 
     // #348 on grappa-irc — cached in the repository (not this ViewModel) so the live

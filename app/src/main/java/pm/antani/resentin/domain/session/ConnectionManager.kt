@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.events.WsEventDecoder
 import pm.antani.resentin.net.HttpClients
@@ -30,6 +32,11 @@ private const val CONNECT_TIMEOUT_MS = 15_000L
 /** A joined topic's channel plus the coroutine collecting its events — paired so
  * [ConnectionManager.leaveChannel] can cancel the collector instead of leaking it once
  * the topic is left (no more "event" pushes will ever arrive for it to wake up on). */
+/** Typed server refusal of an awaited verb push — [code] is the backend's own
+ * error key (e.g. `not_cached`, `not_explicit`), same vocabulary cicchetto's
+ * `channelPushError` surfaces, so callers can branch on it. */
+class VerbException(val code: String) : Exception(code)
+
 private class JoinedChannel(val channel: PhoenixChannel, val collectorJob: Job)
 
 class ConnectionManager(private val tokenStore: TokenStore) {
@@ -128,6 +135,23 @@ class ConnectionManager(private val tokenStore: TokenStore) {
     suspend fun sendVerb(topic: String, event: String, payload: JsonObject) {
         val channel = checkNotNull(channels[topic]) { "Canale $topic non joinato" }
         channel.channel.push(event, payload)
+    }
+
+    /** Same as [sendVerb] but awaits the `phx_reply` — for verbs whose result comes
+     * back in the reply itself (`resolve_userhost`, `watchlist`, ...) rather than a
+     * later broadcast. Returns the reply's `response` object on ok, throws
+     * [VerbException] with the server's error code otherwise. */
+    suspend fun pushVerb(topic: String, event: String, payload: JsonObject): JsonObject {
+        val channel = checkNotNull(channels[topic]) { "Canale $topic non joinato" }
+        val reply = channel.channel.push(event, payload).payload
+        if (reply["status"]?.jsonPrimitive?.contentOrNull == "ok") {
+            return reply["response"] as? JsonObject ?: JsonObject(emptyMap())
+        }
+        val response = reply["response"] as? JsonObject
+        val code = response?.get("error")?.jsonPrimitive?.contentOrNull
+            ?: response?.get("reason")?.jsonPrimitive?.contentOrNull
+            ?: "verb_failed"
+        throw VerbException(code)
     }
 
     /**

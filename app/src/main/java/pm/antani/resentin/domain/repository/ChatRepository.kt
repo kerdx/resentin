@@ -150,6 +150,15 @@ class ChatRepository(
         response.body()?.let { recordIncoming(it) }
     }
 
+    /** Service-targeted variant of [sendMessage] — see
+     * [MessagesApi.sendServiceMessage]: the ack body is not a message row and must
+     * not be decoded or recorded. */
+    suspend fun sendServiceMessage(networkSlug: String, service: String, body: String): Result<Unit> = runCatching {
+        val api = authRepository.api(MessagesApi::class.java)
+        val response = api.sendServiceMessage(networkSlug, service, SendMessageDto(body))
+        check(response.isSuccessful) { "HTTP ${response.code()}" }
+    }
+
     /** Fills the gap since the last locally-known message — called after (re)connecting
      * to a channel, since the WS event stream does not replay history, only REST does.
      * Also callable on demand (ChatViewModel.refresh) as the manual "reload" a user has

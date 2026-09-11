@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.MessageEntity
@@ -40,7 +41,12 @@ import pm.antani.resentin.domain.session.PendingShareHolder
 import pm.antani.resentin.irc.canonicalTarget
 import pm.antani.resentin.irc.isMessageVisibleUnderPresenceFilter
 import pm.antani.resentin.irc.isQueryTarget
+import pm.antani.resentin.irc.isServiceNick
 import pm.antani.resentin.irc.presenceVisible
+import pm.antani.resentin.irc.serviceNickFor
+import pm.antani.resentin.net.dto.LusersBundleDto
+import pm.antani.resentin.net.dto.WhoReplyDto
+import pm.antani.resentin.net.dto.WhowasBundleDto
 import pm.antani.resentin.ui.common.UserCardController
 
 sealed interface ChatCommandEffect {
@@ -82,6 +88,44 @@ class ChatViewModel(
     val myNick: StateFlow<String?> = networksRepository.observeNetwork(networkSlug)
         .map { it?.nick }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Explicit away state for this network ("away" or null) — fed by the
+     * `away_confirmed` push, which also fires for writes from another device. */
+    val awayState: StateFlow<String?> = membersRepository.awayByNetwork
+        .map { it[networkSlug] }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** `/hilight` watchlist patterns (null = never loaded — match nick-only
+     * until the first `list` reply lands). Warmed once the user topic is joined. */
+    val highlightPatterns: StateFlow<List<String>?> = userSettingsRepository.highlightPatterns
+
+    // Ephemeral `/whowas` result card — last-write-wins per network, like cicchetto's
+    // one-bundle-per-slug card. Dismissed by the user, replaced by the next reply.
+    private val _whowas = MutableStateFlow<WhowasBundleDto?>(null)
+    val whowas: StateFlow<WhowasBundleDto?> = _whowas.asStateFlow()
+    fun dismissWhowas() { _whowas.value = null }
+
+    // Ephemeral `/who` roster modal — same last-write-wins discipline.
+    private val _whoReply = MutableStateFlow<WhoReplyDto?>(null)
+    val whoReply: StateFlow<WhoReplyDto?> = _whoReply.asStateFlow()
+    fun dismissWho() { _whoReply.value = null }
+
+    // Ephemeral `/lusers` card. The server also auto-emits a bundle on connect
+    // welcome, so [lusersRequested] gates consumption: only the reply to an actual
+    // `/lusers` is shown, then the gate closes (cicchetto's markLusersRequested).
+    private val _lusers = MutableStateFlow<LusersBundleDto?>(null)
+    val lusers: StateFlow<LusersBundleDto?> = _lusers.asStateFlow()
+    private var lusersRequested = false
+    fun dismissLusers() { _lusers.value = null }
+
+    // `/hilight` add/del confirmation ("highlight (N): ..."), dismissible.
+    private val _highlightNotice = MutableStateFlow<String?>(null)
+    val highlightNotice: StateFlow<String?> = _highlightNotice.asStateFlow()
+    fun dismissHighlightNotice() { _highlightNotice.value = null }
+
+    private val _showCredits = MutableStateFlow(false)
+    val showCredits: StateFlow<Boolean> = _showCredits.asStateFlow()
+    fun dismissCredits() { _showCredits.value = false }
 
     val chatDisplayMode: StateFlow<ChatDisplayMode> = appPreferences.chatDisplayMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatDisplayMode.BUBBLES)
@@ -211,7 +255,7 @@ class ChatViewModel(
         // re-upload the same share.
         pendingShareHolder.consume().forEach { uploadFile(it) }
         viewModelScope.launch {
-            userCard.error.collect { message -> message?.let { _error.value = it } }
+            userCard.error.collect { message -> message?.let { postError(it) } }
         }
         viewModelScope.launch {
             val savedDraft = runCatching {
@@ -244,9 +288,9 @@ class ChatViewModel(
                 }
             }.onFailure {
                 if (!channelReady.isCompleted) channelReady.completeExceptionally(it)
-                _error.value = it.message
+                postError(it.message)
             }
-            chatRepository.backfill(networkSlug, channelName).onFailure { _error.value = it.message }
+            chatRepository.backfill(networkSlug, channelName).onFailure { postError(it.message) }
             _initialHistoryReady.value = true
         }
         // Marks the newest loaded message as read whenever it changes — the chat being
@@ -254,6 +298,32 @@ class ChatViewModel(
         // signal the rest of the app (OpenChatTracker) relies on.
         viewModelScope.launch {
             messages.collect { list -> list.maxByOrNull { it.id }?.let { markRead(it.id) } }
+        }
+        // Server-query replies for this network only — bundles carry no window
+        // context, so anything for another network belongs to a different chat.
+        viewModelScope.launch {
+            membersRepository.whowasEvents.collect { dto ->
+                if (dto.network.equals(networkSlug, ignoreCase = true)) _whowas.value = dto
+            }
+        }
+        viewModelScope.launch {
+            membersRepository.whoEvents.collect { dto ->
+                if (dto.network.equals(networkSlug, ignoreCase = true)) _whoReply.value = dto
+            }
+        }
+        viewModelScope.launch {
+            membersRepository.lusersEvents.collect { dto ->
+                if (lusersRequested && dto.network.equals(networkSlug, ignoreCase = true)) {
+                    lusersRequested = false
+                    _lusers.value = dto
+                }
+            }
+        }
+        // Warm the highlight patterns once the user topic is up — matching stays
+        // nick-only until this lands, and silently so on failure.
+        viewModelScope.launch {
+            runCatching { channelReady.await() }
+            runCatching { userSettingsRepository.refreshWatchlist(subject) }
         }
     }
 
@@ -327,7 +397,7 @@ class ChatViewModel(
                         "/${parsed.token}",
                     )
                     is SlashCommandParseResult.Parsed -> runCatching { executeSlashCommand(parsed.command) }
-                        .onFailure { failure -> _error.value = failure.message ?: appContext.getString(R.string.chat_slash_command_unsupported, "/${parsed.command.name}") }
+                        .onFailure { failure -> postError(failure.message ?: appContext.getString(R.string.chat_slash_command_unsupported, "/${parsed.command.name}")) }
                 }
             } finally {
                 _isSending.value = false
@@ -347,7 +417,7 @@ class ChatViewModel(
                     chatRepository.sendMessage(networkSlug, channelName, text).getOrThrow()
                 }.onSuccess {
                     if (_draft.value.trim() == text) setDraft("")
-                }.onFailure { _error.value = it.message }
+                }.onFailure { postError(it.message) }
             } finally {
                 _isSending.value = false
             }
@@ -406,10 +476,18 @@ class ChatViewModel(
             "msg" -> {
                 val target = requireNotNull(argument)
                 val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
-                membersRepository.openQueryWindow(subject, networkId, target)
-                chatRepository.sendMessage(networkSlug, target, args.drop(1).joinToString(" ")).getOrThrow()
+                // Services replies land on $server, never in a query window — don't
+                // open one (cicchetto's isServicesSender short-circuit).
+                if (!isServiceNick(target)) {
+                    membersRepository.openQueryWindow(subject, networkId, target)
+                    chatRepository.sendMessage(networkSlug, target, args.drop(1).joinToString(" ")).getOrThrow()
+                } else {
+                    chatRepository.sendServiceMessage(networkSlug, target, args.drop(1).joinToString(" ")).getOrThrow()
+                }
                 setDraft("")
-                _commandEffects.emit(ChatCommandEffect.OpenChannel(target))
+                if (!isServiceNick(target)) {
+                    _commandEffects.emit(ChatCommandEffect.OpenChannel(target))
+                }
             }
             "query" -> {
                 contactPrivately(requireNotNull(argument))
@@ -417,6 +495,28 @@ class ChatViewModel(
             }
             "whois" -> {
                 requestWhois(requireNotNull(argument))
+                setDraft("")
+            }
+            "whowas" -> {
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                membersRepository.requestWhowas(subject, networkId, requireNotNull(argument))
+                setDraft("")
+            }
+            "who" -> {
+                // Full rest passed through (masks/flags preserved, like cicchetto);
+                // bare defaults to the current channel, which must be a real channel.
+                val target = args.joinToString(" ").ifBlank { channelName }
+                if (target == channelName) {
+                    check(!isQueryTarget(channelName)) { appContext.getString(R.string.chat_slash_channel_only) }
+                }
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                membersRepository.requestWho(subject, networkId, target)
+                setDraft("")
+            }
+            "lusers" -> {
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                lusersRequested = true
+                membersRepository.requestLusers(subject, networkId, args.getOrNull(0), args.getOrNull(1))
                 setDraft("")
             }
             "names" -> {
@@ -432,6 +532,25 @@ class ChatViewModel(
             "kick" -> {
                 val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
                 membersRepository.kick(subject, networkId, channelName, requireNotNull(argument), args.drop(1).joinToString(" ").ifBlank { null })
+                setDraft("")
+            }
+            "kb" -> {
+                // Same two-push sequence as cicchetto's kbCommand (ban first, then
+                // kick — "atomic" only in the sense that no rejoin slips between
+                // them when both succeed): resolve the nick to *!*@host from the
+                // server's userhost cache, and kick anyway on a cache miss.
+                check(!isQueryTarget(channelName)) { appContext.getString(R.string.chat_slash_channel_only) }
+                val target = requireNotNull(argument)
+                val reason = args.drop(1).joinToString(" ").ifBlank { null }
+                val networkId = checkNotNull(networksRepository.networkIdForSlug(networkSlug))
+                val userhost = membersRepository.resolveUserhost(subject, networkId, target)
+                if (userhost != null) {
+                    membersRepository.ban(subject, networkId, channelName, "*!*@${userhost.host}")
+                }
+                membersRepository.kick(subject, networkId, channelName, target, reason)
+                if (userhost == null) {
+                    showSlashError(R.string.chat_slash_kb_host_unknown, target)
+                }
                 setDraft("")
             }
             "ban" -> {
@@ -477,6 +596,50 @@ class ChatViewModel(
             }
             "notify" -> {
                 networksRepository.addNotify(networkSlug, args)
+                setDraft("")
+            }
+            "away" -> {
+                val reason = args.joinToString(" ").ifBlank { null }
+                if (reason == null) membersRepository.unsetAway(subject, networkSlug)
+                else membersRepository.setAway(subject, networkSlug, reason)
+                setDraft("")
+            }
+            "hilight", "dehilight" -> {
+                // Whole rest = one pattern (spaces allowed), like cicchetto; bare
+                // opens settings where the full list is managed.
+                if (args.isEmpty()) {
+                    _commandEffects.emit(ChatCommandEffect.OpenAppSettings)
+                } else {
+                    val pattern = args.joinToString(" ")
+                    val updated = if (command.name == "hilight") {
+                        userSettingsRepository.addHighlight(subject, pattern).getOrThrow()
+                    } else {
+                        userSettingsRepository.removeHighlight(subject, pattern).getOrThrow()
+                    }
+                    _highlightNotice.value = appContext.getString(
+                        R.string.chat_slash_hilight_list,
+                        updated.size,
+                        updated.joinToString(", "),
+                    )
+                }
+                setDraft("")
+            }
+            "ns", "cs", "ms", "os", "hs", "rs" -> {
+                // Raw PRIVMSG to the service nick over REST — no query window, no
+                // focus switch (replies land on $server via the services-sender
+                // allowlist, same as cicchetto). Bare sends `help` and opens $server
+                // instead of cicchetto's confined help modal — same content, one less
+                // custom surface.
+                val service = checkNotNull(serviceNickFor(command.name))
+                val body = args.joinToString(" ").ifBlank { "help" }
+                chatRepository.sendServiceMessage(networkSlug, service, body).getOrThrow()
+                setDraft("")
+                if (args.isEmpty()) {
+                    _commandEffects.emit(ChatCommandEffect.OpenChannel("\$server"))
+                }
+            }
+            "credits" -> {
+                _showCredits.value = true
                 setDraft("")
             }
             "alias" -> {
@@ -530,10 +693,27 @@ class ChatViewModel(
     }
 
     private fun showSlashError(messageRes: Int, argument: String? = null) {
-        _error.value = if (argument == null) {
-            appContext.getString(messageRes)
-        } else {
-            appContext.getString(messageRes, argument)
+        postError(
+            if (argument == null) {
+                appContext.getString(messageRes)
+            } else {
+                appContext.getString(messageRes, argument)
+            },
+        )
+    }
+
+    // Error snackbar auto-dismiss: without this a failure (e.g. a command the
+    // server refused) sits on screen until the next successful send, which reads
+    // as "stuck". Newer errors win — a delayed clear never wipes a fresher one.
+    private var errorGeneration = 0
+
+    private fun postError(message: String?) {
+        if (message == null) return
+        _error.value = message
+        val generation = ++errorGeneration
+        viewModelScope.launch {
+            delay(6_000)
+            if (errorGeneration == generation) _error.value = null
         }
     }
 
@@ -546,7 +726,7 @@ class ChatViewModel(
                     ?: error(appContext.getString(R.string.chat_upload_failed))
                 chatRepository.uploadAndSend(networkSlug, channelName, pending.bytes, pending.fileName, pending.mimeType)
                     .getOrThrow()
-            }.onFailure { _error.value = it.message }
+            }.onFailure { postError(it.message) }
             _isUploading.value = false
         }
     }
@@ -559,7 +739,7 @@ class ChatViewModel(
         viewModelScope.launch {
             _isRefreshing.value = true
             _error.value = null
-            chatRepository.backfill(networkSlug, channelName).onFailure { _error.value = it.message }
+            chatRepository.backfill(networkSlug, channelName).onFailure { postError(it.message) }
             _isRefreshing.value = false
         }
     }
@@ -569,7 +749,7 @@ class ChatViewModel(
         viewModelScope.launch {
             _isLoadingOlder.value = true
             chatRepository.loadOlder(networkSlug, channelName)
-                .onFailure { _error.value = it.message }
+                .onFailure { postError(it.message) }
             _isLoadingOlder.value = false
         }
     }

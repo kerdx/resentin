@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Send
@@ -109,6 +111,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import pm.antani.resentin.R
+import pm.antani.resentin.BuildConfig
 import pm.antani.resentin.data.db.MemberEntity
 import pm.antani.resentin.data.db.MessageEntity
 import pm.antani.resentin.data.prefs.ChatDisplayMode
@@ -116,6 +119,10 @@ import pm.antani.resentin.data.prefs.MessageDensity
 import pm.antani.resentin.irc.FormattedEvent
 import pm.antani.resentin.irc.SystemEventFormatter
 import pm.antani.resentin.irc.containsMention
+import pm.antani.resentin.irc.matchesHighlight
+import pm.antani.resentin.net.dto.LusersBundleDto
+import pm.antani.resentin.net.dto.WhoReplyDto
+import pm.antani.resentin.net.dto.WhowasBundleDto
 import pm.antani.resentin.irc.highestSigil
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.ui.common.MircText
@@ -300,6 +307,13 @@ fun ChatScreen(
     val coloredNicklist by viewModel.coloredNicklist.collectAsState()
     val showHostmaskInEvents by viewModel.showHostmaskInEvents.collectAsState()
     val myNick by viewModel.myNick.collectAsState()
+    val awayState by viewModel.awayState.collectAsState()
+    val highlightPatterns by viewModel.highlightPatterns.collectAsState()
+    val whowas by viewModel.whowas.collectAsState()
+    val whoReply by viewModel.whoReply.collectAsState()
+    val lusers by viewModel.lusers.collectAsState()
+    val highlightNotice by viewModel.highlightNotice.collectAsState()
+    val showCredits by viewModel.showCredits.collectAsState()
     var initialListIndex by remember { mutableStateOf<Int?>(null) }
     val positioned = initialListIndex != null
     val listState = remember(initialListIndex) {
@@ -515,6 +529,23 @@ fun ChatScreen(
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                 )
+                            }
+                            // Explicit /away state for this network — same presence
+                            // signal cicchetto shows as a sidebar badge.
+                            if (awayState == "away") {
+                                Spacer(Modifier.size(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                                ) {
+                                    Text(
+                                        stringResource(R.string.chat_away_badge),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        maxLines = 1,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    )
+                                }
                             }
                             if (subtitle != null) {
                                 Spacer(Modifier.size(6.dp))
@@ -821,7 +852,7 @@ fun ChatScreen(
                                 showSeconds = showSeconds,
                                 coloredNicklist = coloredNicklist,
                                 showHostmaskInEvents = showHostmaskInEvents,
-                                isMention = isMentionRow(message, myNick, isQuery),
+                                isMention = isMentionRow(message, myNick, isQuery, highlightPatterns),
                                 isQuery = isQuery,
                                 isMine = isQuery && (myNick ?: viewerUsername).equals(message.sender, ignoreCase = true),
                                 onReply = viewModel::reply,
@@ -889,11 +920,39 @@ fun ChatScreen(
                     }
                 }
             }
-            androidx.compose.animation.AnimatedVisibility(
-                visible = listState.isScrollInProgress && topVisibleTime != null,
-                modifier = Modifier.align(Alignment.TopCenter),
+            Column(
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                topVisibleTime?.let { DateChip(timeMillis = it) }
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = listState.isScrollInProgress && topVisibleTime != null,
+                ) {
+                    topVisibleTime?.let { DateChip(timeMillis = it) }
+                }
+                // Ephemeral server-query results, pinned above the scrollback like
+                // cicchetto's inline cards — each dismissible, each replaced by the
+                // next reply of its kind.
+                val whowasValue = whowas
+                if (whowasValue != null) {
+                    Spacer(Modifier.size(8.dp))
+                    WhowasCard(bundle = whowasValue, onDismiss = viewModel::dismissWhowas)
+                }
+                val lusersValue = lusers
+                if (lusersValue != null) {
+                    Spacer(Modifier.size(8.dp))
+                    LusersCard(bundle = lusersValue, onDismiss = viewModel::dismissLusers)
+                }
+                val highlightNoticeValue = highlightNotice
+                if (highlightNoticeValue != null) {
+                    Spacer(Modifier.size(8.dp))
+                    EphemeralResultCard(onDismiss = viewModel::dismissHighlightNotice, title = "/hilight") {
+                        Text(
+                            text = highlightNoticeValue,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
             // Show the jump control only while there is content below the viewport.
             // The bottom anchor makes this check reliable even with long final rows.
@@ -963,6 +1022,228 @@ fun ChatScreen(
                 }
             },
         )
+    }
+
+    // `/who` roster modal — tap a nick to open a query, like cicchetto's WhoModal.
+    // Nothing lands in the scrollback; the reply lives only in this modal.
+    val whoReplyValue = whoReply
+    if (whoReplyValue != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissWho,
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 0.dp,
+            title = {
+                Text(
+                    stringResource(R.string.chat_who_title, whoReplyValue.target),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
+            text = {
+                if (whoReplyValue.users.isEmpty()) {
+                    Text(
+                        stringResource(R.string.chat_who_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                        items(whoReplyValue.users, key = { it.nick.lowercase() }) { user ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.contactPrivately(user.nick)
+                                        viewModel.dismissWho()
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = user.nick,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                    val hostmask = "${user.user}@${user.host}".takeIf { user.user.isNotBlank() || user.host.isNotBlank() }
+                                    hostmask?.let {
+                                        Text(
+                                            text = it,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    user.realname?.takeIf { it.isNotBlank() }?.let {
+                                        Text(
+                                            text = it,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissWho) {
+                    Text(stringResource(R.string.chat_dialog_close))
+                }
+            },
+        )
+    }
+
+    if (showCredits) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissCredits,
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 0.dp,
+            title = {
+                Text(
+                    stringResource(R.string.chat_credits_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stringResource(R.string.chat_credits_line1, BuildConfig.VERSION_NAME),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        stringResource(R.string.chat_credits_line2),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        stringResource(R.string.chat_credits_line3),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissCredits) {
+                    Text(stringResource(R.string.chat_credits_close))
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EphemeralResultCard(
+    onDismiss: () -> Unit,
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        tonalElevation = 2.dp,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = stringResource(R.string.chat_dialog_close),
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            content()
+        }
+    }
+}
+
+@Composable
+private fun EphemeralResultLine(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** `/whowas` result — same ephemeral inline card as cicchetto's WhowasCard,
+ * including the "no history" surface for a 406 `not_found`. */
+@Composable
+private fun WhowasCard(bundle: WhowasBundleDto, onDismiss: () -> Unit) {
+    EphemeralResultCard(onDismiss = onDismiss, title = bundle.target) {
+        if (bundle.notFound) {
+            EphemeralResultLine(stringResource(R.string.chat_whowas_not_found, bundle.target))
+        } else {
+            if (bundle.user != null || bundle.host != null) {
+                EphemeralResultLine(
+                    stringResource(
+                        R.string.chat_whowas_user_line,
+                        bundle.user.orEmpty(),
+                        bundle.host.orEmpty(),
+                    ),
+                )
+            }
+            bundle.realname?.takeIf { it.isNotBlank() }?.let {
+                EphemeralResultLine(stringResource(R.string.chat_whowas_realname_line, it))
+            }
+            bundle.server?.takeIf { it.isNotBlank() }?.let {
+                EphemeralResultLine(stringResource(R.string.chat_whowas_server_line, it))
+            }
+            bundle.logoffTime?.takeIf { it.isNotBlank() }?.let {
+                EphemeralResultLine(stringResource(R.string.chat_whowas_logoff_line, it))
+            }
+        }
+    }
+}
+
+/** `/lusers` result — the RFC 2812 §3.4.2 counters, showing only the ones the
+ * ircd actually sent (each is nullable), like cicchetto's LusersCard. */
+@Composable
+private fun LusersCard(bundle: LusersBundleDto, onDismiss: () -> Unit) {
+    EphemeralResultCard(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.chat_lusers_title, bundle.network),
+    ) {
+        bundle.totalUsers?.let { EphemeralResultLine(stringResource(R.string.chat_lusers_users_line, it)) }
+        bundle.invisible?.let { EphemeralResultLine(stringResource(R.string.chat_lusers_invisible_line, it)) }
+        bundle.servers?.let { EphemeralResultLine(stringResource(R.string.chat_lusers_servers_line, it)) }
+        bundle.operators?.let { EphemeralResultLine(stringResource(R.string.chat_lusers_operators_line, it)) }
+        bundle.unknownConnections?.let { EphemeralResultLine(stringResource(R.string.chat_lusers_unknown_line, it)) }
+        bundle.channelsFormed?.let { EphemeralResultLine(stringResource(R.string.chat_lusers_channels_line, it)) }
+        if (bundle.localClients != null || bundle.maxLocal != null) {
+            EphemeralResultLine(
+                stringResource(
+                    R.string.chat_lusers_local_line,
+                    bundle.localClients?.toString().orEmpty(),
+                    bundle.maxLocal?.toString().orEmpty(),
+                ),
+            )
+        }
+        if (bundle.currentGlobal != null || bundle.maxGlobal != null) {
+            EphemeralResultLine(
+                stringResource(
+                    R.string.chat_lusers_global_line,
+                    bundle.currentGlobal?.toString().orEmpty(),
+                    bundle.maxGlobal?.toString().orEmpty(),
+                ),
+            )
+        }
     }
 }
 
@@ -1152,11 +1433,21 @@ private fun mentionHighlight(isMention: Boolean): Modifier =
 /** Whether [message] is one that would have fired a notification — see
  * NotificationRouter.shouldNotify, which this deliberately mirrors (own messages never
  * count; a DM is skipped here rather than mirrored, since every message in an open DM
- * would "mention" you and highlighting all of them would just be noise, not a signal). */
-private fun isMentionRow(message: MessageEntity, myNick: String?, isQuery: Boolean): Boolean {
+ * would "mention" you and highlighting all of them would just be noise, not a signal).
+ * Once the `/hilight` watchlist has loaded, matching upgrades to cicchetto's
+ * own-nick-UNION-patterns word-boundary match instead of the plain substring. */
+private fun isMentionRow(
+    message: MessageEntity,
+    myNick: String?,
+    isQuery: Boolean,
+    highlightPatterns: List<String>?,
+): Boolean {
     if (myNick == null || isQuery) return false
     if (message.sender.equals(myNick, ignoreCase = true)) return false
-    return message.body?.let { containsMention(it, myNick) } ?: false
+    return message.body?.let { body ->
+        if (highlightPatterns == null) containsMention(body, myNick)
+        else matchesHighlight(body, myNick, highlightPatterns)
+    } ?: false
 }
 
 @Composable

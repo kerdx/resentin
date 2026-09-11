@@ -7,15 +7,19 @@ import kotlinx.serialization.json.long
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.net.dto.AutoAwayDebounceDto
 import pm.antani.resentin.net.dto.AvatarReadyDto
+import pm.antani.resentin.net.dto.AwayConfirmedDto
 import pm.antani.resentin.net.dto.BanlistBundleDto
 import pm.antani.resentin.net.dto.ChannelModesChangedDto
 import pm.antani.resentin.net.dto.IsupportChangedDto
+import pm.antani.resentin.net.dto.LusersBundleDto
 import pm.antani.resentin.net.dto.MembersSeededDto
 import pm.antani.resentin.net.dto.MessageEventPayloadDto
 import pm.antani.resentin.net.dto.QueryWindowsListDto
 import pm.antani.resentin.net.dto.TopicChangedDto
 import pm.antani.resentin.net.dto.WebSessionSeveredDto
+import pm.antani.resentin.net.dto.WhoReplyDto
 import pm.antani.resentin.net.dto.WhoisBundleDto
+import pm.antani.resentin.net.dto.WhowasBundleDto
 
 /**
  * Decodes a raw event-frame payload into a typed [WsEvent], per the additive-only
@@ -71,6 +75,18 @@ object WsEventDecoder {
                 )
                 "query_windows_list" -> WsEvent.QueryWindowsListReceived(
                     AppJson.decodeFromJsonElement(QueryWindowsListDto.serializer(), raw),
+                )
+                "away_confirmed" -> WsEvent.AwayConfirmed(
+                    AppJson.decodeFromJsonElement(AwayConfirmedDto.serializer(), raw),
+                )
+                "whowas_bundle" -> WsEvent.WhowasBundle(
+                    AppJson.decodeFromJsonElement(WhowasBundleDto.serializer(), raw),
+                )
+                "who_reply" -> WsEvent.WhoReply(
+                    AppJson.decodeFromJsonElement(WhoReplyDto.serializer(), raw),
+                )
+                "lusers_bundle" -> WsEvent.LusersBundle(
+                    AppJson.decodeFromJsonElement(LusersBundleDto.serializer(), raw),
                 )
                 else -> WsEvent.Unknown(kind, raw)
             }

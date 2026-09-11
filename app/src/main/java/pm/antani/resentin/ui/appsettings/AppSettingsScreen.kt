@@ -857,6 +857,52 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         Spacer(Modifier.height(8.dp))
                         Text(error, color = MaterialTheme.colorScheme.error)
                     }
+                    val highlights by viewModel.highlightPatterns.collectAsState()
+                    Spacer(Modifier.height(16.dp))
+                    SettingsBlockLabel(text = stringResource(R.string.settings_highlights))
+                    Text(
+                        stringResource(R.string.settings_highlight_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    highlights?.forEachIndexed { index, pattern ->
+                        if (index > 0) SettingsRowDivider()
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                pattern,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { viewModel.removeHighlight(pattern) }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
+                            }
+                        }
+                    }
+                    if (highlights != null) SettingsRowDivider()
+                    OutlinedTextField(
+                        value = state.newHighlight,
+                        onValueChange = viewModel::onNewHighlightChange,
+                        label = { Text(stringResource(R.string.settings_highlight_label)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = viewModel::addHighlight,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.settings_add_highlight))
+                    }
+                    state.highlightError?.let { error ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(error, color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
             }
