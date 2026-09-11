@@ -17,6 +17,7 @@ data class MembersSeededDto(
 
 @Serializable
 data class WhoisBundleDto(
+    val network: String = "",
     val target: String,
     val user: String? = null,
     val host: String? = null,

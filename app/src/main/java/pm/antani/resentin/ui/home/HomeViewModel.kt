@@ -93,6 +93,11 @@ class HomeViewModel(
         refresh()
     }
 
+    /** Own/peer avatar bytes for a URL surfaced on a [NetworkEntity]/[ChannelEntity] row
+     * (own network avatar, a DM partner's cached CTCP AVATAR) — thin pass-through so Home's
+     * rows can decode a preview bitmap without holding the repository themselves. */
+    suspend fun fetchAvatarBytes(url: String): ByteArray? = networksRepository.fetchAvatarBytes(url)
+
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true

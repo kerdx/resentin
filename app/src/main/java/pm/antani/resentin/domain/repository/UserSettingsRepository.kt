@@ -22,6 +22,7 @@ import pm.antani.resentin.net.dto.DisplayPrefsDto
 import pm.antani.resentin.net.dto.DisplayPrefsEnvelopeDto
 import pm.antani.resentin.net.dto.MutedTargetDto
 import pm.antani.resentin.net.dto.NotificationPrefsDto
+import pm.antani.resentin.net.dto.ShowPeerProfilesDto
 import pm.antani.resentin.net.dto.VhostSelectionUpdateDto
 import pm.antani.resentin.net.dto.VhostSettingsDto
 import pm.antani.resentin.net.dto.WatchlistDto
@@ -118,6 +119,17 @@ class UserSettingsRepository(
     suspend fun getAutoAwayDebounce(): Result<Int?> = runCatching {
         authRepository.api(UserSettingsApi::class.java).getAutoAwayDebounce().autoAwayDebounceSeconds
     }.onSuccess { _autoAwayDebounceSeconds.value = it }
+
+    /** M2 — the peer-avatar/gender-badge opt-in. Off by default; without it grappa never
+     * queries another user's CTCP USERINFO/AVATAR at all, so a DM partner's avatar (query
+     * rows, notifications) or a WHOIS card's gender badge simply never populates. */
+    suspend fun getShowPeerProfiles(): Result<Boolean> = runCatching {
+        authRepository.api(UserSettingsApi::class.java).getShowPeerProfiles().showPeerProfiles
+    }
+
+    suspend fun updateShowPeerProfiles(enabled: Boolean): Result<Boolean> = runCatching {
+        authRepository.api(UserSettingsApi::class.java).updateShowPeerProfiles(ShowPeerProfilesDto(enabled)).showPeerProfiles
+    }
 
     private val _notificationPrefs = MutableStateFlow<NotificationPrefsDto?>(null)
 

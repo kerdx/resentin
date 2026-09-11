@@ -307,6 +307,9 @@
     <string name="settings_auto_away_1h">1 ora</string>
     <string name="settings_auto_away_custom_seconds">Secondi:</string>
     <string name="settings_auto_away_desc">Quando tutti i tuoi dispositivi sono chiusi o in background, il bouncer aspetta questo tempo e poi comunica alla rete che sei assente. Resta comunque connesso: questo cambia solo cosa vedono gli altri. Scegli \"mai\" per disattivare del tutto lo stato di assenza.</string>
+    <string name="settings_peer_profiles_title">Profili degli altri utenti</string>
+    <string name="settings_peer_profiles_desc">Permette al bouncer di chiedere agli altri utenti il loro profilo CTCP (genere, avatar) quando entri in un canale insieme a loro. Alimenta l\'avatar nelle card whois, nelle chat private e nelle notifiche. Disattivato di default.</string>
+    <string name="settings_peer_profiles_switch_label">Richiedi profili degli altri utenti</string>
     <string name="settings_auto_away_invalid_input">Inserisci un numero intero di secondi</string>
     <string name="settings_push_enabled">Notifiche push a basso consumo</string>
     <string name="settings_push_enabled_desc">Usa un distributore UnifiedPush per ricevere le notifiche senza tenere la connessione sempre aperta</string>

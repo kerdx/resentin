@@ -1,6 +1,7 @@
 package pm.antani.resentin.service
 
 import android.Manifest
+import android.graphics.BitmapFactory
 import android.util.Log
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
+import androidx.core.graphics.drawable.IconCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -29,6 +31,7 @@ import pm.antani.resentin.R
 import pm.antani.resentin.data.db.AppDatabase
 import pm.antani.resentin.data.prefs.AppPreferences
 import pm.antani.resentin.domain.events.WsEvent
+import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.UserSettingsRepository
 import pm.antani.resentin.domain.session.ConnectionManager
@@ -77,6 +80,7 @@ class NotificationRouter(
     private val appPreferences: AppPreferences,
     private val userSettingsRepository: UserSettingsRepository,
     private val tokenStore: TokenStore,
+    private val authRepository: AuthRepository,
 ) {
     // Guards notifyFromUndecryptablePush against overlapping runs — live-observed: a
     // sequential 27-channel sweep took long enough (~10s) that the distributor (ntfy)
@@ -269,12 +273,24 @@ class NotificationRouter(
         postNotification(message, bucket, nick)
     }
 
+    /** DM partner avatar (M3b), if this app already learned one for [bucket] on
+     * [networkSlug] — see `NetworksRepository`'s `whois_bundle`/`whois_avatar_ready`
+     * listeners, which populate the same query [pm.antani.resentin.data.db.ChannelEntity]
+     * row this reads. Best-effort: any failure (no cached URL, fetch error, decode
+     * error) just leaves the notification without a sender icon, never blocks it. */
+    private suspend fun senderIcon(networkSlug: String, bucket: String): IconCompat? {
+        val url = db.channelDao().getAvatarUrl(networkSlug, bucket) ?: return null
+        val bytes = authRepository.fetchBytes(url) ?: return null
+        val bitmap = runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull() ?: return null
+        return IconCompat.createWithBitmap(bitmap)
+    }
+
     /** One notification per conversation (not per message): reuses the same
      * [NotificationCompat.MessagingStyle], appending each new message, so several
      * messages from the same person show as a single growing thread — like every other
      * messenger — instead of stacking a separate notification per message under
      * `setGroup`'s collapsed header. */
-    private fun postNotification(message: ScrollbackMessageDto, bucket: String, myNick: String) {
+    private suspend fun postNotification(message: ScrollbackMessageDto, bucket: String, myNick: String) {
         ensureChannel()
         val conversationId = conversationNotificationId(message.network, bucket)
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -292,7 +308,13 @@ class NotificationRouter(
         val style = existingMessagingStyle(conversationId)
             ?: NotificationCompat.MessagingStyle(Person.Builder().setName(myNick).build())
         style.conversationTitle = bucket
-        style.addMessage(message.body, message.serverTime, Person.Builder().setName(message.sender).build())
+        // A DM's bucket IS the partner's nick (queryBucket), which doubles as the key
+        // NetworksRepository caches their avatar under; a channel message's bucket is
+        // the channel name, which was never avatar-tracked, so this simply misses.
+        val isDm = canonicalTarget(message.channel) == canonicalTarget(myNick)
+        val senderIcon = if (isDm) senderIcon(message.network, bucket) else null
+        val sender = Person.Builder().setName(message.sender).apply { senderIcon?.let(::setIcon) }.build()
+        style.addMessage(message.body, message.serverTime, sender)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setStyle(style)

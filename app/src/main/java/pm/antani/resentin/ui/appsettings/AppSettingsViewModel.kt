@@ -53,6 +53,9 @@ data class AppSettingsUiState(
     val autoAwaySavingError: String? = null,
     val newHighlight: String = "",
     val highlightError: String? = null,
+    val showPeerProfiles: Boolean = false,
+    val showPeerProfilesSaving: Boolean = false,
+    val showPeerProfilesError: String? = null,
 )
 
 class AppSettingsViewModel(
@@ -193,6 +196,26 @@ class AppSettingsViewModel(
         refreshVhostSettings()
         refreshAutoAwayDebounce()
         refreshWatchlist()
+        refreshShowPeerProfiles()
+    }
+
+    private fun refreshShowPeerProfiles() {
+        viewModelScope.launch {
+            userSettingsRepository.getShowPeerProfiles()
+                .onSuccess { enabled -> _uiState.update { it.copy(showPeerProfiles = enabled) } }
+        }
+    }
+
+    fun toggleShowPeerProfiles() {
+        val target = !_uiState.value.showPeerProfiles
+        viewModelScope.launch {
+            _uiState.update { it.copy(showPeerProfilesSaving = true, showPeerProfilesError = null) }
+            userSettingsRepository.updateShowPeerProfiles(target)
+                .onSuccess { enabled -> _uiState.update { it.copy(showPeerProfiles = enabled, showPeerProfilesSaving = false) } }
+                .onFailure { error ->
+                    _uiState.update { it.copy(showPeerProfilesSaving = false, showPeerProfilesError = error.message) }
+                }
+        }
     }
 
     // `/hilight` watchlist — server-side patterns, cached in the repository (same

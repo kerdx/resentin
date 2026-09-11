@@ -40,6 +40,16 @@ interface ChannelDao {
     @Query("UPDATE channels SET topic = :topic WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name")
     suspend fun updateTopic(networkSlug: String, name: String, topic: String?)
 
+    // Only ever meaningful on a source='query' row (a real channel's members aren't
+    // individually avatar-tracked) — the WHERE clause doesn't enforce that itself since a
+    // (networkSlug, name) match is already unambiguous, but callers only fire this off a
+    // DM partner's nick.
+    @Query("UPDATE channels SET avatarUrl = :avatarUrl WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name")
+    suspend fun updateAvatarUrl(networkSlug: String, name: String, avatarUrl: String?)
+
+    @Query("SELECT avatarUrl FROM channels WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name")
+    suspend fun getAvatarUrl(networkSlug: String, name: String): String?
+
     @Query(
         "UPDATE channels SET modes = :modes, modesRawJson = :modesRawJson " +
             "WHERE networkSlug = :networkSlug AND name COLLATE NOCASE = :name",

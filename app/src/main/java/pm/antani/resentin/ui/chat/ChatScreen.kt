@@ -7,6 +7,7 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -32,6 +34,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -82,7 +85,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -125,6 +130,7 @@ import pm.antani.resentin.net.dto.WhowasBundleDto
 import pm.antani.resentin.irc.highestSigil
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.ui.common.MircText
+import pm.antani.resentin.ui.common.rememberAvatarBitmap
 import pm.antani.resentin.ui.common.ResentinDropdownMenu
 import pm.antani.resentin.ui.common.ResentinDropdownMenuItem
 import pm.antani.resentin.ui.common.ResentinHeaderAction
@@ -202,6 +208,8 @@ fun ChatScreen(
     val messages by viewModel.messages.collectAsState()
     val topic by viewModel.topic.collectAsState()
     val channelModes by viewModel.channelModes.collectAsState()
+    val peerAvatarUrl by viewModel.peerAvatarUrl.collectAsState()
+    val peerAvatarBitmap = rememberAvatarBitmap(peerAvatarUrl, viewModel::fetchAvatarBytes)
     val draft by viewModel.draft.collectAsState()
     // Local TextFieldValue (not just the String from the ViewModel) so an externally
     // triggered draft change — a swipe-to-reply prefill, or send() clearing it — can
@@ -512,6 +520,15 @@ fun ChatScreen(
                         )
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (isQuery && peerAvatarBitmap != null) {
+                                Image(
+                                    bitmap = peerAvatarBitmap.asImageBitmap(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
                             Column(
                                 modifier = Modifier.clickable(enabled = topic != null) { showTopicDialog = true },
                     ) {

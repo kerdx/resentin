@@ -2,6 +2,7 @@ package pm.antani.resentin.ui.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -70,6 +71,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
@@ -84,6 +87,7 @@ import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.repository.serverChannelKey
 import pm.antani.resentin.ui.common.MircText
 import pm.antani.resentin.ui.common.LocalDensityScale
+import pm.antani.resentin.ui.common.rememberAvatarBitmap
 import pm.antani.resentin.ui.common.ResentinDropdownMenu
 import pm.antani.resentin.ui.common.ResentinDropdownMenuItem
 import pm.antani.resentin.ui.common.ResentinHeaderAction
@@ -254,6 +258,7 @@ fun HomeScreen(
                                     .sortedBy { it.source == "query" },
                                 pinMutedOf = pinMutedOf,
                                 draftChannels = draftChannels,
+                                fetchAvatarBytes = viewModel::fetchAvatarBytes,
                                 onServerClick = { onServerClick(networkWithChannels.network.slug) },
                                 onNetworkSettingsClick = { onNetworkSettingsClick(networkWithChannels.network.slug) },
                                 onAddClick = { newChatNetwork = networkWithChannels.network.slug },
@@ -589,6 +594,7 @@ private fun NetworkGroupCard(
     channels: List<ChannelEntity>,
     pinMutedOf: (networkSlug: String, channel: ChannelEntity) -> Pair<Boolean, Boolean>,
     draftChannels: Set<String>,
+    fetchAvatarBytes: suspend (String) -> ByteArray?,
     onServerClick: () -> Unit,
     onNetworkSettingsClick: () -> Unit,
     onAddClick: () -> Unit,
@@ -607,6 +613,7 @@ private fun NetworkGroupCard(
             NetworkHeader(
                 network = network,
                 channelCount = channels.size,
+                fetchAvatarBytes = fetchAvatarBytes,
                 onClick = onServerClick,
                 onSettingsClick = onNetworkSettingsClick,
                 onAddClick = onAddClick,
@@ -635,6 +642,7 @@ private fun NetworkGroupCard(
                     pinned = pinned,
                     muted = muted,
                     hasDraft = hasDraft,
+                    fetchAvatarBytes = fetchAvatarBytes,
                     onClick = { onChannelClick(channel) },
                     onLongClick = { onChannelLongClick(channel) },
                 )
@@ -662,6 +670,7 @@ private fun networkAvatarColor(): Pair<Color, Color> {
 private fun NetworkHeader(
     network: NetworkEntity,
     channelCount: Int,
+    fetchAvatarBytes: suspend (String) -> ByteArray?,
     onClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAddClick: () -> Unit,
@@ -670,6 +679,7 @@ private fun NetworkHeader(
     var showMenu by remember { mutableStateOf(false) }
     val densityScale = LocalDensityScale.current
     val (avatarContainer, avatarContent) = networkAvatarColor()
+    val avatarBitmap = rememberAvatarBitmap(network.avatarUrl, fetchAvatarBytes)
     val stateLabel = if (network.connectionState == "connected") {
         stringResource(R.string.network_settings_connected)
     } else {
@@ -687,13 +697,22 @@ private fun NetworkHeader(
             shape = RoundedCornerShape(16.dp),
             color = avatarContainer,
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = network.slug.take(1).uppercase(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = avatarContent,
-                    fontWeight = FontWeight.Bold,
+            if (avatarBitmap != null) {
+                Image(
+                    bitmap = avatarBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
                 )
+            } else {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Text(
+                        text = network.slug.take(1).uppercase(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = avatarContent,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
         }
         Spacer(Modifier.width(12.dp))
@@ -759,11 +778,13 @@ private fun ChannelRow(
     pinned: Boolean,
     muted: Boolean,
     hasDraft: Boolean,
+    fetchAvatarBytes: suspend (String) -> ByteArray?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     val hasUnread = channel.unreadMessages > 0
     val isQuery = channel.source == "query"
+    val avatarBitmap = rememberAvatarBitmap(channel.avatarUrl.takeIf { isQuery }, fetchAvatarBytes)
     val topic = channel.topic?.takeIf { it.isNotBlank() }
     // Resentin: nasconde il segnaposto rumoroso "nessun topic" — titolo su una
     // sola riga centrato verticalmente quando non c'è altro da mostrare.
@@ -785,8 +806,15 @@ private fun ChannelRow(
                 MaterialTheme.colorScheme.surfaceVariant
             },
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (isQuery) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                if (isQuery && avatarBitmap != null) {
+                    Image(
+                        bitmap = avatarBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else if (isQuery) {
                     Text(
                         text = channel.name.take(1).uppercase(),
                         style = MaterialTheme.typography.titleMedium,

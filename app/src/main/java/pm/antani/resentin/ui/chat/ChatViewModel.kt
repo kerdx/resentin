@@ -83,6 +83,14 @@ class ChatViewModel(
         .map { it?.modes }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** M3b — a query's DM partner avatar, for the top bar. `null` on a real channel: a
+     * channel row's members aren't individually avatar-tracked (see `ChannelEntity`). */
+    val peerAvatarUrl: StateFlow<String?> = networksRepository.observeChannel(networkSlug, channelName)
+        .map { it?.avatarUrl }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    suspend fun fetchAvatarBytes(url: String): ByteArray? = networksRepository.fetchAvatarBytes(url)
+
     // The viewer's own current nick on this network — same source NotificationRouter
     // reads to decide whether an incoming message deserves a notification, reused here
     // (via irc.containsMention) so a message highlighted as "mentions you" in chat can

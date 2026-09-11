@@ -25,4 +25,8 @@ data class ChannelEntity(
     val unreadMessages: Int = 0,
     val unreadMentions: Int = 0,
     val severity: String = "none",
+    /** M3b — a query row's DM partner's cached CTCP AVATAR (absolute URL), seeded from a
+     * WHOIS bundle or patched live by the `whois_avatar_ready` event. Only ever set on a
+     * `source = "query"` row; a real channel's members aren't individually avatar-tracked. */
+    val avatarUrl: String? = null,
 )

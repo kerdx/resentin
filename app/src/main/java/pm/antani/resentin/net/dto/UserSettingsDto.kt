@@ -54,3 +54,13 @@ data class VhostSelectionUpdateDto(
 data class AutoAwayDebounceDto(
     val autoAwayDebounceSeconds: Int? = null,
 )
+
+/** M2 — opt-in to grappa opportunistically querying OTHER users' CTCP USERINFO/AVATAR
+ * (JOIN/353-triggered, rate-limited, cache-deduped — see grappa's `EventRouter.
+ * maybe_query_peer_profile/2`). Off by default; this is the ONE gate behind both the
+ * gender badge and every peer avatar this app can ever show (query rows, notifications).
+ * Same GET/PUT shape both ways: `{"show_peer_profiles": bool}`. */
+@Serializable
+data class ShowPeerProfilesDto(
+    val showPeerProfiles: Boolean = false,
+)

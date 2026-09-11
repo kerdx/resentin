@@ -801,6 +801,33 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     }
                 }
             }
+            item {
+                SettingsGroupCard(
+                    showHeader = false,
+                    icon = Icons.Outlined.Person,
+                    title = stringResource(R.string.settings_peer_profiles_title),
+                    description = stringResource(R.string.settings_peer_profiles_desc),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(R.string.settings_peer_profiles_switch_label),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(
+                            checked = state.showPeerProfiles,
+                            enabled = !state.showPeerProfilesSaving,
+                            onCheckedChange = { viewModel.toggleShowPeerProfiles() },
+                        )
+                    }
+                    state.showPeerProfilesError?.let { error ->
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
             }
             if (showIdentity && section == SettingsSection.IDENTITY) {
                 item {

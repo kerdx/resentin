@@ -97,6 +97,29 @@ class NetworksRepository(
             }
             .launchIn(scope)
 
+        // M3b — a DM partner's avatar, seeded synchronously on a WHOIS bundle and/or
+        // patched live once a lazy fetch (opt-in `show_peer_profiles`, JOIN/353-triggered
+        // — not necessarily an explicit /whois) lands. Both a no-op UPDATE when the nick
+        // isn't a known query row: there is no INSERT here, so a stranger never spawns a
+        // Home row just because their avatar happened to resolve.
+        connectionManager.events
+            .filterIsInstance<WsEvent.WhoisBundle>()
+            .map { it.whois }
+            .onEach { whois ->
+                if (whois.network.isBlank() || whois.avatarUrl == null) return@onEach
+                db.channelDao().updateAvatarUrl(whois.network, whois.target, whois.avatarUrl)
+            }
+            .launchIn(scope)
+
+        connectionManager.events
+            .filterIsInstance<WsEvent.AvatarReady>()
+            .map { it.avatar }
+            .onEach { avatar ->
+                if (avatar.network.isBlank() || avatar.avatarUrl == null) return@onEach
+                db.channelDao().updateAvatarUrl(avatar.network, avatar.nick, avatar.avatarUrl)
+            }
+            .launchIn(scope)
+
         // query_windows_list has no REST equivalent (GET .../channels never returns
         // queries) — it's the only source of truth for which DMs are currently open,
         // stored as ChannelEntity rows tagged source="query" so they ride the same

@@ -51,7 +51,17 @@ class AppContainer(private val context: Context) {
     val openChatTracker = OpenChatTracker()
     val pendingShareHolder = PendingShareHolder()
     val notificationRouter =
-        NotificationRouter(context.applicationContext, connectionManager, database, openChatTracker, chatRepository, appPreferences, userSettingsRepository, tokenStore)
+        NotificationRouter(
+            context.applicationContext,
+            connectionManager,
+            database,
+            openChatTracker,
+            chatRepository,
+            appPreferences,
+            userSettingsRepository,
+            tokenStore,
+            authRepository,
+        )
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
