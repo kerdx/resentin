@@ -92,6 +92,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import java.time.Instant
@@ -107,6 +108,7 @@ import pm.antani.resentin.R
 import pm.antani.resentin.data.db.MemberEntity
 import pm.antani.resentin.data.db.MessageEntity
 import pm.antani.resentin.data.prefs.ChatDisplayMode
+import pm.antani.resentin.data.prefs.MessageDensity
 import pm.antani.resentin.irc.FormattedEvent
 import pm.antani.resentin.irc.SystemEventFormatter
 import pm.antani.resentin.irc.containsMention
@@ -120,6 +122,8 @@ import pm.antani.resentin.ui.common.ResentinEmptyState
 import pm.antani.resentin.ui.common.ResentinLoadingState
 import pm.antani.resentin.ui.common.UserCardSheet
 import pm.antani.resentin.ui.common.colorForNick
+import pm.antani.resentin.ui.common.isLightTheme
+import pm.antani.resentin.ui.common.linkStylesFor
 import pm.antani.resentin.ui.common.mircAnnotatedString
 import pm.antani.resentin.ui.common.sigilsOf
 import pm.antani.resentin.ui.common.withClickableLinks
@@ -246,6 +250,7 @@ fun ChatScreen(
         draftFocusRequester.requestFocus()
     }
     val displayMode by viewModel.chatDisplayMode.collectAsState()
+    val messageDensity by viewModel.messageDensity.collectAsState()
     val showSeconds by viewModel.showSeconds.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val isSending by viewModel.isSending.collectAsState()
@@ -413,38 +418,47 @@ fun ChatScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                            ),
-                        ) {
-                            Text(
-                                networkSlug,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            )
-                        }
-                        // "(+rnt) topic text" — modes prefix the topic line the way a
-                        // classic IRC client's status bar does, shown even without a
-                        // topic set so the channel's mode flags stay visible either way.
+                        // Seconda riga compatta: chip rete e Modi/topic affiancati
+                        // su una sola riga (prima erano due righe separate), così
+                        // l'header resta su due righe totali e lascia più spazio
+                        // alla chat. "(+rnt) topic" segue la convenzione della
+                        // status bar dei client IRC classici.
                         val subtitle = buildString {
                             if (channelModes != null) append("($channelModes) ")
                             if (topic != null) append(topic)
                         }.takeIf { it.isNotBlank() }
-                        if (subtitle != null) {
-                            MircText(
-                                text = subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                ),
+                            ) {
+                                Text(
+                                    networkSlug,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                )
+                            }
+                            if (subtitle != null) {
+                                Spacer(Modifier.size(6.dp))
+                                MircText(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                             }
                         }
@@ -708,7 +722,7 @@ fun ChatScreen(
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 messages.forEachIndexed { index, message ->
                     if (index == dividerIndex) {
-                        item(key = "unread-divider") { UnreadDivider() }
+                        item(key = "unread-divider") { UnreadDivider(density = messageDensity) }
                     }
                     item(key = message.id) {
                         val previous = messages.getOrNull(index - 1)
@@ -730,6 +744,7 @@ fun ChatScreen(
                                 message = message,
                                 members = members,
                                 displayMode = if (isServer) ChatDisplayMode.IRC_LINE else displayMode,
+                                density = messageDensity,
                                 showSeconds = showSeconds,
                                 coloredNicklist = coloredNicklist,
                                 showHostmaskInEvents = showHostmaskInEvents,
@@ -1003,9 +1018,9 @@ private fun DateChip(timeMillis: Long, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun UnreadDivider() {
+private fun UnreadDivider(density: MessageDensity) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = density.dividerVertical()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         HorizontalDivider(
@@ -1101,6 +1116,7 @@ private fun MessageRow(
     message: MessageEntity,
     members: List<MemberEntity>,
     displayMode: ChatDisplayMode,
+    density: MessageDensity,
     showSeconds: Boolean,
     coloredNicklist: Boolean,
     showHostmaskInEvents: Boolean,
@@ -1133,7 +1149,7 @@ private fun MessageRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp)
+                        .padding(horizontal = 16.dp, vertical = density.lineVertical())
                         .pointerInput(formatted.sender, eventText) {
                             detectTapGestures(onLongPress = { onLongPress(formatted.sender, eventText) })
                         },
@@ -1142,7 +1158,7 @@ private fun MessageRow(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 32.dp, vertical = 4.dp),
+                        .padding(horizontal = 32.dp, vertical = density.systemVertical()),
                     contentAlignment = Alignment.Center,
                 ) {
                     Surface(
@@ -1172,13 +1188,14 @@ private fun MessageRow(
                 onLongPress = { onLongPress(message.sender, formatted.text) },
             ) {
                 if (displayMode == ChatDisplayMode.IRC_LINE) {
-                    IrcLineRow(message, formatted, prefix, time, coloredNicklist, isMention)
+                    IrcLineRow(message, formatted, prefix, time, coloredNicklist, isMention, density)
                 } else {
                     BubbleRow(
                         message, formatted, prefix, time, coloredNicklist, isMention,
                         isPrivate = isQuery,
                         isMine = isMine,
                         tight = tight,
+                        density = density,
                     )
                 }
             }
@@ -1196,16 +1213,17 @@ private fun buildNickLine(
     after: String,
     body: String,
     coloredNicklist: Boolean,
+    lightTheme: Boolean = false,
 ) = buildAnnotatedString {
     append(before)
     append(prefix)
     if (coloredNicklist) {
-        withStyle(SpanStyle(color = colorForNick(sender))) { append(sender) }
+        withStyle(SpanStyle(color = colorForNick(sender, lightTheme))) { append(sender) }
     } else {
         append(sender)
     }
     append(after)
-    append(withClickableLinks(mircAnnotatedString(body)))
+    append(withClickableLinks(mircAnnotatedString(body, lightTheme), linkStylesFor(lightTheme)))
 }
 
 @Composable
@@ -1219,6 +1237,7 @@ private fun BubbleRow(
     isPrivate: Boolean,
     isMine: Boolean,
     tight: Boolean = false,
+    density: MessageDensity = MessageDensity.NORMAL,
 ) {
     val isOwnPrivate = isPrivate && isMine
     val bubbleColor = when {
@@ -1234,7 +1253,7 @@ private fun BubbleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = if (tight) 2.dp else 8.dp),
+            .padding(horizontal = 12.dp, vertical = density.rowVertical(tight)),
         // Query messages use the same left-aligned conversation flow as IRC chat.
         // The sender is still differentiated by the bubble tint below, not by
         // switching sides of the conversation.
@@ -1261,8 +1280,9 @@ private fun BubbleRow(
             ) {
                 if (formatted.isAction) {
                     Row(verticalAlignment = Alignment.Bottom) {
-                        val annotated = remember(prefix, message.sender, formatted.text, coloredNicklist) {
-                            buildNickLine("* ", prefix, message.sender, " ", formatted.text, coloredNicklist)
+                        val lightTheme = isLightTheme()
+                        val annotated = remember(prefix, message.sender, formatted.text, coloredNicklist, lightTheme) {
+                            buildNickLine("* ", prefix, message.sender, " ", formatted.text, coloredNicklist, lightTheme)
                         }
                         Text(
                             text = annotated,
@@ -1285,7 +1305,7 @@ private fun BubbleRow(
                                 prefix + message.sender
                             },
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (coloredNicklist) colorForNick(message.sender) else MaterialTheme.colorScheme.primary,
+                            color = if (coloredNicklist) colorForNick(message.sender, isLightTheme()) else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.weight(1f),
                         )
                         Text(
@@ -1312,12 +1332,14 @@ private fun IrcLineRow(
     time: String,
     coloredNicklist: Boolean,
     isMention: Boolean,
+    density: MessageDensity = MessageDensity.NORMAL,
 ) {
-    val annotated = remember(message.sender, formatted.text, formatted.isAction, formatted.isNotice, prefix, time, coloredNicklist) {
+    val lightTheme = isLightTheme()
+    val annotated = remember(message.sender, formatted.text, formatted.isAction, formatted.isNotice, prefix, time, coloredNicklist, lightTheme) {
         when {
-            formatted.isAction -> buildNickLine("[$time] * ", prefix, message.sender, " ", formatted.text, coloredNicklist)
-            formatted.isNotice -> buildNickLine("[$time] -", prefix, message.sender, "- ", formatted.text, coloredNicklist)
-            else -> buildNickLine("[$time] <", prefix, message.sender, "> ", formatted.text, coloredNicklist)
+            formatted.isAction -> buildNickLine("[$time] * ", prefix, message.sender, " ", formatted.text, coloredNicklist, lightTheme)
+            formatted.isNotice -> buildNickLine("[$time] -", prefix, message.sender, "- ", formatted.text, coloredNicklist, lightTheme)
+            else -> buildNickLine("[$time] <", prefix, message.sender, "> ", formatted.text, coloredNicklist, lightTheme)
         }
     }
     Text(
@@ -1326,8 +1348,33 @@ private fun IrcLineRow(
         modifier = Modifier
             .fillMaxWidth()
             .then(mentionHighlight(isMention))
-            .padding(horizontal = 16.dp, vertical = 2.dp),
+            .padding(horizontal = 16.dp, vertical = density.lineVertical()),
     )
+}
+
+/** Vertical rhythm of chat rows — NORMAL preserves the previous spacing. */
+private fun MessageDensity.rowVertical(tight: Boolean): Dp = when (this) {
+    MessageDensity.COMPACT -> if (tight) 1.dp else 4.dp
+    MessageDensity.NORMAL -> if (tight) 2.dp else 8.dp
+    MessageDensity.COMFORTABLE -> if (tight) 4.dp else 12.dp
+}
+
+private fun MessageDensity.lineVertical(): Dp = when (this) {
+    MessageDensity.COMPACT -> 1.dp
+    MessageDensity.NORMAL -> 2.dp
+    MessageDensity.COMFORTABLE -> 4.dp
+}
+
+private fun MessageDensity.systemVertical(): Dp = when (this) {
+    MessageDensity.COMPACT -> 2.dp
+    MessageDensity.NORMAL -> 4.dp
+    MessageDensity.COMFORTABLE -> 6.dp
+}
+
+private fun MessageDensity.dividerVertical(): Dp = when (this) {
+    MessageDensity.COMPACT -> 4.dp
+    MessageDensity.NORMAL -> 8.dp
+    MessageDensity.COMFORTABLE -> 12.dp
 }
 
 private const val REPLY_SWIPE_THRESHOLD_DP = 64

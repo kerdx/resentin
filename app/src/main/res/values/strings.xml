@@ -181,9 +181,9 @@
     <string name="cd_search_next">Risultato successivo</string>
     <string name="cd_close_search">Chiudi ricerca</string>
     <plurals name="chat_channel_title_with_users">
-        <item quantity="one">%1$s (1 utente)</item>
-        <item quantity="other">%1$s (%2$d utenti)</item>
-    </plurals>
+          <item quantity="one">%1$s (1)</item>
+          <item quantity="other">%1$s (%2$d)</item>
+      </plurals>
     <string name="chat_search_hint">Cerca messaggio o nickname…</string>
     <string name="chat_search_counter">%1$d di %2$d</string>
     <string name="chat_search_no_results">Nessun risultato</string>
@@ -230,6 +230,31 @@
 
     <!-- App settings -->
     <string name="settings_title">Impostazioni</string>
+    <string name="settings_group_appearance">Aspetto</string>
+    <string name="settings_group_appearance_desc">Tema, lingua, testo e spaziatura</string>
+    <string name="settings_group_chat">Chat e messaggi</string>
+    <string name="settings_group_chat_desc">Bolle, risposte e dettagli dei messaggi</string>
+    <string name="settings_group_notifications">Notifiche</string>
+    <string name="settings_group_notifications_desc">Connessione in background e push</string>
+    <string name="settings_group_presence">Presenza</string>
+    <string name="settings_group_presence_desc">Come appari quando non ci sei</string>
+    <string name="settings_group_identity">Identità</string>
+    <string name="settings_group_identity_desc">Indirizzo con cui ti colleghi alle reti</string>
+    <string name="settings_group_commands">Comandi</string>
+    <string name="settings_group_commands_desc">Alias personali per la chat</string>
+    <string name="settings_group_data">Spazio e dati</string>
+    <string name="settings_group_data_desc">Dati salvati su questo dispositivo</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_system">Sistema</string>
+    <string name="settings_theme_light">Chiaro</string>
+    <string name="settings_theme_dark">Scuro</string>
+    <string name="settings_density">Densità</string>
+    <string name="settings_density_compact">Compatta</string>
+    <string name="settings_density_normal">Normale</string>
+    <string name="settings_density_comfortable">Ampia</string>
+    <string name="settings_line_spacing">Interlinea</string>
+    <string name="settings_line_spacing_value">%1$d%%</string>
+    <string name="settings_line_spacing_preview">Prima riga di anteprima per l\'interlinea.\nSeconda riga, per vedere lo spazio tra le righe.\nTerza riga di esempio.</string>
     <string name="settings_stay_connected">Resta connesso in background</string>
     <string name="settings_stay_connected_desc">Mantiene la connessione attiva e mostra notifiche per i messaggi privati e le menzioni</string>
     <string name="settings_colored_nicklist">Nick colorati</string>

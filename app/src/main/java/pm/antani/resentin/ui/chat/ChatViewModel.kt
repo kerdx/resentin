@@ -26,6 +26,7 @@ import pm.antani.resentin.R
 import pm.antani.resentin.data.db.MessageEntity
 import pm.antani.resentin.data.prefs.AppPreferences
 import pm.antani.resentin.data.prefs.ChatDisplayMode
+import pm.antani.resentin.data.prefs.MessageDensity
 import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.IgnoresRepository
@@ -84,6 +85,9 @@ class ChatViewModel(
 
     val chatDisplayMode: StateFlow<ChatDisplayMode> = appPreferences.chatDisplayMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatDisplayMode.BUBBLES)
+
+    val messageDensity: StateFlow<MessageDensity> = appPreferences.messageDensity
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MessageDensity.NORMAL)
 
     val showSeconds: StateFlow<Boolean> = appPreferences.showSeconds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)

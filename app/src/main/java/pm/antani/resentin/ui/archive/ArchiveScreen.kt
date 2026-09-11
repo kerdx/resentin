@@ -54,6 +54,7 @@ import java.time.format.FormatStyle
 import pm.antani.resentin.R
 import pm.antani.resentin.net.dto.ArchiveEntryDto
 import pm.antani.resentin.ui.common.ResentinHeaderAction
+import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.ResentinEmptyState
 import pm.antani.resentin.ui.common.ResentinLoadingState
 
@@ -136,7 +137,7 @@ fun ArchiveScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp * LocalDensityScale.current),
                     ) {
                         items(state.entries, key = { it.target }) { entry ->
                             ArchiveRow(
@@ -202,7 +203,7 @@ private fun ArchiveRow(entry: ArchiveEntryDto, onClick: () -> Unit, onDelete: ()
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(12.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp * LocalDensityScale.current),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(

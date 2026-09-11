@@ -80,6 +80,7 @@ import pm.antani.resentin.data.db.NetworkEntity
 import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.repository.serverChannelKey
 import pm.antani.resentin.ui.common.MircText
+import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.ResentinDropdownMenu
 import pm.antani.resentin.ui.common.ResentinDropdownMenuItem
 import pm.antani.resentin.ui.common.ResentinHeaderAction
@@ -230,7 +231,7 @@ fun HomeScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp * LocalDensityScale.current),
                     ) {
                         item(key = "home-summary") {
                             HomeSectionHeader(networkCount = networks.size)
@@ -660,6 +661,7 @@ private fun NetworkHeader(
     onBrowseDirectory: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val densityScale = LocalDensityScale.current
     val (avatarContainer, avatarContent) = networkAvatarColor()
     val stateLabel = if (network.connectionState == "connected") {
         stringResource(R.string.network_settings_connected)
@@ -670,7 +672,7 @@ private fun NetworkHeader(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 12.dp, end = 4.dp, top = 8.dp * densityScale, bottom = 8.dp * densityScale),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
@@ -764,7 +766,7 @@ private fun ChannelRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(start = 12.dp, end = 12.dp, top = 9.dp, bottom = 9.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 9.dp * LocalDensityScale.current, bottom = 9.dp * LocalDensityScale.current),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(

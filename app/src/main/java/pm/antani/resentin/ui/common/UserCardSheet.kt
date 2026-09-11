@@ -25,7 +25,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -110,7 +109,7 @@ fun UserCardSheet(
                 .padding(24.dp),
         ) {
             val target = whois.target
-            val nickColor = colorForNick(target)
+            val nickColor = colorForNick(target, isLightTheme())
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Real avatar when the subject has one, else the same deterministic
                 // tinted initial as the member list rows.
@@ -307,7 +306,7 @@ fun UserCardSheet(
                             val letter = mode.letter
                             val sigil = sigilOfMode(letter)
                             val hasIt = sigil != null && targetSigils.contains(sigil)
-                            FilterChip(
+                            ResentinFilterChip(
                                 selected = hasIt,
                                 onClick = { onSetMode(target, letter, !hasIt) },
                                 label = { Text(stringResource(mode.labelRes)) },

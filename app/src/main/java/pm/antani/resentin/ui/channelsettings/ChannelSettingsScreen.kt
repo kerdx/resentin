@@ -33,7 +33,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import pm.antani.resentin.ui.common.ResentinFilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -158,7 +158,7 @@ fun ChannelSettingsScreen(
                     ) {
                         SIMPLE_TOGGLE_MODES.forEach { letter ->
                             val checked = state.modes.modes.any { it.firstOrNull() == letter }
-                            FilterChip(
+                            ResentinFilterChip(
                                 selected = checked,
                                 enabled = state.isPrivileged,
                                 onClick = { viewModel.toggleSimpleMode(letter) },
@@ -233,7 +233,7 @@ fun ChannelSettingsScreen(
                                     }
                                     else -> serverMute.until == option.atEpochSeconds
                                 }
-                                FilterChip(
+                                ResentinFilterChip(
                                     selected = selected,
                                     onClick = {
                                         when {
@@ -270,7 +270,7 @@ fun ChannelSettingsScreen(
                         )
                         LazyRow {
                             items(presenceOptions) { (label, pin, selected) ->
-                                FilterChip(
+                                ResentinFilterChip(
                                     selected = selected,
                                     onClick = { viewModel.setPresencePin(pin) },
                                     label = { Text(label) },
@@ -309,7 +309,7 @@ fun ChannelSettingsScreen(
                     val letters = state.listModeLetters.ifEmpty { LIST_MODE_FALLBACK }
                     LazyRow {
                         items(letters) { letter ->
-                            FilterChip(
+                            ResentinFilterChip(
                                 selected = state.activeListMode == letter,
                                 onClick = { viewModel.selectListMode(letter) },
                                 label = { Text(listModeLabel(letter)) },

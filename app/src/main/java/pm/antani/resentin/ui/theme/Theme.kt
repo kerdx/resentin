@@ -29,7 +29,24 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = ResentinDarkOnSurface,
     surfaceVariant = ResentinDarkSurfaceVariant,
     onSurfaceVariant = ResentinDarkOnSurfaceVariant,
+    surfaceDim = ResentinDarkSurfaceDim,
+    surfaceBright = ResentinDarkSurfaceBright,
+    surfaceContainerLowest = ResentinDarkContainerLowest,
+    surfaceContainerLow = ResentinDarkContainerLow,
+    surfaceContainer = ResentinDarkContainer,
+    surfaceContainerHigh = ResentinDarkContainerHigh,
+    surfaceContainerHighest = ResentinDarkContainerHighest,
+    surfaceTint = ResentinPrimaryContainer,
+    inverseSurface = ResentinDarkInverseSurface,
+    inverseOnSurface = ResentinDarkInverseOnSurface,
+    inversePrimary = ResentinPrimary,
     outline = ResentinDarkOutline,
+    outlineVariant = ResentinDarkOutlineVariant,
+    scrim = ResentinDarkInverseOnSurface,
+    error = ResentinDarkError,
+    onError = ResentinDarkOnError,
+    errorContainer = ResentinDarkErrorContainer,
+    onErrorContainer = ResentinDarkOnErrorContainer,
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -51,7 +68,24 @@ private val LightColorScheme = lightColorScheme(
     onSurface = ResentinLightOnSurface,
     surfaceVariant = ResentinLightSurfaceVariant,
     onSurfaceVariant = ResentinLightOnSurfaceVariant,
+    surfaceDim = ResentinLightSurfaceDim,
+    surfaceBright = ResentinLightSurfaceBright,
+    surfaceContainerLowest = ResentinLightContainerLowest,
+    surfaceContainerLow = ResentinLightContainerLow,
+    surfaceContainer = ResentinLightContainer,
+    surfaceContainerHigh = ResentinLightContainerHigh,
+    surfaceContainerHighest = ResentinLightContainerHighest,
+    surfaceTint = ResentinPrimary,
+    inverseSurface = ResentinLightInverseSurface,
+    inverseOnSurface = ResentinLightInverseOnSurface,
+    inversePrimary = ResentinPrimaryContainer,
     outline = ResentinLightOutline,
+    outlineVariant = ResentinLightOutlineVariant,
+    scrim = ResentinLightInverseSurface,
+    error = ResentinLightError,
+    onError = ResentinLightOnError,
+    errorContainer = ResentinLightErrorContainer,
+    onErrorContainer = ResentinLightOnErrorContainer,
 )
 
 private val ResentinShapes = Shapes(
@@ -67,6 +101,7 @@ fun ResentinTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     fontScale: Float = 1f,
+    lineHeightScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -76,18 +111,19 @@ fun ResentinTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography.scaled(fontScale),
+        typography = Typography.scaled(fontScale, lineHeightScale),
         shapes = ResentinShapes,
         content = content,
     )
 }
 
 /** Global text-size multiplier (see the font-size slider in Settings): scales every
- * type style's size and line height, leaving the custom palette untouched. */
-private fun Typography.scaled(scale: Float): Typography {
-    if (scale == 1f) return this
+ * type style's size and line height, leaving the custom palette untouched.
+ * [lineHeightScale] is the separate interlinea setting, applied on top. */
+private fun Typography.scaled(scale: Float, lineHeightScale: Float = 1f): Typography {
+    if (scale == 1f && lineHeightScale == 1f) return this
     fun TextStyle.scaled(): TextStyle =
-        copy(fontSize = fontSize * scale, lineHeight = lineHeight * scale)
+        copy(fontSize = fontSize * scale, lineHeight = lineHeight * scale * lineHeightScale)
     return copy(
         displayLarge = displayLarge.scaled(),
         displayMedium = displayMedium.scaled(),

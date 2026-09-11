@@ -19,7 +19,9 @@ import kotlinx.coroutines.launch
 import org.unifiedpush.android.connector.UnifiedPush
 import pm.antani.resentin.data.prefs.AppPreferences
 import pm.antani.resentin.data.prefs.ChatDisplayMode
+import pm.antani.resentin.data.prefs.MessageDensity
 import pm.antani.resentin.data.prefs.ReplyStyle
+import pm.antani.resentin.data.prefs.ThemeMode
 import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.PushRepository
@@ -114,6 +116,27 @@ class AppSettingsViewModel(
 
     fun setFontScale(scale: Float) {
         viewModelScope.launch { appPreferences.setFontScale(scale) }
+    }
+
+    val themeMode: StateFlow<ThemeMode> = appPreferences.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { appPreferences.setThemeMode(mode) }
+    }
+
+    val messageDensity: StateFlow<MessageDensity> = appPreferences.messageDensity
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MessageDensity.NORMAL)
+
+    fun setMessageDensity(density: MessageDensity) {
+        viewModelScope.launch { appPreferences.setMessageDensity(density) }
+    }
+
+    val lineHeightScale: StateFlow<Float> = appPreferences.lineHeightScale
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
+
+    fun setLineHeightScale(scale: Float) {
+        viewModelScope.launch { appPreferences.setLineHeightScale(scale) }
     }
 
     val replyStyle: StateFlow<ReplyStyle> = appPreferences.replyStyle

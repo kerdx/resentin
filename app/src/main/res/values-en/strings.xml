@@ -181,9 +181,9 @@
     <string name="cd_search_next">Next result</string>
     <string name="cd_close_search">Close search</string>
     <plurals name="chat_channel_title_with_users">
-        <item quantity="one">%1$s (1 user)</item>
-        <item quantity="other">%1$s (%2$d users)</item>
-    </plurals>
+          <item quantity="one">%1$s (1)</item>
+          <item quantity="other">%1$s (%2$d)</item>
+      </plurals>
     <string name="chat_search_hint">Search message or nickname…</string>
     <string name="chat_search_counter">%1$d of %2$d</string>
     <string name="chat_search_no_results">No results</string>
@@ -230,6 +230,31 @@
 
     <!-- App settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_group_appearance">Appearance</string>
+    <string name="settings_group_appearance_desc">Theme, language, text and spacing</string>
+    <string name="settings_group_chat">Chat and messages</string>
+    <string name="settings_group_chat_desc">Bubbles, replies and message details</string>
+    <string name="settings_group_notifications">Notifications</string>
+    <string name="settings_group_notifications_desc">Background connection and push</string>
+    <string name="settings_group_presence">Presence</string>
+    <string name="settings_group_presence_desc">How you appear when away</string>
+    <string name="settings_group_identity">Identity</string>
+    <string name="settings_group_identity_desc">Address used to connect to networks</string>
+    <string name="settings_group_commands">Commands</string>
+    <string name="settings_group_commands_desc">Personal chat aliases</string>
+    <string name="settings_group_data">Storage and data</string>
+    <string name="settings_group_data_desc">Data stored on this device</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_density">Density</string>
+    <string name="settings_density_compact">Compact</string>
+    <string name="settings_density_normal">Normal</string>
+    <string name="settings_density_comfortable">Comfortable</string>
+    <string name="settings_line_spacing">Line spacing</string>
+    <string name="settings_line_spacing_value">%1$d%%</string>
+    <string name="settings_line_spacing_preview">First preview line for line spacing.\nSecond line, to show the gap between lines.\nThird sample line.</string>
     <string name="settings_stay_connected">Stay connected in background</string>
     <string name="settings_stay_connected_desc">Keeps the connection alive and shows notifications for direct messages and mentions</string>
     <string name="settings_colored_nicklist">Colored nicks</string>

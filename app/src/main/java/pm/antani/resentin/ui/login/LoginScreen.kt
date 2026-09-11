@@ -15,8 +15,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Language
@@ -26,7 +29,7 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
+import pm.antani.resentin.ui.common.ResentinFilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -90,6 +93,17 @@ fun LoginScreen(viewModel: LoginViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(20.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                ) {
             OutlinedTextField(
                 value = state.host,
                 onValueChange = viewModel::onHostChange,
@@ -106,7 +120,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
             )
             Spacer(Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                FilterChip(
+                ResentinFilterChip(
                     selected = state.mode == LoginMode.TOKEN,
                     onClick = { viewModel.onModeChange(LoginMode.TOKEN) },
                     label = { Text(stringResource(R.string.login_mode_token)) },
@@ -114,7 +128,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                FilterChip(
+                ResentinFilterChip(
                     selected = state.mode == LoginMode.PASSWORD,
                     onClick = { viewModel.onModeChange(LoginMode.PASSWORD) },
                     label = { Text(stringResource(R.string.login_mode_password)) },
@@ -122,7 +136,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                FilterChip(
+                ResentinFilterChip(
                     selected = state.mode == LoginMode.VISITOR,
                     onClick = { viewModel.onModeChange(LoginMode.VISITOR) },
                     label = { Text(stringResource(R.string.login_mode_visitor)) },
@@ -214,6 +228,8 @@ fun LoginScreen(viewModel: LoginViewModel) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
                     Text(stringResource(R.string.login_signin_button))
+                }
+            }
                 }
             }
         }
