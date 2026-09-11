@@ -515,4 +515,6 @@
     <string name="chat_credits_line2">Interfaccia in stile Resentin, costruita con Jetpack Compose e Material 3</string>
     <string name="chat_credits_line3">Parità di comandi con cicchetto, il client web di riferimento</string>
     <string name="chat_credits_close">Chiudi</string>
+    <string name="chat_multiline_title">Incolla come %1$d messaggi?</string>
+    <string name="chat_multiline_body">Il testo verrà inviato a %1$s come %2$d messaggi separati (uno per riga).</string>
     <string name="chat_slash_alias_builtin">Non puoi sostituire un comando integrato</string></resources>

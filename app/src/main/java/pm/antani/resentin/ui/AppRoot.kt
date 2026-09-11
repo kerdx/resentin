@@ -312,6 +312,7 @@ fun AppRoot(
                 viewModel = viewModel,
                 title = if (channelName == "\$server") stringResource(R.string.server_pseudo_channel_title) else channelName,
                 networkSlug = networkSlug,
+                channelName = channelName,
                 viewerUsername = currentSession.username,
                 isQuery = isQueryTarget(channelName),
                 isServer = channelName == "\$server",

@@ -120,6 +120,7 @@ import pm.antani.resentin.irc.FormattedEvent
 import pm.antani.resentin.irc.SystemEventFormatter
 import pm.antani.resentin.irc.containsMention
 import pm.antani.resentin.irc.matchesHighlight
+import pm.antani.resentin.irc.MessageLines
 import pm.antani.resentin.net.dto.LusersBundleDto
 import pm.antani.resentin.net.dto.WhoReplyDto
 import pm.antani.resentin.net.dto.WhowasBundleDto
@@ -188,6 +189,7 @@ fun ChatScreen(
     viewModel: ChatViewModel,
     title: String,
     networkSlug: String,
+    channelName: String,
     viewerUsername: String,
     isQuery: Boolean = false,
     isServer: Boolean = false,
@@ -219,6 +221,7 @@ fun ChatScreen(
         viewModel.replyFocusRequests.collect { draftFocusRequester.requestFocus() }
     }
     val error by viewModel.error.collectAsState()
+    val pendingMultiLineSend by viewModel.pendingMultiLineSend.collectAsState()
     val whois by viewModel.selectedWhois.collectAsState()
     val ownSigils by viewModel.ownSigils.collectAsState()
     val privilegeModes by viewModel.privilegeModes.collectAsState()
@@ -1131,6 +1134,42 @@ fun ChatScreen(
             confirmButton = {
                 TextButton(onClick = viewModel::dismissCredits) {
                     Text(stringResource(R.string.chat_credits_close))
+                }
+            },
+        )
+    }
+
+    // Flood guard: a multi-line draft would be sent as one PRIVMSG per line, so
+    // a block taller than the threshold asks first. Cancel keeps the draft.
+    val pendingSend = pendingMultiLineSend
+    if (pendingSend != null) {
+        val messageCount = MessageLines.splitMessageLines(pendingSend).size
+        AlertDialog(
+            onDismissRequest = viewModel::dismissMultiLineSend,
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 0.dp,
+            title = {
+                Text(
+                    stringResource(R.string.chat_multiline_title, messageCount),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
+            text = {
+                Text(
+                    stringResource(R.string.chat_multiline_body, channelName, messageCount),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmMultiLineSend) {
+                    Text(stringResource(R.string.cd_send))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissMultiLineSend) {
+                    Text(stringResource(R.string.cd_cancel))
                 }
             },
         )

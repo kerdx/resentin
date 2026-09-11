@@ -42,8 +42,10 @@ import pm.antani.resentin.irc.canonicalTarget
 import pm.antani.resentin.irc.isMessageVisibleUnderPresenceFilter
 import pm.antani.resentin.irc.isQueryTarget
 import pm.antani.resentin.irc.isServiceNick
+import pm.antani.resentin.irc.MessageLines
 import pm.antani.resentin.irc.presenceVisible
 import pm.antani.resentin.irc.serviceNickFor
+import pm.antani.resentin.net.RateLimitException
 import pm.antani.resentin.net.dto.LusersBundleDto
 import pm.antani.resentin.net.dto.WhoReplyDto
 import pm.antani.resentin.net.dto.WhowasBundleDto
@@ -200,6 +202,11 @@ class ChatViewModel(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    // Multi-line draft awaiting the flood-guard confirmation. Non-null while the
+    // "send as N messages?" dialog is up; the draft is NOT cleared underneath it.
+    private val _pendingMultiLineSend = MutableStateFlow<String?>(null)
+    val pendingMultiLineSend: StateFlow<String?> = _pendingMultiLineSend.asStateFlow()
 
     private val _isLoadingOlder = MutableStateFlow(false)
     val isLoadingOlder: StateFlow<Boolean> = _isLoadingOlder.asStateFlow()
@@ -376,6 +383,21 @@ class ChatViewModel(
         val text = rawText.trim()
         if (text.isBlank()) return
         if (!rawText.startsWith("/")) {
+            // Paste flood guard: a multi-line draft becomes one PRIVMSG per line,
+            // so a block taller than the threshold is a burst the operator did not
+            // compose by hand. Ask before it goes out; 1–3 lines stay frictionless.
+            val lines = MessageLines.splitMessageLines(text)
+            if (lines.size > MULTI_LINE_CONFIRM_MESSAGES) {
+                _pendingMultiLineSend.value = text
+                return
+            }
+            // Anything multi-line — confirmed or not — must still fan out per line:
+            // the server rejects a body carrying CR/LF (invalid_line), so the
+            // unconfirmed 1–3-line carve-out cannot go out as one frame.
+            if (lines.size > 1) {
+                sendMultiline(text)
+                return
+            }
             sendMessage(text)
             return
         }
@@ -418,6 +440,57 @@ class ChatViewModel(
                 }.onSuccess {
                     if (_draft.value.trim() == text) setDraft("")
                 }.onFailure { postError(it.message) }
+            } finally {
+                _isSending.value = false
+            }
+        }
+    }
+
+    /** User said "send it" in the multi-line flood-guard dialog. */
+    fun confirmMultiLineSend() {
+        val text = _pendingMultiLineSend.value ?: return
+        _pendingMultiLineSend.value = null
+        sendMultiline(text)
+    }
+
+    /** User cancelled the multi-line dialog — the draft stays untouched for editing. */
+    fun dismissMultiLineSend() {
+        _pendingMultiLineSend.value = null
+    }
+
+    // One PRIVMSG per line, awaited in order — the send-path half of
+    // `MessageLines`, mirroring cicchetto's `sendBodyLines`. On a rate-limit the
+    // same line is retried after the server's retry-after; on any other failure
+    // the unsent remainder (the failed line onward) is mirrored back into the
+    // draft so the operator loses nothing that has not gone out.
+    private fun sendMultiline(text: String) {
+        if (_isSending.value) return
+        val lines = MessageLines.splitMessageLines(text)
+        _isSending.value = true
+        viewModelScope.launch {
+            try {
+                channelReady.await()
+                var sent = 0
+                while (sent < lines.size) {
+                    val line = lines[sent]
+                    val result = runCatching {
+                        chatRepository.sendMessage(networkSlug, channelName, line).getOrThrow()
+                    }
+                    result.onFailure { failure ->
+                        if (failure is RateLimitException) {
+                            delay(failure.retryAfterMs ?: DEFAULT_RATE_LIMIT_RETRY_MS)
+                            return@onFailure
+                        }
+                        postError(failure.message)
+                    }
+                    if (result.isSuccess) sent += 1
+                }
+                val residue = lines.drop(sent)
+                if (residue.isNotEmpty()) {
+                    setDraft(residue.joinToString("\n"))
+                } else if (_draft.value.trim() == text) {
+                    setDraft("")
+                }
             } finally {
                 _isSending.value = false
             }
@@ -755,6 +828,14 @@ class ChatViewModel(
     }
 
     companion object {
+        /** Flood-guard threshold: drafts that split into MORE than this many
+         * messages confirm before sending. Mirrors cicchetto's #80 carve-out:
+         * short pastes (1–3 lines) stay frictionless, taller bursts ask. */
+        const val MULTI_LINE_CONFIRM_MESSAGES = 3
+
+        /** Fallback wait when a rate-limit reply carries no retry-after. */
+        private const val DEFAULT_RATE_LIMIT_RETRY_MS = 2_000L
+
         fun factory(
             chatRepository: ChatRepository,
             networksRepository: NetworksRepository,
