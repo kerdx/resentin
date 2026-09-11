@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -126,13 +127,23 @@ class UserCardController(
         }.getOrNull()
     }
 
+    /** Self-WHOIS never carries an avatar: `Grappa.Avatars`/the CTCP AVATAR dance is a
+     * PEER-only mechanism (you never send yourself a CTCP query), so the server's
+     * `whois_bundle.avatar_url` for your own nick is always null. Fall back to the
+     * network's own avatar (already fetched for the network-settings profile editor)
+     * when the WHOIS target matches the current live nick. */
+    private suspend fun ownAvatarUrlIfSelf(target: String): String? {
+        val network = networksRepository.observeNetwork(networkSlug).first() ?: return null
+        return network.avatarUrl.takeIf { target.equals(network.nick, ignoreCase = true) }
+    }
+
     init {
         membersRepository.whoisEvents
             .filter { it.target.equals(_pendingWhoisTarget.value, ignoreCase = true) }
-            .onEach {
+            .onEach { bundle ->
                 _pendingWhoisTarget.value = null
-                _selectedWhois.value = it
-                _avatarUrl.value = it.avatarUrl
+                _selectedWhois.value = bundle
+                _avatarUrl.value = bundle.avatarUrl ?: ownAvatarUrlIfSelf(bundle.target)
             }.launchIn(scope)
         // Late avatar patch for the open card (M3b) — replaces the URL and kicks the
         // fetch below via avatarUrl; ignored when the card moved on to another nick.

@@ -89,7 +89,9 @@
 
     <!-- Admin -->
     <string name="settings_admin_panel">Admin panel</string>
+    <string name="settings_admin_panel_desc">Networks, vhosts, users, sessions and visitors</string>
     <string name="settings_credits">Credits</string>
+    <string name="settings_credits_desc">Contributors, thanks and the soundtrack</string>
     <string name="admin_title">Admin</string>
     <string name="admin_tab_networks">Networks</string>
     <string name="admin_tab_vhosts">Vhosts</string>
@@ -308,7 +310,7 @@
     <string name="settings_auto_away_custom_seconds">Seconds:</string>
     <string name="settings_auto_away_desc">When every device of yours is closed or in the background, the bouncer waits this long and then tells the network you are away. It stays connected either way — this only changes what other people see. Pick \"never\" to keep the away flag off entirely.</string>
     <string name="settings_peer_profiles_title">Other users\' profiles</string>
-    <string name="settings_peer_profiles_desc">Lets the bouncer ask other users for their CTCP profile (gender, avatar) when you join a channel together. Feeds the avatar shown on whois cards, in private chats and in notifications. Off by default.</string>
+    <string name="settings_peer_profiles_desc">Off by default; when on, grappa asks each new person you meet in a channel for their public profile and shows a gender badge and avatar when they answer. Also feeds the avatar in private chats and notifications.</string>
     <string name="settings_peer_profiles_switch_label">Query other users\' profiles</string>
     <string name="settings_auto_away_invalid_input">Enter a whole number of seconds</string>
     <string name="settings_push_enabled">Low-power push notifications</string>

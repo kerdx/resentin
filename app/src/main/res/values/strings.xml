@@ -89,7 +89,9 @@
 
     <!-- Admin -->
     <string name="settings_admin_panel">Pannello di amministrazione</string>
+    <string name="settings_admin_panel_desc">Reti, vhost, utenti, sessioni e visitor</string>
     <string name="settings_credits">Crediti</string>
+    <string name="settings_credits_desc">Contributor, ringraziamenti e musica</string>
     <string name="admin_title">Amministrazione</string>
     <string name="admin_tab_networks">Reti</string>
     <string name="admin_tab_vhosts">Vhost</string>
@@ -308,7 +310,7 @@
     <string name="settings_auto_away_custom_seconds">Secondi:</string>
     <string name="settings_auto_away_desc">Quando tutti i tuoi dispositivi sono chiusi o in background, il bouncer aspetta questo tempo e poi comunica alla rete che sei assente. Resta comunque connesso: questo cambia solo cosa vedono gli altri. Scegli \"mai\" per disattivare del tutto lo stato di assenza.</string>
     <string name="settings_peer_profiles_title">Profili degli altri utenti</string>
-    <string name="settings_peer_profiles_desc">Permette al bouncer di chiedere agli altri utenti il loro profilo CTCP (genere, avatar) quando entri in un canale insieme a loro. Alimenta l\'avatar nelle card whois, nelle chat private e nelle notifiche. Disattivato di default.</string>
+    <string name="settings_peer_profiles_desc">Disattivato di default; se attivo, grappa chiede il profilo pubblico a ogni nuova persona che incontri in un canale e mostra il badge del genere e l\'avatar quando risponde. Alimenta anche l\'avatar nelle chat private e nelle notifiche.</string>
     <string name="settings_peer_profiles_switch_label">Richiedi profili degli altri utenti</string>
     <string name="settings_auto_away_invalid_input">Inserisci un numero intero di secondi</string>
     <string name="settings_push_enabled">Notifiche push a basso consumo</string>

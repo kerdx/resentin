@@ -39,6 +39,8 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.AdminPanelSettings
+import androidx.compose.material.icons.outlined.Celebration
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.TextFields
@@ -356,7 +358,10 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                 item {
                     SettingsHubCard(
                         showIdentity = showIdentity,
+                        isAdmin = state.isAdmin,
                         onSelect = { selectedSection = it },
+                        onAdminClick = onAdminClick,
+                        onCreditsClick = { showCredits = true },
                     )
                 }
             }
@@ -808,6 +813,8 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     title = stringResource(R.string.settings_peer_profiles_title),
                     description = stringResource(R.string.settings_peer_profiles_desc),
                 ) {
+                    SettingsBlockLabel(text = stringResource(R.string.settings_peer_profiles_title))
+                    Spacer(Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -823,6 +830,12 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                             onCheckedChange = { viewModel.toggleShowPeerProfiles() },
                         )
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.settings_peer_profiles_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     state.showPeerProfilesError?.let { error ->
                         Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
@@ -982,24 +995,6 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     ) {
                         Text(stringResource(R.string.settings_clear_messages, formatByteSize(messageDbSizeBytes)))
                     }
-                    if (state.isAdmin) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = onAdminClick,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(stringResource(R.string.settings_admin_panel))
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { showCredits = true },
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(stringResource(R.string.settings_credits))
-                    }
                 }
             }
             }
@@ -1049,7 +1044,10 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
 @Composable
 private fun SettingsHubCard(
     showIdentity: Boolean,
+    isAdmin: Boolean,
     onSelect: (SettingsSection) -> Unit,
+    onAdminClick: () -> Unit,
+    onCreditsClick: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1068,6 +1066,30 @@ private fun SettingsHubCard(
                 add(SettingsSection.COMMANDS)
                 add(SettingsSection.DATA)
             }
+            // Extra rows that aren't a SettingsSection: admin opens a separate screen
+            // (not a filtered content panel of this one) and credits opens an overlay —
+            // neither fits the section model, but both belong in the same top-level list.
+            data class ExtraRow(val icon: ImageVector, val title: String, val description: String, val onClick: () -> Unit)
+            val extraRows = buildList {
+                if (isAdmin) {
+                    add(
+                        ExtraRow(
+                            Icons.Outlined.AdminPanelSettings,
+                            stringResource(R.string.settings_admin_panel),
+                            stringResource(R.string.settings_admin_panel_desc),
+                            onAdminClick,
+                        ),
+                    )
+                }
+                add(
+                    ExtraRow(
+                        Icons.Outlined.Celebration,
+                        stringResource(R.string.settings_credits),
+                        stringResource(R.string.settings_credits_desc),
+                        onCreditsClick,
+                    ),
+                )
+            }
             sections.forEachIndexed { index, target ->
                 if (index > 0) {
                     HorizontalDivider(
@@ -1081,6 +1103,13 @@ private fun SettingsHubCard(
                     description = target.description(),
                     onClick = { onSelect(target) },
                 )
+            }
+            extraRows.forEach { row ->
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 62.dp, end = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                )
+                SettingsHubRow(icon = row.icon, title = row.title, description = row.description, onClick = row.onClick)
             }
         }
     }

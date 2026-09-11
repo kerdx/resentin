@@ -41,7 +41,14 @@ let travelDistance = 0; // this pass's total travel (viewport + roll height)
 let lastFrameAt = 0;
 
 const deck = createProseDeck();
-let stage = "block"; // "block" -> "prose" -> "manifesto" -> "ended"
+// Two separate first-block passes, not one concatenated block: combining the
+// Resentin block and grappa's own block into a single tall element made the
+// fade-out (timed as the LAST 10% of that pass's own travel) dissolve well
+// before the grappa half had fully scrolled through, and the following prose
+// pass then entered while that tail was still mid-transition — read as "the
+// next block starts from halfway". Each block now gets its own full
+// cic-sized travel + fade, same as the roll's every other pass.
+let stage = "resentin_block"; // -> "grappa_block" -> "prose" -> "manifesto" -> "ended"
 
 function closeCredits() {
   if (window.ResentinCredits?.close) {
@@ -170,10 +177,18 @@ function buildFinale() {
  * caller then shows the static ending instead of starting another pass.
  */
 function buildNextScreen() {
-  if (stage === "block") {
+  if (stage === "resentin_block") {
     const block = document.createElement("div");
     block.className = "credits-block";
     block.appendChild(buildResentinBlock());
+    fadingBlock = block;
+    stage = "grappa_block";
+    return block;
+  }
+
+  if (stage === "grappa_block") {
+    const block = document.createElement("div");
+    block.className = "credits-block";
     block.appendChild(buildGrappaBlock());
     fadingBlock = block;
     stage = "prose";
