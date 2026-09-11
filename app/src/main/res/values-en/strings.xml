@@ -176,6 +176,10 @@
     <string name="chat_message_placeholder">Message</string>
     <string name="cd_send">Send</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
+    <plurals name="cd_jump_to_next_mention">
+        <item quantity="one">Jump to next mention (%1$d below)</item>
+        <item quantity="other">Jump to next mention (%1$d below)</item>
+    </plurals>
     <string name="cd_search_chat">Search chat</string>
     <string name="cd_search_previous">Previous result</string>
     <string name="cd_search_next">Next result</string>

@@ -363,6 +363,24 @@ fun ChatScreen(
         messages.indexOfFirst { it.id > cursor }.takeIf { it >= 0 }
     }
 
+    // List indices of the mention rows (own nick / /hilight match from another
+    // sender — the SAME isMentionRow predicate the per-row highlight uses, the
+    // way cicchetto's badge reads the rows the highlight marks). The unread
+    // divider shifts every message row after it by one. Precomputed so the
+    // scroll-path decision stays a cheap filter.
+    val mentionRowIndices by remember(messages, dividerIndex, myNick, highlightPatterns, isQuery) {
+        derivedStateOf {
+            val divider = dividerIndex
+            val indices = mutableListOf<Int>()
+            messages.forEachIndexed { index, message ->
+                if (isMentionRow(message, myNick, isQuery, highlightPatterns)) {
+                    indices.add(index + if (divider != null && index >= divider) 1 else 0)
+                }
+            }
+            indices
+        }
+    }
+
     LaunchedEffect(searchOpen, selectedSearchMessageId, messages.size, dividerIndex) {
         if (!searchOpen || selectedSearchMessageId == null) return@LaunchedEffect
         val messageIndex = messages.indexOfFirst { it.id == selectedSearchMessageId }
@@ -385,10 +403,18 @@ fun ChatScreen(
     // a large gesture, which leaves the jump button permanently hidden.
     var isAtBottom by remember { mutableStateOf(true) }
     var showJumpToBottom by remember { mutableStateOf(false) }
-    LaunchedEffect(listState, positioned, messages.isNotEmpty()) {
+    // Below-the-fold mention rows for the jump badge (cicchetto #360 port). A
+    // mention counts once its row lies entirely past the last laid-out row; one
+    // straddling the fold is already seen. `mentionRowIndices` is a key here so
+    // the badge picks up a new mention the moment it lands.
+    var mentionBadgeCount by remember { mutableStateOf(0) }
+    var nextMentionRowIndex by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(listState, positioned, messages.isNotEmpty(), mentionRowIndices) {
         if (!positioned || messages.isEmpty()) {
             isAtBottom = true
             showJumpToBottom = false
+            mentionBadgeCount = 0
+            nextMentionRowIndex = null
             return@LaunchedEffect
         }
 
@@ -406,6 +432,9 @@ fun ChatScreen(
                 lastVisibleIsFullyVisible
             isAtBottom = atBottom
             showJumpToBottom = !atBottom
+            val below = MentionScroll.mentionRowsBelowFold(mentionRowIndices, lastVisibleIndex)
+            mentionBadgeCount = below.size
+            nextMentionRowIndex = below.firstOrNull()
         }
     }
 
@@ -959,18 +988,54 @@ fun ChatScreen(
             }
             // Show the jump control only while there is content below the viewport.
             // The bottom anchor makes this check reliable even with long final rows.
+            // When own-nick mentions sit below the fold the button becomes
+            // mention-aware (cicchetto #360): a badge shows how many, and a tap
+            // jumps to the nearest one below instead of the tail.
             if (showJumpToBottom) {
                 val scope = rememberCoroutineScope()
-                SmallFloatingActionButton(
-                    onClick = {
-                        scope.launch { listState.animateToChatBottom() }
-                    },
+                Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(16.dp)
                         .zIndex(1f),
                 ) {
-                    Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = stringResource(R.string.cd_scroll_to_bottom))
+                    SmallFloatingActionButton(
+                        onClick = {
+                            val target = nextMentionRowIndex
+                            if (target != null) {
+                                // Put the mention row at the top of the viewport;
+                                // scrolling to the following row would hide the
+                                // very mention this button is meant to reveal.
+                                scope.launch {
+                                    val maxRow = listState.layoutInfo.totalItemsCount - 1
+                                    listState.animateScrollToItem(target.coerceAtMost(maxRow))
+                                }
+                            } else {
+                                scope.launch { listState.animateToChatBottom() }
+                            }
+                        },
+                    ) {
+                        Icon(
+                            Icons.Outlined.KeyboardArrowDown,
+                            contentDescription = if (mentionBadgeCount > 0) {
+                                pluralStringResource(
+                                    R.plurals.cd_jump_to_next_mention,
+                                    mentionBadgeCount,
+                                    mentionBadgeCount,
+                                )
+                            } else {
+                                stringResource(R.string.cd_scroll_to_bottom)
+                            },
+                        )
+                    }
+                    if (mentionBadgeCount > 0) {
+                        MentionCountBadge(
+                            count = mentionBadgeCount,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-6).dp),
+                        )
+                    }
                 }
             }
                 }
@@ -1468,6 +1533,28 @@ private fun nickPrefixFor(nick: String, members: List<MemberEntity>): String {
 @Composable
 private fun mentionHighlight(isMention: Boolean): Modifier =
     if (isMention) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)) else Modifier
+
+/** Corner badge on the jump-to-bottom FAB, mirroring the HomeScreen unread pill
+ * (`UnreadBadge`). Shown only while own-nick mentions sit below the fold; its
+ * count is the number still to reach, and a tap on the button jumps to the
+ * nearest one instead of the tail. */
+@Composable
+private fun MentionCountBadge(count: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .background(
+                color = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(12.dp),
+            )
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = if (count > 99) "99+" else count.toString(),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onPrimary,
+        )
+    }
+}
 
 /** Whether [message] is one that would have fired a notification — see
  * NotificationRouter.shouldNotify, which this deliberately mirrors (own messages never
