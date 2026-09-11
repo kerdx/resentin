@@ -104,7 +104,11 @@ fun MircText(
     color: Color = Color.Unspecified,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
+    enableLinks: Boolean = true,
 ) {
-    val annotated = remember(text) { withClickableLinks(mircAnnotatedString(text)) }
+    val annotated = remember(text, enableLinks) {
+        val parsed = mircAnnotatedString(text)
+        if (enableLinks) withClickableLinks(parsed) else parsed
+    }
     Text(text = annotated, modifier = modifier, style = style, color = color, maxLines = maxLines, overflow = overflow)
 }

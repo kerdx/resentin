@@ -28,17 +28,24 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -106,7 +113,11 @@ import pm.antani.resentin.irc.containsMention
 import pm.antani.resentin.irc.highestSigil
 import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.ui.common.MircText
+import pm.antani.resentin.ui.common.ResentinDropdownMenu
+import pm.antani.resentin.ui.common.ResentinDropdownMenuItem
 import pm.antani.resentin.ui.common.ResentinHeaderAction
+import pm.antani.resentin.ui.common.ResentinEmptyState
+import pm.antani.resentin.ui.common.ResentinLoadingState
 import pm.antani.resentin.ui.common.UserCardSheet
 import pm.antani.resentin.ui.common.colorForNick
 import pm.antani.resentin.ui.common.mircAnnotatedString
@@ -129,6 +140,7 @@ fun ChatScreen(
     networkSlug: String,
     viewerUsername: String,
     isQuery: Boolean = false,
+    isServer: Boolean = false,
     onBack: () -> Unit,
     onMembersClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -163,6 +175,31 @@ fun ChatScreen(
     val initialReadCursor by viewModel.initialReadCursor.collectAsState()
     val initialReadCursorReady by viewModel.initialReadCursorReady.collectAsState()
     val members by viewModel.members.collectAsState()
+    var searchOpen by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedSearchIndex by remember { mutableStateOf(0) }
+    val searchMatches = remember(messages, searchQuery) {
+        findLocalChatMatches(messages, searchQuery)
+    }
+    val selectedSearchMessageId = searchMatches.getOrNull(selectedSearchIndex)?.id
+    val searchFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(searchOpen) {
+        if (searchOpen) searchFocusRequester.requestFocus()
+    }
+    LaunchedEffect(searchQuery) {
+        selectedSearchIndex = 0
+    }
+    fun closeSearch() {
+        searchOpen = false
+        searchQuery = ""
+        selectedSearchIndex = 0
+    }
+
+    fun moveSearchResult(step: Int) {
+        if (searchMatches.isEmpty()) return
+        selectedSearchIndex = (selectedSearchIndex + step + searchMatches.size) % searchMatches.size
+    }
+
     val activeMention = remember(draftFieldValue) { mentionQueryAtCursor(draftFieldValue) }
     val mentionSuggestions = remember(activeMention, members) {
         activeMention?.let { findMentionSuggestions(it.query, members) }.orEmpty()
@@ -213,12 +250,16 @@ fun ChatScreen(
     val isUploading by viewModel.isUploading.collectAsState()
     val isSending by viewModel.isSending.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val isLoadingOlder by viewModel.isLoadingOlder.collectAsState()
     val coloredNicklist by viewModel.coloredNicklist.collectAsState()
     val showHostmaskInEvents by viewModel.showHostmaskInEvents.collectAsState()
     val myNick by viewModel.myNick.collectAsState()
     val listState = rememberLazyListState()
+    val showHistoryLoading = messages.isEmpty() && (!initialReadCursorReady || isRefreshing)
+    val showHistoryError = messages.isEmpty() && initialReadCursorReady && error != null && !isRefreshing
     var hasScrolledInitially by remember { mutableStateOf(false) }
     var showTopicDialog by remember { mutableStateOf(false) }
+    var showChannelMenu by remember { mutableStateOf(false) }
     // The long-pressed row's plain text, threaded to UserCardSheet for its "Copia"/
     // "Copia parziale" actions — the sheet itself only knows the sender's nick (it opens
     // off a WHOIS reply, which arrives async), not which message triggered it.
@@ -251,6 +292,14 @@ fun ChatScreen(
     // everything is already read).
     val dividerIndex = initialReadCursor?.let { cursor ->
         messages.indexOfFirst { it.id > cursor }.takeIf { it >= 0 }
+    }
+
+    LaunchedEffect(searchOpen, selectedSearchMessageId, messages.size, dividerIndex) {
+        if (!searchOpen || selectedSearchMessageId == null) return@LaunchedEffect
+        val messageIndex = messages.indexOfFirst { it.id == selectedSearchMessageId }
+        if (messageIndex < 0) return@LaunchedEffect
+        val listIndex = messageIndex + if (dividerIndex != null && messageIndex >= dividerIndex) 1 else 0
+        listState.animateScrollToItem(listIndex)
     }
 
     // Land on the first unread message (per the server's read-cursor), not always the
@@ -326,12 +375,39 @@ fun ChatScreen(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(
-                            modifier = Modifier.clickable(enabled = topic != null) { showTopicDialog = true },
+                    if (searchOpen) {
+                        TextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(searchFocusRequester),
+                            placeholder = { Text(stringResource(R.string.chat_search_hint)) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(20.dp),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            ),
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(
+                                modifier = Modifier.clickable(enabled = topic != null) { showTopicDialog = true },
                     ) {
                         Text(
-                            title,
+                            text = if (!isQuery && !isServer) {
+                                pluralStringResource(
+                                    R.plurals.chat_channel_title_with_users,
+                                    members.size,
+                                    title,
+                                    members.size,
+                                )
+                            } else {
+                                title
+                            },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -370,18 +446,65 @@ fun ChatScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                    }
+                            }
+                        }
                     }
                 },
                 actions = {
-                    ResentinHeaderAction(
-                        onClick = viewModel::refresh,
-                        icon = Icons.Outlined.Refresh,
-                        contentDescription = stringResource(R.string.cd_refresh),
-                        enabled = !isRefreshing,
-                        loading = isRefreshing,
-                    )
-                    if (isQuery) {
+                    if (searchOpen) {
+                        val counter = when {
+                            searchQuery.isBlank() -> ""
+                            searchMatches.isEmpty() -> stringResource(R.string.chat_search_no_results)
+                            else -> stringResource(
+                                R.string.chat_search_counter,
+                                selectedSearchIndex + 1,
+                                searchMatches.size,
+                            )
+                        }
+                        if (counter.isNotEmpty()) {
+                            Text(
+                                text = counter,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        IconButton(
+                            onClick = { moveSearchResult(-1) },
+                            enabled = searchMatches.isNotEmpty(),
+                        ) {
+                            Icon(
+                                Icons.Outlined.KeyboardArrowUp,
+                                contentDescription = stringResource(R.string.cd_search_previous),
+                            )
+                        }
+                        IconButton(
+                            onClick = { moveSearchResult(1) },
+                            enabled = searchMatches.isNotEmpty(),
+                        ) {
+                            Icon(
+                                Icons.Outlined.KeyboardArrowDown,
+                                contentDescription = stringResource(R.string.cd_search_next),
+                            )
+                        }
+                        IconButton(onClick = ::closeSearch) {
+                            Icon(
+                                Icons.Outlined.Close,
+                                contentDescription = stringResource(R.string.cd_close_search),
+                            )
+                        }
+                    } else if (isQuery) {
+                        ResentinHeaderAction(
+                            onClick = { searchOpen = true },
+                            icon = Icons.Outlined.Search,
+                            contentDescription = stringResource(R.string.cd_search_chat),
+                        )
+                        ResentinHeaderAction(
+                            onClick = viewModel::refresh,
+                            icon = Icons.Outlined.Refresh,
+                            contentDescription = stringResource(R.string.cd_refresh),
+                            enabled = !isRefreshing,
+                            loading = isRefreshing,
+                        )
                         // In a query, `title` IS the partner's nick (see AppRoot's
                         // ChatScreen call site) — the same nick onMessageLongPress
                         // already knows how to resolve into a WHOIS lookup.
@@ -392,20 +515,49 @@ fun ChatScreen(
                         )
                     } else {
                         ResentinHeaderAction(
-                            onClick = onMembersClick,
-                            icon = Icons.Outlined.Group,
-                            contentDescription = pluralStringResource(
-                                R.plurals.cd_members_count,
-                                members.size,
-                                members.size,
-                            ),
-                            badgeText = members.size.toString(),
+                            onClick = { showChannelMenu = true },
+                            icon = Icons.Outlined.MoreVert,
+                            contentDescription = stringResource(R.string.cd_channel_menu),
                         )
-                        ResentinHeaderAction(
-                            onClick = onSettingsClick,
-                            icon = Icons.Outlined.Settings,
-                            contentDescription = stringResource(R.string.cd_channel_settings),
-                        )
+                        ResentinDropdownMenu(
+                            expanded = showChannelMenu,
+                            onDismissRequest = { showChannelMenu = false },
+                        ) {
+                            ResentinDropdownMenuItem(
+                                text = stringResource(R.string.cd_search_chat),
+                                icon = Icons.Outlined.Search,
+                                onClick = {
+                                    showChannelMenu = false
+                                    searchOpen = true
+                                },
+                            )
+                            ResentinDropdownMenuItem(
+                                text = stringResource(R.string.cd_refresh),
+                                icon = Icons.Outlined.Refresh,
+                                onClick = {
+                                    showChannelMenu = false
+                                    viewModel.refresh()
+                                },
+                            )
+                            if (!isServer) {
+                                ResentinDropdownMenuItem(
+                                    text = stringResource(R.string.chat_channel_members_action),
+                                    icon = Icons.Outlined.Group,
+                                    onClick = {
+                                        showChannelMenu = false
+                                        onMembersClick()
+                                    },
+                                )
+                            }
+                            ResentinDropdownMenuItem(
+                                text = stringResource(R.string.cd_channel_settings),
+                                icon = Icons.Outlined.Settings,
+                                onClick = {
+                                    showChannelMenu = false
+                                    onSettingsClick()
+                                },
+                            )
+                        }
                     }
                 },
             )
@@ -526,6 +678,33 @@ fun ChatScreen(
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
+            when {
+                showHistoryLoading -> {
+                    ResentinLoadingState(
+                        title = stringResource(R.string.chat_history_loading),
+                        description = stringResource(R.string.chat_history_loading_description),
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                showHistoryError -> {
+                    ResentinEmptyState(
+                        icon = Icons.Outlined.WifiOff,
+                        title = stringResource(R.string.chat_history_error_title),
+                        description = stringResource(R.string.chat_history_error_description),
+                        actionLabel = stringResource(R.string.chat_history_retry),
+                        onAction = viewModel::refresh,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                messages.isEmpty() -> {
+                    ResentinEmptyState(
+                        icon = Icons.Outlined.ChatBubbleOutline,
+                        title = stringResource(R.string.chat_history_empty_title),
+                        description = stringResource(R.string.chat_history_empty_description),
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                else -> {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 messages.forEachIndexed { index, message ->
                     if (index == dividerIndex) {
@@ -536,22 +715,58 @@ fun ChatScreen(
                         val tight = previous != null &&
                             previous.sender.equals(message.sender, ignoreCase = true) &&
                             previous.kind == message.kind
-                        MessageRow(
-                            message = message,
-                            members = members,
-                            displayMode = displayMode,
-                            showSeconds = showSeconds,
-                            coloredNicklist = coloredNicklist,
-                            showHostmaskInEvents = showHostmaskInEvents,
-                            isMention = isMentionRow(message, myNick, isQuery),
-                            isQuery = isQuery,
-                            isMine = isQuery && (myNick ?: viewerUsername).equals(message.sender, ignoreCase = true),
-                            onReply = viewModel::reply,
-                            onLongPress = { nick, text ->
-                                longPressedMessageText = text
-                                viewModel.onMessageLongPress(nick)
-                            },
-                            tight = tight,
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (message.id == selectedSearchMessageId) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
+                                    } else {
+                                        androidx.compose.ui.graphics.Color.Transparent
+                                    },
+                                ),
+                        ) {
+                            MessageRow(
+                                message = message,
+                                members = members,
+                                displayMode = if (isServer) ChatDisplayMode.IRC_LINE else displayMode,
+                                showSeconds = showSeconds,
+                                coloredNicklist = coloredNicklist,
+                                showHostmaskInEvents = showHostmaskInEvents,
+                                isMention = isMentionRow(message, myNick, isQuery),
+                                isQuery = isQuery,
+                                isMine = isQuery && (myNick ?: viewerUsername).equals(message.sender, ignoreCase = true),
+                                onReply = viewModel::reply,
+                                onLongPress = { nick, text ->
+                                    longPressedMessageText = text
+                                    viewModel.onMessageLongPress(nick)
+                                },
+                                tight = tight,
+                            )
+                        }
+                    }
+                }
+            }
+            if (isLoadingOlder) {
+                Surface(
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 2.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            text = stringResource(R.string.chat_history_loading_older),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -595,6 +810,8 @@ fun ChatScreen(
                     modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                 ) {
                     Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = stringResource(R.string.cd_scroll_to_bottom))
+                }
+            }
                 }
             }
         }
@@ -718,6 +935,17 @@ internal fun ChatErrorSnackbar(message: String, modifier: Modifier = Modifier) {
     }
 }
 
+/** Fast, local-only search over the rows already loaded into Room for this chat.
+ * Keeping this pure makes the UI independent from the future server-side search API. */
+internal fun findLocalChatMatches(messages: List<MessageEntity>, query: String): List<MessageEntity> {
+    val needle = query.trim()
+    if (needle.isEmpty()) return emptyList()
+    return messages.filter { message ->
+        message.sender.contains(needle, ignoreCase = true) ||
+            message.body?.contains(needle, ignoreCase = true) == true
+    }
+}
+
 private data class MentionQuery(
     val start: Int,
     val end: Int,
@@ -811,16 +1039,16 @@ private fun nickPrefixFor(nick: String, members: List<MemberEntity>): String {
     return highestSigil(sigilsOf(member))?.toString().orEmpty()
 }
 
-/** A low-alpha tint of the theme's `tertiary` accent, laid OVER whatever background is
- * already there rather than replacing it — using the opaque `tertiaryContainer` role
+/** A low-alpha tint of the theme's `primary` accent, laid OVER whatever background is
+ * already there rather than replacing it — using the opaque container role
  * instead (the first attempt) paired badly with the existing text colors on a dark
  * theme (nick colors, mIRC colors, plain body text all assume a dark background; some
- * dynamic-color palettes resolve `tertiaryContainer` to a *light* tone even in dark
+ * dynamic-color palettes resolve the container to a *light* tone even in dark
  * mode, which then read as low-contrast-to-illegible against them). A translucent wash
  * over the correct background can't produce that mismatch, on either theme. */
 @Composable
 private fun mentionHighlight(isMention: Boolean): Modifier =
-    if (isMention) Modifier.background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f)) else Modifier
+    if (isMention) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)) else Modifier
 
 /** Whether [message] is one that would have fired a notification — see
  * NotificationRouter.shouldNotify, which this deliberately mirrors (own messages never
@@ -994,12 +1222,12 @@ private fun BubbleRow(
 ) {
     val isOwnPrivate = isPrivate && isMine
     val bubbleColor = when {
-        isMention -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)
+        isMention -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
         isOwnPrivate -> MaterialTheme.colorScheme.primaryContainer
         else -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
     val bubbleBorder = when {
-        isMention -> BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f))
+        isMention -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.65f))
         isOwnPrivate -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
         else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     }
@@ -1018,7 +1246,7 @@ private fun BubbleRow(
                 modifier = Modifier
                     .padding(top = 4.dp, end = 6.dp)
                     .size(width = 2.dp, height = 40.dp)
-                    .background(MaterialTheme.colorScheme.tertiary, CircleShape),
+                    .background(MaterialTheme.colorScheme.primary, CircleShape),
             )
         }
         Surface(

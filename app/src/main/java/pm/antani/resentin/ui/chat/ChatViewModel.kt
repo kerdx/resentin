@@ -540,6 +540,7 @@ class ChatViewModel(
         if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
+            _error.value = null
             chatRepository.backfill(networkSlug, channelName).onFailure { _error.value = it.message }
             _isRefreshing.value = false
         }

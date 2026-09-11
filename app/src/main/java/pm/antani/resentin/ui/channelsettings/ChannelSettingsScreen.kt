@@ -407,7 +407,7 @@ private fun ChannelSettingsSection(
                     color = if (danger) {
                         MaterialTheme.colorScheme.errorContainer
                     } else {
-                        MaterialTheme.colorScheme.secondaryContainer
+                        MaterialTheme.colorScheme.surfaceVariant
                     },
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -418,7 +418,7 @@ private fun ChannelSettingsSection(
                             tint = if (danger) {
                                 MaterialTheme.colorScheme.onErrorContainer
                             } else {
-                                MaterialTheme.colorScheme.onSecondaryContainer
+                                MaterialTheme.colorScheme.onSurfaceVariant
                             },
                         )
                     }

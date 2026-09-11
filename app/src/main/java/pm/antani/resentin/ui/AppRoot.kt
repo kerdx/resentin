@@ -237,6 +237,7 @@ fun AppRoot(
                 networkSlug = networkSlug,
                 viewerUsername = currentSession.username,
                 isQuery = isQueryTarget(channelName),
+                isServer = channelName == "\$server",
                 onBack = { navController.popBackStack() },
                 onMembersClick = {
                     navController.navigate("members/$networkSlug/${encode(channelName)}")

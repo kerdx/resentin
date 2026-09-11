@@ -37,10 +37,10 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -83,6 +83,8 @@ import pm.antani.resentin.ui.common.MircText
 import pm.antani.resentin.ui.common.ResentinDropdownMenu
 import pm.antani.resentin.ui.common.ResentinDropdownMenuItem
 import pm.antani.resentin.ui.common.ResentinHeaderAction
+import pm.antani.resentin.ui.common.ResentinEmptyState
+import pm.antani.resentin.ui.common.ResentinLoadingState
 
 private data class ChannelActionsTarget(val networkSlug: String, val channel: ChannelEntity)
 
@@ -180,6 +182,8 @@ fun HomeScreen(
                         onClick = viewModel::refresh,
                         icon = Icons.Outlined.Refresh,
                         contentDescription = stringResource(R.string.cd_refresh),
+                        enabled = !isRefreshing,
+                        loading = isRefreshing,
                     )
                     ResentinHeaderAction(
                         onClick = onAppSettingsClick,
@@ -198,10 +202,29 @@ fun HomeScreen(
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
                 isRefreshing && networks.isEmpty() -> {
-                    CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    ResentinLoadingState(
+                        title = stringResource(R.string.home_connection_loading_title),
+                        description = stringResource(R.string.home_connection_loading_description),
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                networks.isEmpty() && error != null -> {
+                    ResentinEmptyState(
+                        icon = Icons.Outlined.WifiOff,
+                        title = stringResource(R.string.home_connection_error_title),
+                        description = stringResource(R.string.home_connection_error_description),
+                        actionLabel = stringResource(R.string.home_connection_retry),
+                        onAction = viewModel::refresh,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
                 networks.isEmpty() -> {
-                    Text(stringResource(R.string.home_no_networks), modifier = Modifier.align(Alignment.Center))
+                    ResentinEmptyState(
+                        icon = Icons.Outlined.Public,
+                        title = stringResource(R.string.home_no_networks_title),
+                        description = stringResource(R.string.home_no_networks_description),
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
                 else -> {
                     LazyColumn(
@@ -238,7 +261,8 @@ fun HomeScreen(
                     }
                 }
             }
-            error?.let { message ->
+            if (error != null && networks.isNotEmpty()) {
+                val message = error!!
                 Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
                     Text(message)
                 }
@@ -580,7 +604,17 @@ private fun NetworkGroupCard(
                 onAddClick = onAddClick,
                 onBrowseDirectory = onBrowseDirectory,
             )
-            channels.forEachIndexed { index, channel ->
+            if (channels.isEmpty()) {
+                ResentinEmptyState(
+                    icon = Icons.Outlined.Tag,
+                    title = stringResource(R.string.home_network_empty_title),
+                    description = stringResource(R.string.home_network_empty_description),
+                    actionLabel = stringResource(R.string.home_new_chat_browse),
+                    onAction = onBrowseDirectory,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            } else {
+                channels.forEachIndexed { index, channel ->
                 if (index == 0) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -602,22 +636,18 @@ private fun NetworkGroupCard(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                     )
                 }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun networkAvatarColor(slug: String): Pair<Color, Color> {
+private fun networkAvatarColor(): Pair<Color, Color> {
     val scheme = MaterialTheme.colorScheme
-    val palettes = remember(scheme) {
-        listOf(
-            scheme.primaryContainer to scheme.onPrimaryContainer,
-            scheme.secondaryContainer to scheme.onSecondaryContainer,
-            scheme.tertiaryContainer to scheme.onTertiaryContainer,
-        )
+    return remember(scheme) {
+        scheme.primaryContainer to scheme.onPrimaryContainer
     }
-    return palettes[(slug.hashCode().and(Int.MAX_VALUE)) % palettes.size]
 }
 
 @Composable
@@ -630,7 +660,7 @@ private fun NetworkHeader(
     onBrowseDirectory: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val (avatarContainer, avatarContent) = networkAvatarColor(network.slug)
+    val (avatarContainer, avatarContent) = networkAvatarColor()
     val stateLabel = if (network.connectionState == "connected") {
         stringResource(R.string.network_settings_connected)
     } else {
@@ -724,7 +754,6 @@ private fun ChannelRow(
     onLongClick: () -> Unit,
 ) {
     val hasUnread = channel.unreadMessages > 0
-    val hasMention = channel.unreadMentions > 0
     val isQuery = channel.source == "query"
     val topic = channel.topic?.takeIf { it.isNotBlank() }
     // Resentin: nasconde il segnaposto rumoroso "nessun topic" — titolo su una
@@ -744,7 +773,7 @@ private fun ChannelRow(
             color = if (isQuery) {
                 MaterialTheme.colorScheme.tertiaryContainer
             } else {
-                MaterialTheme.colorScheme.secondaryContainer
+                MaterialTheme.colorScheme.surfaceVariant
             },
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -759,7 +788,7 @@ private fun ChannelRow(
                     tint = if (isQuery) {
                         MaterialTheme.colorScheme.onTertiaryContainer
                     } else {
-                        MaterialTheme.colorScheme.onSecondaryContainer
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
             }
@@ -798,13 +827,14 @@ private fun ChannelRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        enableLinks = false,
                     )
                 }
             }
         }
         if (hasUnread) {
             Spacer(Modifier.width(8.dp))
-            UnreadBadge(count = channel.unreadMessages, isMention = hasMention)
+            UnreadBadge(count = channel.unreadMessages)
         }
         if (hasDraft || pinned || muted) {
             Spacer(Modifier.width(6.dp))
@@ -841,15 +871,11 @@ private fun ChannelRow(
 }
 
 @Composable
-private fun UnreadBadge(count: Int, isMention: Boolean) {
+private fun UnreadBadge(count: Int) {
     Box(
         modifier = Modifier
             .background(
-                color = if (isMention) {
-                    MaterialTheme.colorScheme.errorContainer
-                } else {
-                    MaterialTheme.colorScheme.primary
-                },
+                color = MaterialTheme.colorScheme.primary,
                 shape = RoundedCornerShape(12.dp),
             )
             .padding(horizontal = 9.dp, vertical = 4.dp),
@@ -857,11 +883,7 @@ private fun UnreadBadge(count: Int, isMention: Boolean) {
         Text(
             text = if (count > 99) "99+" else count.toString(),
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = if (isMention) {
-                MaterialTheme.colorScheme.onErrorContainer
-            } else {
-                MaterialTheme.colorScheme.onPrimary
-            },
+            color = MaterialTheme.colorScheme.onPrimary,
         )
     }
 }

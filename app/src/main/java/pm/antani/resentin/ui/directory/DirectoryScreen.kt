@@ -280,14 +280,14 @@ private fun FeaturedChannelRow(
             Surface(
                 modifier = Modifier.size(40.dp),
                 shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.tertiaryContainer,
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Outlined.Star,
                         contentDescription = stringResource(R.string.directory_featured),
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
@@ -352,14 +352,14 @@ private fun DirectoryRow(entry: DirectoryEntryDto, onClick: () -> Unit) {
         Surface(
             modifier = Modifier.size(40.dp),
             shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.secondaryContainer,
+            color = MaterialTheme.colorScheme.surfaceVariant,
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     Icons.Outlined.Tag,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

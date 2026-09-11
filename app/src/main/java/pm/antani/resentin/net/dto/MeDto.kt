@@ -12,6 +12,11 @@ data class MeDto(
     val kind: String? = null,
     val id: String? = null,
     val name: String? = null,
+    /** Server-authoritative unread snapshots, grouped by network slug and window.
+     * This is especially important for private messages: an inbound DM can arrive
+     * on the socket topic keyed by our own nick, while the Home row is keyed by the
+     * peer nick. */
+    val unreadCounts: Map<String, Map<String, UnreadCountDto>> = emptyMap(),
     val homeData: MeHomeDataDto? = null,
     val isAdmin: Boolean = false,
 ) {
@@ -32,6 +37,14 @@ data class MeDto(
             else -> name
         }
 }
+
+@Serializable
+data class UnreadCountDto(
+    val messages: Int = 0,
+    val mentions: Int = 0,
+    val events: Int = 0,
+    val severity: String = "none",
+)
 
 @Serializable
 data class MeHomeDataDto(
