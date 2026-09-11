@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import org.unifiedpush.android.connector.UnifiedPush
 import pm.antani.resentin.data.prefs.AppPreferences
+import pm.antani.resentin.data.prefs.AppFontFamily
 import pm.antani.resentin.data.prefs.ChatDisplayMode
 import pm.antani.resentin.data.prefs.MessageDensity
 import pm.antani.resentin.data.prefs.ReplyStyle
@@ -125,6 +126,13 @@ class AppSettingsViewModel(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { appPreferences.setThemeMode(mode) }
+    }
+
+    val fontFamily: StateFlow<AppFontFamily> = appPreferences.fontFamily
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppFontFamily.SYSTEM)
+
+    fun setFontFamily(fontFamily: AppFontFamily) {
+        viewModelScope.launch { appPreferences.setFontFamily(fontFamily) }
     }
 
     val messageDensity: StateFlow<MessageDensity> = appPreferences.messageDensity

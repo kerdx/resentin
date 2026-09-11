@@ -92,7 +92,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -139,6 +138,7 @@ import pm.antani.resentin.ui.common.linkStylesFor
 import pm.antani.resentin.ui.common.mircAnnotatedString
 import pm.antani.resentin.ui.common.sigilsOf
 import pm.antani.resentin.ui.common.withClickableLinks
+import pm.antani.resentin.ui.theme.LocalResentinCodeFontFamily
 
 /**
  * Moves to the final row without LazyColumn's long-distance item-by-item spring.
@@ -1646,7 +1646,7 @@ private fun MessageRow(
                 // monospace della conversazione, niente pill.
                 MircText(
                     text = "[$time] -!- $eventText",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalResentinCodeFontFamily.current),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1845,7 +1845,7 @@ private fun IrcLineRow(
     }
     Text(
         text = annotated,
-        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalResentinCodeFontFamily.current),
         modifier = Modifier
             .fillMaxWidth()
             .then(mentionHighlight(isMention))

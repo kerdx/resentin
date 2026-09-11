@@ -83,6 +83,7 @@ import androidx.core.os.LocaleListCompat
 import org.unifiedpush.android.connector.UnifiedPush
 import pm.antani.resentin.R
 import pm.antani.resentin.data.prefs.ChatDisplayMode
+import pm.antani.resentin.data.prefs.AppFontFamily
 import pm.antani.resentin.data.prefs.MessageDensity
 import pm.antani.resentin.data.prefs.ReplyStyle
 import pm.antani.resentin.data.prefs.ThemeMode
@@ -90,6 +91,7 @@ import pm.antani.resentin.net.dto.PushSubscriptionSummaryDto
 import pm.antani.resentin.net.dto.VhostOptionDto
 import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.ResentinHeaderAction
+import pm.antani.resentin.ui.theme.toComposeFontFamily
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -176,6 +178,7 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     val unreadFirst by viewModel.unreadFirst.collectAsState()
     val fontScale by viewModel.fontScale.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
+    val fontFamily by viewModel.fontFamily.collectAsState()
     val messageDensity by viewModel.messageDensity.collectAsState()
     val lineHeightScale by viewModel.lineHeightScale.collectAsState()
     val replyStyle by viewModel.replyStyle.collectAsState()
@@ -387,6 +390,35 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                             label = { Text(stringResource(R.string.settings_theme_dark)) },
                             modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
                         )
+                    }
+                    SettingsRowDivider()
+                    SettingsBlockLabel(
+                        text = stringResource(R.string.settings_font_family),
+                        icon = Icons.Outlined.TextFields,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    FlowRow(modifier = Modifier.fillMaxWidth()) {
+                        AppFontFamily.entries.forEach { choice ->
+                            ResentinFilterChip(
+                                selected = fontFamily == choice,
+                                onClick = { viewModel.setFontFamily(choice) },
+                                label = {
+                                    Text(
+                                        text = when (choice) {
+                                            AppFontFamily.SYSTEM -> stringResource(R.string.settings_font_family_system)
+                                            AppFontFamily.JETBRAINS_MONO -> stringResource(R.string.settings_font_family_jetbrains)
+                                            AppFontFamily.FIRA_CODE -> stringResource(R.string.settings_font_family_fira)
+                                            AppFontFamily.SOURCE_CODE_PRO -> stringResource(R.string.settings_font_family_source_code)
+                                            AppFontFamily.IBM_PLEX_MONO -> stringResource(R.string.settings_font_family_ibm_plex)
+                                            AppFontFamily.CASCADIA_CODE -> stringResource(R.string.settings_font_family_cascadia)
+                                            AppFontFamily.HACK -> stringResource(R.string.settings_font_family_hack)
+                                        },
+                                        fontFamily = choice.toComposeFontFamily(),
+                                    )
+                                },
+                                modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                            )
+                        }
                     }
                     SettingsRowDivider()
                     SettingsBlockLabel(
