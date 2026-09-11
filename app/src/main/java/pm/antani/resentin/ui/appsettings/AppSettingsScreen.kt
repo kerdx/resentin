@@ -89,6 +89,7 @@ import pm.antani.resentin.data.prefs.ReplyStyle
 import pm.antani.resentin.data.prefs.ThemeMode
 import pm.antani.resentin.net.dto.PushSubscriptionSummaryDto
 import pm.antani.resentin.net.dto.VhostOptionDto
+import pm.antani.resentin.ui.chat.CreditsScreen
 import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.ResentinHeaderAction
 import pm.antani.resentin.ui.theme.toComposeFontFamily
@@ -184,6 +185,7 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     val replyStyle by viewModel.replyStyle.collectAsState()
     val messageDbSizeBytes by viewModel.messageDbSizeBytes.collectAsState()
     var showClearMessagesConfirm by remember { mutableStateOf(false) }
+    var showCredits by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -963,10 +965,22 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                             Text(stringResource(R.string.settings_admin_panel))
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { showCredits = true },
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.settings_credits))
+                    }
                 }
             }
             }
         }
+    }
+
+    if (showCredits) {
+        CreditsScreen(onClose = { showCredits = false })
     }
 
     if (showClearMessagesConfirm) {

@@ -223,13 +223,22 @@ function startPass() {
   const rollH = Math.max($roll.scrollHeight, 1);
   travelDistance = vh + rollH;
   $roll.style.transform = `translateY(${vh}px)`;
+  // Reset so tick()'s next frame measures a fresh delta — without this, the
+  // first frame after an interlude (or the very first pass) computes dtMs
+  // against a stale timestamp, jumps travelY past the whole distance in one
+  // frame, and immediately falls right back into another interlude. From the
+  // outside that reads as "the roll never advances to the next block".
+  lastFrameAt = 0;
   phase = "traveling";
 }
 
 function tick(now) {
   requestAnimationFrame(tick);
   if (phase !== "traveling") return;
-  if (lastFrameAt === 0) lastFrameAt = now;
+  if (lastFrameAt === 0) {
+    lastFrameAt = now;
+    return; // no elapsed time to integrate on the first frame of a pass
+  }
   const dtMs = now - lastFrameAt;
   lastFrameAt = now;
 

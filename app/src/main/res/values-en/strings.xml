@@ -89,6 +89,7 @@
 
     <!-- Admin -->
     <string name="settings_admin_panel">Admin panel</string>
+    <string name="settings_credits">Credits</string>
     <string name="admin_title">Admin</string>
     <string name="admin_tab_networks">Networks</string>
     <string name="admin_tab_vhosts">Vhosts</string>
