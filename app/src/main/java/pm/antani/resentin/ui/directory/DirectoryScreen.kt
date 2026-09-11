@@ -385,6 +385,7 @@ private fun DirectoryRow(entry: DirectoryEntryDto, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    enableLinks = false,
                 )
             }
         }

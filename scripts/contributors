@@ -1,0 +1,12 @@
+# contributors — git author name -> the nick to credit them by (see
+# credits.sh), mirroring grappa-irc's infra/packaging/contributors.
+#
+# Format: one contributor per line, <git author name><TAB><nick>. Blank
+# lines and lines starting with # are comments. An author who is not listed
+# here simply renders by bare name — never a build failure.
+#
+# Match the author name EXACTLY as `git shortlog -sn --no-merges HEAD`
+# prints it.
+
+Lucy	Lucy
+kerdx	kerdx

@@ -16,4 +16,11 @@ data class NetworkEntity(
     val server: String?,
     val port: Int?,
     val tls: Boolean?,
+    // KVIrc-style CTCP USERINFO profile + M3a avatar — per (subject, network).
+    val profileAge: String?,
+    val profileGender: String?,
+    val profileLocation: String?,
+    val profileLanguages: String?,
+    val profileCustom: String?,
+    val avatarUrl: String?,
 )

@@ -34,11 +34,15 @@ import pm.antani.resentin.net.dto.NetworkDto
 import pm.antani.resentin.net.dto.NotifyRequestDto
 import pm.antani.resentin.net.dto.PerformDto
 import pm.antani.resentin.net.dto.PerformUpdateDto
+import pm.antani.resentin.net.dto.ProfileUpdateDto
 import pm.antani.resentin.net.dto.QueryWindowsListDto
 import pm.antani.resentin.net.dto.TopicUpdateDto
 import pm.antani.resentin.net.rest.NetworkSettingsApi
 import pm.antani.resentin.net.rest.NetworksApi
 import pm.antani.resentin.net.rest.NotifyApi
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 private const val SERVER_PSEUDO_CHANNEL = "\$server"
 
@@ -241,6 +245,41 @@ class NetworksRepository(
             refresh().getOrThrow()
         }
 
+    suspend fun updateProfile(
+        slug: String,
+        age: String,
+        gender: String,
+        location: String,
+        languages: String,
+        custom: String,
+    ): Result<Unit> = runCatching {
+        val api = authRepository.api(NetworkSettingsApi::class.java)
+        val response = api.updateProfile(slug, ProfileUpdateDto(age, gender, location, languages, custom))
+        check(response.isSuccessful) { "HTTP ${response.code()}" }
+        refresh().getOrThrow()
+    }
+
+    suspend fun uploadAvatar(slug: String, bytes: ByteArray, mimeType: String): Result<Unit> = runCatching {
+        val api = authRepository.api(NetworkSettingsApi::class.java)
+        val body = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+        val part = MultipartBody.Part.createFormData("file", "avatar", body)
+        val response = api.uploadAvatar(slug, part)
+        check(response.isSuccessful) { "HTTP ${response.code()}" }
+        refresh().getOrThrow()
+    }
+
+    suspend fun deleteAvatar(slug: String): Result<Unit> = runCatching {
+        val api = authRepository.api(NetworkSettingsApi::class.java)
+        val response = api.deleteAvatar(slug)
+        check(response.isSuccessful) { "HTTP ${response.code()}" }
+        refresh().getOrThrow()
+    }
+
+    /** Fetches an avatar's raw bytes (the own or a peer's) — thin pass-through onto
+     * [AuthRepository.fetchBytes] so screens outside [UserCardController] don't need
+     * their own auth-scoped HTTP client just to decode a preview bitmap. */
+    suspend fun fetchAvatarBytes(url: String): ByteArray? = authRepository.fetchBytes(url)
+
     suspend fun updateConnectionState(slug: String, connected: Boolean, reason: String? = null): Result<Unit> = runCatching {
         val api = authRepository.api(NetworkSettingsApi::class.java)
         val state = if (connected) "connected" else "parked"
@@ -348,6 +387,12 @@ private fun NetworkDto.toEntity() = NetworkEntity(
     server = connection?.server,
     port = connection?.port,
     tls = connection?.tls,
+    profileAge = age,
+    profileGender = gender,
+    profileLocation = location,
+    profileLanguages = languages,
+    profileCustom = custom,
+    avatarUrl = avatarUrl,
 )
 
 private fun ChannelDto.toEntity(networkSlug: String) = ChannelEntity(

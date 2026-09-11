@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>credits</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="credits-modal" id="modal">
+  <div class="credits-rain"><canvas id="rain-canvas"></canvas></div>
+  <div class="credits-viewport" id="viewport">
+    <div class="credits-roll" id="roll"></div>
+  </div>
+  <div class="credits-movement" id="movement-label"></div>
+  <div class="credits-chrome">
+    <button type="button" id="mute-btn" aria-pressed="false" aria-label="mute">&#128266;</button>
+    <button type="button" id="close-btn" aria-label="close">&#10005;</button>
+  </div>
+</div>
+<!-- Generated at build time by the resentin-credits GitHub Actions step
+     (scripts/credits.sh) from `git shortlog`. Falls back to an empty roll
+     when absent (a local/dev build that skipped the step) — see
+     creditsText.js's buildResentinBlock(). -->
+<script src="credits-data.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+</html>

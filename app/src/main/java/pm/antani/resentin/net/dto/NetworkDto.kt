@@ -14,6 +14,13 @@ data class NetworkDto(
     val connectionStateReason: String? = null,
     val connectionStateChangedAt: String? = null,
     val connection: NetworkConnectionDto? = null,
+    // KVIrc-style CTCP USERINFO profile (M3a/M3b on the server) — per (subject, network).
+    val age: String? = null,
+    val gender: String? = null,
+    val location: String? = null,
+    val languages: String? = null,
+    val custom: String? = null,
+    val avatarUrl: String? = null,
 )
 
 @Serializable

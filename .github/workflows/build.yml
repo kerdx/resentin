@@ -12,6 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history, not the default shallow clone — scripts/credits.sh
+          # below reads it via `git shortlog` for the /credits contributor
+          # roll, and a shallow clone would silently bake a near-empty one.
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -21,6 +26,9 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate /credits contributor roll
+        run: ./scripts/credits.sh
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
@@ -39,6 +47,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -48,6 +58,9 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate /credits contributor roll
+        run: ./scripts/credits.sh
 
       - name: Decode signing keystore
         env:
