@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -46,6 +47,8 @@ class NetworksRepository(
     private val db: AppDatabase,
     private val connectionManager: ConnectionManager,
 ) {
+    private val unreadSyncMutex = Mutex()
+
     val networksWithChannels: Flow<List<NetworkWithChannels>> = db.networkDao().observeNetworksWithChannels()
 
     fun observeNetwork(slug: String): Flow<NetworkEntity?> = db.networkDao().observeNetwork(slug)
@@ -115,6 +118,15 @@ class NetworksRepository(
             .onEach { event ->
                 val (slug, _) = parseChannelTopic(event.topic) ?: return@onEach
                 db.channelDao().updateUnreadCounts(slug, event.channel, event.messages, event.mentions, event.severity)
+
+                // For an inbound DM the server's live window_counts event is keyed
+                // by our own nick, while the Home query row is keyed by the peer.
+                // Re-read the server's complete envelope in that case so the count is
+                // applied to the canonical private-chat row as well. The mutex keeps
+                // a burst of join/message events from producing overlapping /me calls.
+                if (event.channel.equals(db.networkDao().nickForSlug(slug), ignoreCase = true)) {
+                    syncUnreadCountsFromMe()
+                }
             }
             .launchIn(scope)
     }
@@ -185,6 +197,10 @@ class NetworksRepository(
                 listOf(ChannelEntity(networkSlug = network.slug, name = SERVER_PSEUDO_CHANNEL, source = "server", joined = true)),
             )
         }
+
+        // /me carries the server-authoritative seed for windows that already have a
+        // read cursor. REST endpoints for networks/channels intentionally do not.
+        syncUnreadCountsFromMe()
     }
 
     /** Membership-only sync: inserts unknown channels, refreshes source/joined on the
@@ -193,6 +209,28 @@ class NetworksRepository(
     private suspend fun syncMembership(networkSlug: String, channels: List<ChannelEntity>) {
         db.channelDao().insertMissing(channels)
         channels.forEach { db.channelDao().updateMembership(networkSlug, it.name, it.source, it.joined) }
+    }
+
+    /** Applies the server-authoritative /me unread envelope to rows already known
+     * locally. Unknown query rows are intentionally left alone: query_windows_list
+     * may still be in flight, and its join reply will seed the row once it exists. */
+    private suspend fun syncUnreadCountsFromMe() {
+        unreadSyncMutex.lock()
+        try {
+            authRepository.getMe().getOrNull()?.unreadCounts?.forEach { (slug, channels) ->
+                channels.forEach { (channel, counts) ->
+                    db.channelDao().updateUnreadCounts(
+                        networkSlug = slug,
+                        name = channel,
+                        messages = counts.messages,
+                        mentions = counts.mentions,
+                        severity = counts.severity,
+                    )
+                }
+            }
+        } finally {
+            unreadSyncMutex.unlock()
+        }
     }
 
     suspend fun updateIdentity(slug: String, nick: String?, ident: String?, realname: String?): Result<Unit> =

@@ -2,6 +2,9 @@ package pm.antani.resentin.domain.repository
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
@@ -23,13 +26,19 @@ import pm.antani.resentin.data.db.IsupportEntity
 import pm.antani.resentin.data.db.MemberEntity
 import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.session.ConnectionManager
+import pm.antani.resentin.domain.session.VerbException
 import pm.antani.resentin.net.AppJson
+import pm.antani.resentin.net.dto.AwayConfirmedDto
 import pm.antani.resentin.net.dto.BanlistBundleDto
 import pm.antani.resentin.net.dto.AvatarReadyDto
 import pm.antani.resentin.net.dto.IsupportChangedDto
+import pm.antani.resentin.net.dto.LusersBundleDto
 import pm.antani.resentin.net.dto.MembersSeededDto
 import pm.antani.resentin.net.dto.ScrollbackMessageDto
+import pm.antani.resentin.net.dto.UserhostDto
+import pm.antani.resentin.net.dto.WhoReplyDto
 import pm.antani.resentin.net.dto.WhoisBundleDto
+import pm.antani.resentin.net.dto.WhowasBundleDto
 
 /** Per-user channel-privilege mode letter -> sigil, matching the wire's own
  * (`Grappa.Session.EventRouter.@user_mode_prefixes`) table — kept in sync with
@@ -49,9 +58,125 @@ class MembersRepository(
                 is WsEvent.IsupportChanged -> recordIsupport(event.isupport)
                 is WsEvent.MembersSeeded -> recordMembers(event.seeded)
                 is WsEvent.MessageReceived -> applyPresenceEvent(event.message)
+                is WsEvent.AwayConfirmed -> recordAway(event.away)
                 else -> Unit
             }
         }.launchIn(scope)
+    }
+
+    // Explicit away state per network slug ("away" or absent) — mirrors cicchetto's
+    // `awayByNetwork` signal, fed by `away_confirmed`. Lives here (not per-ViewModel)
+    // because the push fires for writes from any device on the subject's account and
+    // needs an app-wide landing spot, same as the other WS-fed state in this repo.
+    private val _awayByNetwork = MutableStateFlow<Map<String, String>>(emptyMap())
+    val awayByNetwork: StateFlow<Map<String, String>> = _awayByNetwork.asStateFlow()
+
+    private fun recordAway(dto: AwayConfirmedDto) {
+        _awayByNetwork.value = if (dto.state == "away") {
+            _awayByNetwork.value + (dto.network to dto.state)
+        } else {
+            _awayByNetwork.value - dto.network
+        }
+    }
+
+    /** Manual `/away <reason>` — same `away` verb cicchetto pushes (note: network SLUG,
+     * not id, unlike every sibling verb). The authoritative state comes back as
+     * `away_confirmed`; unsetting when not explicitly away fails server-side with
+     * `not_explicit`, surfaced as [VerbException]. */
+    suspend fun setAway(subject: String, networkSlug: String, reason: String) {
+        connectionManager.sendVerb(
+            "grappa:user:$subject",
+            "away",
+            buildJsonObject {
+                put("action", "set")
+                put("network", networkSlug)
+                put("reason", reason)
+            },
+        )
+    }
+
+    suspend fun unsetAway(subject: String, networkSlug: String) {
+        connectionManager.sendVerb(
+            "grappa:user:$subject",
+            "away",
+            buildJsonObject {
+                put("action", "unset")
+                put("network", networkSlug)
+            },
+        )
+    }
+
+    /** `/whowas <nick>` — the reply streams back as a [whowasEvents] bundle,
+     * not a push ack. */
+    suspend fun requestWhowas(subject: String, networkId: Int, nick: String) {
+        connectionManager.sendVerb(
+            "grappa:user:$subject",
+            "whowas",
+            buildJsonObject {
+                put("network_id", networkId)
+                put("nick", nick)
+            },
+        )
+    }
+
+    val whowasEvents: Flow<WhowasBundleDto> = connectionManager.events
+        .filterIsInstance<WsEvent.WhowasBundle>()
+        .map { it.whowas }
+
+    /** `/who <#chan|mask>` — the server folds the 352 burst and the reply arrives
+     * as a [whoEvents] roster, not a push ack. */
+    suspend fun requestWho(subject: String, networkId: Int, target: String) {
+        connectionManager.sendVerb(
+            "grappa:user:$subject",
+            "who",
+            buildJsonObject {
+                put("network_id", networkId)
+                put("channel", target)
+            },
+        )
+    }
+
+    val whoEvents: Flow<WhoReplyDto> = connectionManager.events
+        .filterIsInstance<WsEvent.WhoReply>()
+        .map { it.who }
+
+    /** `/lusers [mask [server]]` — the reply arrives as an [lusersEvents] bundle,
+     * not a push ack. The server also auto-emits one on connect welcome, so callers
+     * must gate on having asked (same consume-once discipline as cicchetto). */
+    suspend fun requestLusers(subject: String, networkId: Int, mask: String? = null, server: String? = null) {
+        connectionManager.sendVerb(
+            "grappa:user:$subject",
+            "lusers",
+            buildJsonObject {
+                put("network_id", networkId)
+                mask?.let { put("mask", it) }
+                server?.let { put("server", it) }
+            },
+        )
+    }
+
+    val lusersEvents: Flow<LusersBundleDto> = connectionManager.events
+        .filterIsInstance<WsEvent.LusersBundle>()
+        .map { it.lusers }
+
+    /** `/kb` step one — resolves a nick to `user@host` from the server's userhost
+     * cache via an awaited push reply. Returns null on `not_cached` (cicchetto's
+     * "kicking anyway" path); any other refusal throws [VerbException]. */
+    suspend fun resolveUserhost(subject: String, networkId: Int, nick: String): UserhostDto? {
+        val reply = try {
+            connectionManager.pushVerb(
+                "grappa:user:$subject",
+                "resolve_userhost",
+                buildJsonObject {
+                    put("network_id", networkId)
+                    put("nick", nick)
+                },
+            )
+        } catch (e: VerbException) {
+            if (e.code == "not_cached") return null
+            throw e
+        }
+        return AppJson.decodeFromJsonElement(UserhostDto.serializer(), reply)
     }
 
     private suspend fun recordIsupport(dto: IsupportChangedDto) {

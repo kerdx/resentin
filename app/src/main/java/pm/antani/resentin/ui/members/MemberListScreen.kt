@@ -49,6 +49,8 @@ import pm.antani.resentin.data.db.MemberEntity
 import pm.antani.resentin.irc.SIGIL_PRIORITY
 import pm.antani.resentin.irc.highestSigil
 import pm.antani.resentin.ui.common.ResentinHeaderAction
+import pm.antani.resentin.ui.common.isLightTheme
+import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.UserCardSheet
 import pm.antani.resentin.ui.common.colorForNick
 import pm.antani.resentin.ui.common.sigilsOf
@@ -248,12 +250,12 @@ private fun MemberRow(
     roleLabel: String?,
     onClick: () -> Unit,
 ) {
-    val nickColor = colorForNick(member.nick)
+    val nickColor = colorForNick(member.nick, isLightTheme())
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
+            .padding(horizontal = 16.dp, vertical = 9.dp * LocalDensityScale.current),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(

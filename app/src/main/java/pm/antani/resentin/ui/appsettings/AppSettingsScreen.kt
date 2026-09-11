@@ -5,10 +5,13 @@ import android.app.LocaleManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.LocaleList
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,14 +31,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import pm.antani.resentin.ui.common.ResentinFilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +57,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,10 +70,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import androidx.core.content.ContextCompat
@@ -66,9 +83,12 @@ import androidx.core.os.LocaleListCompat
 import org.unifiedpush.android.connector.UnifiedPush
 import pm.antani.resentin.R
 import pm.antani.resentin.data.prefs.ChatDisplayMode
+import pm.antani.resentin.data.prefs.MessageDensity
 import pm.antani.resentin.data.prefs.ReplyStyle
+import pm.antani.resentin.data.prefs.ThemeMode
 import pm.antani.resentin.net.dto.PushSubscriptionSummaryDto
 import pm.antani.resentin.net.dto.VhostOptionDto
+import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.ResentinHeaderAction
 import java.time.Instant
 import java.time.ZoneId
@@ -87,10 +107,60 @@ private val AUTO_AWAY_PRESETS = listOf(
 )
 private val AUTO_AWAY_PRESET_SECONDS = AUTO_AWAY_PRESETS.map { it.first }.toSet()
 
-// Text-size ladder for the slider below — labels need no translation (XS–XXL are
+// Text-size ladder for the slider below — labels need no translation (XXS–XXL are
 // universal), the scale applies app-wide through ResentinTheme.
-private val FONT_SCALES = listOf(0.8f, 0.9f, 1f, 1.15f, 1.3f)
-private val FONT_SCALE_LABELS = listOf("XS", "S", "M", "L", "XXL")
+private val FONT_SCALES = listOf(0.7f, 0.8f, 0.9f, 1f, 1.15f, 1.22f, 1.3f)
+private val FONT_SCALE_LABELS = listOf("XXS", "XS", "S", "M", "L", "XL", "XXL")
+
+// Line-height ladder (multiplier on top of the font size) — down to 0.7 for a
+// truly compact reading, up to 1.5 for a relaxed one. 1.0 is previous behavior.
+private val LINE_HEIGHT_SCALES = listOf(0.7f, 0.8f, 0.9f, 1f, 1.15f, 1.3f, 1.5f)
+
+/** Hub-and-spoke navigation inside Settings: the hub lists the groups, a tap
+ * opens that group's own sub-screen. Local state (not a NavHost route) — the
+ * system back button returns to the hub via BackHandler below. */
+private enum class SettingsSection {
+    APPEARANCE,
+    CHAT,
+    NOTIFICATIONS,
+    PRESENCE,
+    IDENTITY,
+    COMMANDS,
+    DATA,
+}
+
+@Composable
+private fun SettingsSection.icon(): ImageVector = when (this) {
+    SettingsSection.APPEARANCE -> Icons.Outlined.Palette
+    SettingsSection.CHAT -> Icons.Outlined.ChatBubbleOutline
+    SettingsSection.NOTIFICATIONS -> Icons.Outlined.Notifications
+    SettingsSection.PRESENCE -> Icons.Outlined.Schedule
+    SettingsSection.IDENTITY -> Icons.Outlined.Person
+    SettingsSection.COMMANDS -> Icons.Outlined.Terminal
+    SettingsSection.DATA -> Icons.Outlined.Storage
+}
+
+@Composable
+private fun SettingsSection.title(): String = when (this) {
+    SettingsSection.APPEARANCE -> stringResource(R.string.settings_group_appearance)
+    SettingsSection.CHAT -> stringResource(R.string.settings_group_chat)
+    SettingsSection.NOTIFICATIONS -> stringResource(R.string.settings_group_notifications)
+    SettingsSection.PRESENCE -> stringResource(R.string.settings_group_presence)
+    SettingsSection.IDENTITY -> stringResource(R.string.settings_group_identity)
+    SettingsSection.COMMANDS -> stringResource(R.string.settings_group_commands)
+    SettingsSection.DATA -> stringResource(R.string.settings_group_data)
+}
+
+@Composable
+private fun SettingsSection.description(): String = when (this) {
+    SettingsSection.APPEARANCE -> stringResource(R.string.settings_group_appearance_desc)
+    SettingsSection.CHAT -> stringResource(R.string.settings_group_chat_desc)
+    SettingsSection.NOTIFICATIONS -> stringResource(R.string.settings_group_notifications_desc)
+    SettingsSection.PRESENCE -> stringResource(R.string.settings_group_presence_desc)
+    SettingsSection.IDENTITY -> stringResource(R.string.settings_group_identity_desc)
+    SettingsSection.COMMANDS -> stringResource(R.string.settings_group_commands_desc)
+    SettingsSection.DATA -> stringResource(R.string.settings_group_data_desc)
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -105,6 +175,9 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     val showHostmaskInEvents by viewModel.showHostmaskInEvents.collectAsState()
     val unreadFirst by viewModel.unreadFirst.collectAsState()
     val fontScale by viewModel.fontScale.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
+    val messageDensity by viewModel.messageDensity.collectAsState()
+    val lineHeightScale by viewModel.lineHeightScale.collectAsState()
     val replyStyle by viewModel.replyStyle.collectAsState()
     val messageDbSizeBytes by viewModel.messageDbSizeBytes.collectAsState()
     var showClearMessagesConfirm by remember { mutableStateOf(false) }
@@ -201,19 +274,62 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
         currentLanguageTag = languageTag
     }
 
+    var selectedSection by remember { mutableStateOf<SettingsSection?>(null) }
+    BackHandler(enabled = selectedSection != null) { selectedSection = null }
+    val section = selectedSection
+    val showIdentity = state.vhostOptions.isNotEmpty() || state.vhostError != null
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        stringResource(R.string.settings_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    if (section == null) {
+                        Text(
+                            stringResource(R.string.settings_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    } else {
+                        // Detail header carries the group's icon + description (home
+                        // top-bar style), so the card below renders content only.
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = section.icon(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    section.title(),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    section.description(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
                 },
                 navigationIcon = {
                     ResentinHeaderAction(
-                        onClick = onBack,
+                        onClick = { if (section == null) onBack() else selectedSection = null },
                         icon = Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = stringResource(R.string.cd_back),
                     )
@@ -229,357 +345,340 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                 top = 8.dp,
                 bottom = 24.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp * LocalDensityScale.current),
         ) {
-            item {
-                ResentinSectionCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.settings_stay_connected),
-                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                            )
-                            Text(
-                                stringResource(R.string.settings_stay_connected_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(checked = stayConnected, onCheckedChange = ::onStayConnectedChange)
-                    }
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            if (section == null) {
+                item {
+                    SettingsHubCard(
+                        showIdentity = showIdentity,
+                        onSelect = { selectedSection = it },
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            stringResource(R.string.settings_colored_nicklist),
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                            modifier = Modifier.weight(1f),
-                        )
-                        Switch(
-                            checked = state.displayPrefs.coloredNicklist,
-                            onCheckedChange = { viewModel.toggleColoredNicklist() },
-                        )
-                    }
                 }
             }
+            if (section == SettingsSection.APPEARANCE) {
             item {
-                ResentinSectionCard(title = stringResource(R.string.settings_chat_display)) {
-                Spacer(Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    FilterChip(
-                        selected = chatDisplayMode == ChatDisplayMode.BUBBLES,
-                        onClick = { viewModel.setChatDisplayMode(ChatDisplayMode.BUBBLES) },
-                        label = { Text(stringResource(R.string.settings_display_bubbles)) },
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    FilterChip(
-                        selected = chatDisplayMode == ChatDisplayMode.IRC_LINE,
-                        onClick = { viewModel.setChatDisplayMode(ChatDisplayMode.IRC_LINE) },
-                        label = { Text(stringResource(R.string.settings_display_irc_line)) },
-                    )
-                }
-                Text(
-                    stringResource(R.string.settings_display_irc_line_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                SettingsGroupCard(
+                    showHeader = false,
+                    icon = Icons.Outlined.Palette,
+                    title = stringResource(R.string.settings_group_appearance),
+                    description = stringResource(R.string.settings_group_appearance_desc),
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_show_seconds),
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                        )
-                        Text(
-                            stringResource(R.string.settings_show_seconds_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(checked = showSeconds, onCheckedChange = viewModel::setShowSeconds)
-                }
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_show_hostmask),
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                        )
-                        Text(
-                            stringResource(R.string.settings_show_hostmask_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(checked = showHostmaskInEvents, onCheckedChange = viewModel::setShowHostmaskInEvents)
-                }
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_unread_first),
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                        )
-                        Text(
-                            stringResource(R.string.settings_unread_first_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(checked = unreadFirst, onCheckedChange = viewModel::setUnreadFirst)
-                }
-            }
-            }
-            item {
-                ResentinSectionCard(title = stringResource(R.string.settings_font_size)) {
-                Spacer(Modifier.height(8.dp))
-                // Fixed five-stop slider (XS–XXL): discrete writes, live theme preview.
-                val scaleIndex = FONT_SCALES.indices.minByOrNull { kotlin.math.abs(FONT_SCALES[it] - fontScale) } ?: 2
-                Slider(
-                    value = scaleIndex.toFloat(),
-                    onValueChange = { viewModel.setFontScale(FONT_SCALES[it.roundToInt()]) },
-                    valueRange = 0f..(FONT_SCALES.size - 1).toFloat(),
-                    steps = FONT_SCALES.size - 2,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    FONT_SCALE_LABELS.forEach { label ->
-                        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Text("AaBbCc 123", style = MaterialTheme.typography.displaySmall)
-                Text(
-                    stringResource(R.string.settings_font_size_preview),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            }
-            item {
-                ResentinSectionCard(title = stringResource(R.string.settings_reply_style_title)) {
-                Spacer(Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    FilterChip(
-                        selected = replyStyle == ReplyStyle.NICK,
-                        onClick = { viewModel.setReplyStyle(ReplyStyle.NICK) },
-                        label = { Text(stringResource(R.string.settings_reply_style_nick)) },
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    FilterChip(
-                        selected = replyStyle == ReplyStyle.QUOTE,
-                        onClick = { viewModel.setReplyStyle(ReplyStyle.QUOTE) },
-                        label = { Text(stringResource(R.string.settings_reply_style_quote)) },
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    FilterChip(
-                        selected = replyStyle == ReplyStyle.CUSTOM,
-                        onClick = { viewModel.setReplyStyle(ReplyStyle.CUSTOM) },
-                        label = { Text(stringResource(R.string.settings_reply_style_custom)) },
-                    )
-                }
-                if (replyStyle == ReplyStyle.CUSTOM) {
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = state.replyCustomTemplate,
-                        onValueChange = viewModel::onReplyCustomTemplateChange,
-                        placeholder = { Text(stringResource(R.string.settings_reply_custom_hint)) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(
-                        stringResource(R.string.settings_reply_custom_placeholders_hint),
-                        style = MaterialTheme.typography.bodySmall,
+                    SettingsBlockLabel(
+                        text = stringResource(R.string.settings_theme),
+                        icon = Icons.Outlined.Palette,
                     )
                     Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Button(
-                            onClick = viewModel::saveReplyCustomTemplate,
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Text(stringResource(R.string.network_settings_save))
-                        }
-                        if (state.replyCustomTemplateSaved) {
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.settings_reply_custom_saved), color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
-            }
-            }
-            item {
-                ResentinSectionCard(title = stringResource(R.string.settings_language)) {
-                Spacer(Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    FilterChip(
-                        selected = currentLanguageTag == null,
-                        onClick = { setLanguage(null) },
-                        label = { Text(stringResource(R.string.settings_language_system)) },
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    FilterChip(
-                        selected = currentLanguageTag == "it",
-                        onClick = { setLanguage("it") },
-                        label = { Text(stringResource(R.string.settings_language_italian)) },
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    FilterChip(
-                        selected = currentLanguageTag == "en",
-                        onClick = { setLanguage("en") },
-                        label = { Text(stringResource(R.string.settings_language_english)) },
-                    )
-                }
-            }
-            }
-            item {
-                ResentinSectionCard(title = stringResource(R.string.settings_auto_away_title)) {
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.settings_auto_away_label))
-                Spacer(Modifier.height(8.dp))
-                val autoAwayIsCustomValue = autoAwayDebounceSeconds != null &&
-                    autoAwayDebounceSeconds != 0 &&
-                    autoAwayDebounceSeconds !in AUTO_AWAY_PRESET_SECONDS
-                val autoAwayShowCustom = state.autoAwayCustomMode || autoAwayIsCustomValue
-                FlowRow {
-                    FilterChip(
-                        selected = !autoAwayShowCustom && autoAwayDebounceSeconds == null,
-                        onClick = { viewModel.onAutoAwayPresetSelected(null) },
-                        label = { Text(stringResource(R.string.settings_auto_away_site_default)) },
-                        modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                    )
-                    FilterChip(
-                        selected = !autoAwayShowCustom && autoAwayDebounceSeconds == 0,
-                        onClick = { viewModel.onAutoAwayPresetSelected(0) },
-                        label = { Text(stringResource(R.string.settings_auto_away_off)) },
-                        modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                    )
-                    AUTO_AWAY_PRESETS.forEach { (seconds, labelRes) ->
-                        FilterChip(
-                            selected = !autoAwayShowCustom && autoAwayDebounceSeconds == seconds,
-                            onClick = { viewModel.onAutoAwayPresetSelected(seconds) },
-                            label = { Text(stringResource(labelRes)) },
+                    FlowRow(modifier = Modifier.fillMaxWidth()) {
+                        ResentinFilterChip(
+                            selected = themeMode == ThemeMode.SYSTEM,
+                            onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
+                            label = { Text(stringResource(R.string.settings_theme_system)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = themeMode == ThemeMode.LIGHT,
+                            onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
+                            label = { Text(stringResource(R.string.settings_theme_light)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = themeMode == ThemeMode.DARK,
+                            onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
+                            label = { Text(stringResource(R.string.settings_theme_dark)) },
                             modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
                         )
                     }
-                    FilterChip(
-                        selected = autoAwayShowCustom,
-                        onClick = { viewModel.onAutoAwayCustomModeSelected() },
-                        label = { Text(stringResource(R.string.settings_reply_style_custom)) },
-                        modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                    )
-                }
-                if (autoAwayShowCustom) {
-                    OutlinedTextField(
-                        value = if (state.autoAwayCustomMode) {
-                            state.autoAwayCustomDraft
-                        } else {
-                            autoAwayDebounceSeconds?.toString().orEmpty()
-                        },
-                        onValueChange = viewModel::onAutoAwayCustomDraftChange,
-                        label = { Text(stringResource(R.string.settings_auto_away_custom_seconds)) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth(),
+                    SettingsRowDivider()
+                    SettingsBlockLabel(
+                        text = stringResource(R.string.settings_language),
+                        icon = Icons.Outlined.Language,
                     )
                     Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = { viewModel.saveAutoAwayCustomDraft(autoAwayInvalidInputMessage) },
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Text(stringResource(R.string.network_settings_save))
-                    }
-                }
-                Text(
-                    stringResource(R.string.settings_auto_away_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                state.autoAwaySavingError?.let { error ->
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            }
-            if (state.vhostOptions.isNotEmpty()) {
-                item {
-                    ResentinSectionCard(title = stringResource(R.string.settings_vhost_title)) {
-                        Text(
-                            stringResource(R.string.settings_vhost_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    FlowRow(modifier = Modifier.fillMaxWidth()) {
+                        ResentinFilterChip(
+                            selected = currentLanguageTag == null,
+                            onClick = { setLanguage(null) },
+                            label = { Text(stringResource(R.string.settings_language_system)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = currentLanguageTag == "it",
+                            onClick = { setLanguage("it") },
+                            label = { Text(stringResource(R.string.settings_language_italian)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = currentLanguageTag == "en",
+                            onClick = { setLanguage("en") },
+                            label = { Text(stringResource(R.string.settings_language_english)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
                         )
                     }
-                }
-            }
-            items(state.vhostOptions, key = { it.address }) { option ->
-                VhostRow(
-                    option = option,
-                    checked = option.address in state.vhostSelection,
-                    onToggle = { viewModel.toggleVhostSelection(option.address) },
-                )
-            }
-            item {
-                state.vhostError?.let { error ->
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(12.dp))
-                }
-                ResentinSectionCard {
+                    SettingsRowDivider()
+                    // Fixed seven-stop slider (XXS–XXL): discrete writes, live theme preview.
+                    // The live value sits in the header and only the two end labels are
+                    // shown below: a full 7-label strip can never align with the stops,
+                    // which sit inset by the thumb radius on both sides.
+                    val scaleIndex = FONT_SCALES.indices.minByOrNull { kotlin.math.abs(FONT_SCALES[it] - fontScale) } ?: 3
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.settings_push_enabled),
-                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                            )
-                            Text(
-                                stringResource(R.string.settings_push_enabled_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(checked = pushEnabled, onCheckedChange = ::onPushEnabledChange)
+                        SettingsBlockLabel(
+                            text = stringResource(R.string.settings_font_size),
+                            icon = Icons.Outlined.TextFields,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = FONT_SCALE_LABELS[scaleIndex],
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                     }
-                }
-                state.pushError?.let { error ->
+                    Slider(
+                        value = scaleIndex.toFloat(),
+                        onValueChange = { viewModel.setFontScale(FONT_SCALES[it.roundToInt()]) },
+                        valueRange = 0f..(FONT_SCALES.size - 1).toFloat(),
+                        steps = FONT_SCALES.size - 2,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("XXS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("XXL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     Spacer(Modifier.height(4.dp))
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-                pushDecryptionFailureAt?.let { epochMillis ->
+                    Text("AaBbCc 123", style = MaterialTheme.typography.displaySmall)
+                    Text(
+                        stringResource(R.string.settings_font_size_preview),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    SettingsRowDivider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SettingsBlockLabel(
+                            text = stringResource(R.string.settings_line_spacing),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.settings_line_spacing_value,
+                                (lineHeightScale * 100).roundToInt(),
+                            ),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    // Discrete seven-stop slider (70%–150%): same interaction as
+                    // the font-size slider above, live theme preview below.
+                    val lineIndex = LINE_HEIGHT_SCALES.indices.minByOrNull {
+                        kotlin.math.abs(LINE_HEIGHT_SCALES[it] - lineHeightScale)
+                    } ?: 3
+                    Slider(
+                        value = lineIndex.toFloat(),
+                        onValueChange = { viewModel.setLineHeightScale(LINE_HEIGHT_SCALES[it.roundToInt()]) },
+                        valueRange = 0f..(LINE_HEIGHT_SCALES.size - 1).toFloat(),
+                        steps = LINE_HEIGHT_SCALES.size - 2,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("70%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("150%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        stringResource(R.string.settings_push_decryption_failure, formatEpochMillis(epochMillis)),
+                        stringResource(R.string.settings_line_spacing_preview),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    SettingsRowDivider()
+                    SettingsBlockLabel(text = stringResource(R.string.settings_density))
+                    Spacer(Modifier.height(8.dp))
+                    FlowRow(modifier = Modifier.fillMaxWidth()) {
+                        ResentinFilterChip(
+                            selected = messageDensity == MessageDensity.COMPACT,
+                            onClick = { viewModel.setMessageDensity(MessageDensity.COMPACT) },
+                            label = { Text(stringResource(R.string.settings_density_compact)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = messageDensity == MessageDensity.NORMAL,
+                            onClick = { viewModel.setMessageDensity(MessageDensity.NORMAL) },
+                            label = { Text(stringResource(R.string.settings_density_normal)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = messageDensity == MessageDensity.COMFORTABLE,
+                            onClick = { viewModel.setMessageDensity(MessageDensity.COMFORTABLE) },
+                            label = { Text(stringResource(R.string.settings_density_comfortable)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                    }
+                }
+            }
+            }
+            if (section == SettingsSection.CHAT) {
+            item {
+                SettingsGroupCard(
+                    showHeader = false,
+                    icon = Icons.Outlined.ChatBubbleOutline,
+                    title = stringResource(R.string.settings_group_chat),
+                    description = stringResource(R.string.settings_group_chat_desc),
+                ) {
+                    SettingsBlockLabel(text = stringResource(R.string.settings_chat_display))
+                    Spacer(Modifier.height(8.dp))
+                    FlowRow(modifier = Modifier.fillMaxWidth()) {
+                        ResentinFilterChip(
+                            selected = chatDisplayMode == ChatDisplayMode.BUBBLES,
+                            onClick = { viewModel.setChatDisplayMode(ChatDisplayMode.BUBBLES) },
+                            label = { Text(stringResource(R.string.settings_display_bubbles)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = chatDisplayMode == ChatDisplayMode.IRC_LINE,
+                            onClick = { viewModel.setChatDisplayMode(ChatDisplayMode.IRC_LINE) },
+                            label = { Text(stringResource(R.string.settings_display_irc_line)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.settings_display_irc_line_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                if (state.pushSubscriptions.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        stringResource(R.string.settings_push_devices),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
+                    SettingsRowDivider()
+                    SettingsBlockLabel(text = stringResource(R.string.settings_reply_style_title))
+                    Spacer(Modifier.height(8.dp))
+                    FlowRow(modifier = Modifier.fillMaxWidth()) {
+                        ResentinFilterChip(
+                            selected = replyStyle == ReplyStyle.NICK,
+                            onClick = { viewModel.setReplyStyle(ReplyStyle.NICK) },
+                            label = { Text(stringResource(R.string.settings_reply_style_nick)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = replyStyle == ReplyStyle.QUOTE,
+                            onClick = { viewModel.setReplyStyle(ReplyStyle.QUOTE) },
+                            label = { Text(stringResource(R.string.settings_reply_style_quote)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = replyStyle == ReplyStyle.CUSTOM,
+                            onClick = { viewModel.setReplyStyle(ReplyStyle.CUSTOM) },
+                            label = { Text(stringResource(R.string.settings_reply_style_custom)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                    }
+                    if (replyStyle == ReplyStyle.CUSTOM) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = state.replyCustomTemplate,
+                            onValueChange = viewModel::onReplyCustomTemplateChange,
+                            placeholder = { Text(stringResource(R.string.settings_reply_custom_hint)) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            stringResource(R.string.settings_reply_custom_placeholders_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Button(
+                                onClick = viewModel::saveReplyCustomTemplate,
+                                shape = RoundedCornerShape(16.dp),
+                            ) {
+                                Text(stringResource(R.string.network_settings_save))
+                            }
+                            if (state.replyCustomTemplateSaved) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.settings_reply_custom_saved), color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                    SettingsRowDivider()
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_show_seconds),
+                        description = stringResource(R.string.settings_show_seconds_desc),
+                        checked = showSeconds,
+                        onCheckedChange = viewModel::setShowSeconds,
+                    )
+                    SettingsRowDivider()
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_show_hostmask),
+                        description = stringResource(R.string.settings_show_hostmask_desc),
+                        checked = showHostmaskInEvents,
+                        onCheckedChange = viewModel::setShowHostmaskInEvents,
+                    )
+                    SettingsRowDivider()
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_colored_nicklist),
+                        description = null,
+                        checked = state.displayPrefs.coloredNicklist,
+                        onCheckedChange = { viewModel.toggleColoredNicklist() },
+                    )
+                    SettingsRowDivider()
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_unread_first),
+                        description = stringResource(R.string.settings_unread_first_desc),
+                        checked = unreadFirst,
+                        onCheckedChange = viewModel::setUnreadFirst,
                     )
                 }
             }
+            }
+            if (section == SettingsSection.NOTIFICATIONS) {
+            item {
+                SettingsGroupCard(
+                    showHeader = false,
+                    icon = Icons.Outlined.Notifications,
+                    title = stringResource(R.string.settings_group_notifications),
+                    description = stringResource(R.string.settings_group_notifications_desc),
+                ) {
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_stay_connected),
+                        description = stringResource(R.string.settings_stay_connected_desc),
+                        checked = stayConnected,
+                        onCheckedChange = ::onStayConnectedChange,
+                    )
+                    SettingsRowDivider()
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_push_enabled),
+                        description = stringResource(R.string.settings_push_enabled_desc),
+                        checked = pushEnabled,
+                        onCheckedChange = ::onPushEnabledChange,
+                    )
+                    state.pushError?.let { error ->
+                        Spacer(Modifier.height(4.dp))
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    pushDecryptionFailureAt?.let { epochMillis ->
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.settings_push_decryption_failure, formatEpochMillis(epochMillis)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (state.pushSubscriptions.isNotEmpty()) {
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            stringResource(R.string.settings_push_devices),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+            }
+            }
+            if (section == SettingsSection.NOTIFICATIONS) {
             items(state.pushSubscriptions, key = { it.id }) { subscription ->
                 PushSubscriptionRow(
                     subscription = subscription,
@@ -587,30 +686,148 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     onRevoke = { viewModel.revokePushSubscription(subscription.id) },
                 )
             }
-            item {
-                Text(
-                    stringResource(R.string.settings_aliases),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                )
             }
-            items(state.aliases.entries.toList(), key = { it.key }) { (name, expansion) ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+            if (section == SettingsSection.PRESENCE) {
+            item {
+                SettingsGroupCard(
+                    showHeader = false,
+                    icon = Icons.Outlined.Schedule,
+                    title = stringResource(R.string.settings_group_presence),
+                    description = stringResource(R.string.settings_group_presence_desc),
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(name, style = MaterialTheme.typography.bodyLarge)
-                        Text(expansion, style = MaterialTheme.typography.bodySmall)
+                    SettingsBlockLabel(text = stringResource(R.string.settings_auto_away_title))
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.settings_auto_away_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    val autoAwayIsCustomValue = autoAwayDebounceSeconds != null &&
+                        autoAwayDebounceSeconds != 0 &&
+                        autoAwayDebounceSeconds !in AUTO_AWAY_PRESET_SECONDS
+                    val autoAwayShowCustom = state.autoAwayCustomMode || autoAwayIsCustomValue
+                    FlowRow {
+                        ResentinFilterChip(
+                            selected = !autoAwayShowCustom && autoAwayDebounceSeconds == null,
+                            onClick = { viewModel.onAutoAwayPresetSelected(null) },
+                            label = { Text(stringResource(R.string.settings_auto_away_site_default)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        ResentinFilterChip(
+                            selected = !autoAwayShowCustom && autoAwayDebounceSeconds == 0,
+                            onClick = { viewModel.onAutoAwayPresetSelected(0) },
+                            label = { Text(stringResource(R.string.settings_auto_away_off)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
+                        AUTO_AWAY_PRESETS.forEach { (seconds, labelRes) ->
+                            ResentinFilterChip(
+                                selected = !autoAwayShowCustom && autoAwayDebounceSeconds == seconds,
+                                onClick = { viewModel.onAutoAwayPresetSelected(seconds) },
+                                label = { Text(stringResource(labelRes)) },
+                                modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                            )
+                        }
+                        ResentinFilterChip(
+                            selected = autoAwayShowCustom,
+                            onClick = { viewModel.onAutoAwayCustomModeSelected() },
+                            label = { Text(stringResource(R.string.settings_reply_style_custom)) },
+                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                        )
                     }
-                    IconButton(onClick = { viewModel.removeAlias(name) }) {
-                        Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
+                    if (autoAwayShowCustom) {
+                        OutlinedTextField(
+                            value = if (state.autoAwayCustomMode) {
+                                state.autoAwayCustomDraft
+                            } else {
+                                autoAwayDebounceSeconds?.toString().orEmpty()
+                            },
+                            onValueChange = viewModel::onAutoAwayCustomDraftChange,
+                            label = { Text(stringResource(R.string.settings_auto_away_custom_seconds)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { viewModel.saveAutoAwayCustomDraft(autoAwayInvalidInputMessage) },
+                            shape = RoundedCornerShape(16.dp),
+                        ) {
+                            Text(stringResource(R.string.network_settings_save))
+                        }
+                    }
+                    Text(
+                        stringResource(R.string.settings_auto_away_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    state.autoAwaySavingError?.let { error ->
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
+            }
+            if (showIdentity && section == SettingsSection.IDENTITY) {
+                item {
+                    SettingsGroupCard(
+                        showHeader = false,
+                        icon = Icons.Outlined.Person,
+                        title = stringResource(R.string.settings_group_identity),
+                        description = stringResource(R.string.settings_group_identity_desc),
+                    ) {
+                        Text(
+                            stringResource(R.string.settings_vhost_title),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        )
+                        Text(
+                            stringResource(R.string.settings_vhost_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        state.vhostOptions.forEach { option ->
+                            VhostRow(
+                                option = option,
+                                checked = option.address in state.vhostSelection,
+                                onToggle = { viewModel.toggleVhostSelection(option.address) },
+                            )
+                        }
+                        state.vhostError?.let { error ->
+                            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+            if (section == SettingsSection.COMMANDS) {
             item {
-                ResentinSectionCard {
+                SettingsGroupCard(
+                    showHeader = false,
+                    icon = Icons.Outlined.Terminal,
+                    title = stringResource(R.string.settings_group_commands),
+                    description = stringResource(R.string.settings_group_commands_desc),
+                ) {
+                    SettingsBlockLabel(text = stringResource(R.string.settings_aliases))
+                    Spacer(Modifier.height(8.dp))
+                    state.aliases.entries.forEachIndexed { index, (name, expansion) ->
+                        if (index > 0) SettingsRowDivider()
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(name, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    expansion,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            IconButton(onClick = { viewModel.removeAlias(name) }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
+                            }
+                        }
+                    }
+                    SettingsRowDivider()
                     OutlinedTextField(
                         value = state.newAliasName,
                         onValueChange = viewModel::onNewAliasNameChange,
@@ -640,10 +857,63 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         Spacer(Modifier.height(8.dp))
                         Text(error, color = MaterialTheme.colorScheme.error)
                     }
+                    val highlights by viewModel.highlightPatterns.collectAsState()
+                    Spacer(Modifier.height(16.dp))
+                    SettingsBlockLabel(text = stringResource(R.string.settings_highlights))
+                    Text(
+                        stringResource(R.string.settings_highlight_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    highlights?.forEachIndexed { index, pattern ->
+                        if (index > 0) SettingsRowDivider()
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                pattern,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { viewModel.removeHighlight(pattern) }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_remove))
+                            }
+                        }
+                    }
+                    if (highlights != null) SettingsRowDivider()
+                    OutlinedTextField(
+                        value = state.newHighlight,
+                        onValueChange = viewModel::onNewHighlightChange,
+                        label = { Text(stringResource(R.string.settings_highlight_label)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = viewModel::addHighlight,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.settings_add_highlight))
+                    }
+                    state.highlightError?.let { error ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(error, color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
+            }
+            if (section == SettingsSection.DATA) {
             item {
-                ResentinSectionCard(title = stringResource(R.string.settings_storage_title)) {
+                SettingsGroupCard(
+                    showHeader = false,
+                    icon = Icons.Outlined.Storage,
+                    title = stringResource(R.string.settings_group_data),
+                    description = stringResource(R.string.settings_group_data_desc),
+                ) {
                     OutlinedButton(
                         onClick = { showClearMessagesConfirm = true },
                         shape = RoundedCornerShape(16.dp),
@@ -662,6 +932,7 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -699,9 +970,109 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     }
 }
 
+/** The hub menu: one row per group, same row language as the home's channel rows
+ * (40dp icon avatar, title + subtitle, chevron). Groups without content available
+ * right now (e.g. Identità with no vhost options) are hidden, not disabled. */
 @Composable
-private fun ResentinSectionCard(
-    title: String? = null,
+private fun SettingsHubCard(
+    showIdentity: Boolean,
+    onSelect: (SettingsSection) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            val sections = buildList {
+                add(SettingsSection.APPEARANCE)
+                add(SettingsSection.CHAT)
+                add(SettingsSection.NOTIFICATIONS)
+                add(SettingsSection.PRESENCE)
+                if (showIdentity) add(SettingsSection.IDENTITY)
+                add(SettingsSection.COMMANDS)
+                add(SettingsSection.DATA)
+            }
+            sections.forEachIndexed { index, target ->
+                if (index > 0) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 62.dp, end = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    )
+                }
+                SettingsHubRow(
+                    icon = target.icon(),
+                    title = target.title(),
+                    description = target.description(),
+                    onClick = { onSelect(target) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsHubRow(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(start = 12.dp, end = 12.dp, top = 9.dp * LocalDensityScale.current, bottom = 9.dp * LocalDensityScale.current),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        Icon(
+            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** A settings group: the same premium card language as the home's network cards
+ * (28dp radius, tonal fill, hairline border), with an icon-avatar header in the
+ * style of the home's network/channel rows. */
+@Composable
+private fun SettingsGroupCard(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    showHeader: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     Card(
@@ -711,14 +1082,115 @@ private fun ResentinSectionCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            title?.let {
-                Text(it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (showHeader) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(
+                    start = 12.dp,
+                    end = 16.dp,
+                    top = 12.dp * LocalDensityScale.current,
+                    bottom = 12.dp * LocalDensityScale.current,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
             }
-            content()
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            )
+            }
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp * LocalDensityScale.current)) {
+                content()
+            }
         }
     }
+}
+
+/** Sub-block label inside a group (Tema, Lingua, …) — same weight as a switch
+ * row title, optionally with a small leading icon. */
+@Composable
+private fun SettingsBlockLabel(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        icon?.let {
+            Icon(
+                imageVector = it,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+        )
+    }
+}
+
+/** Title + optional description on the left, Switch on the right. */
+@Composable
+private fun SettingsSwitchRow(
+    title: String,
+    description: String?,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+            )
+            description?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/** Hairline separator between blocks/rows inside a group card. */
+@Composable
+private fun SettingsRowDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(vertical = 12.dp * LocalDensityScale.current),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+    )
 }
 
 @Composable
@@ -727,27 +1199,36 @@ private fun PushSubscriptionRow(
     isThisDevice: Boolean,
     onRevoke: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                subscription.userAgent?.takeIf { it.isNotBlank() }
-                    ?: stringResource(if (subscription.provider == "unifiedpush") R.string.settings_push_device_unknown else R.string.settings_push_device_browser),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Text(
-                if (isThisDevice) {
-                    stringResource(R.string.settings_push_this_device)
-                } else {
-                    stringResource(R.string.settings_push_last_used, formatIsoTimestamp(subscription.lastUsedAt))
-                },
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        IconButton(onClick = onRevoke) {
-            Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.settings_push_revoke))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    subscription.userAgent?.takeIf { it.isNotBlank() }
+                        ?: stringResource(if (subscription.provider == "unifiedpush") R.string.settings_push_device_unknown else R.string.settings_push_device_browser),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    if (isThisDevice) {
+                        stringResource(R.string.settings_push_this_device)
+                    } else {
+                        stringResource(R.string.settings_push_last_used, formatIsoTimestamp(subscription.lastUsedAt))
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onRevoke) {
+                Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.settings_push_revoke))
+            }
         }
     }
 }

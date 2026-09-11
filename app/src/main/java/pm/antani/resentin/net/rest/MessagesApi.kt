@@ -4,6 +4,7 @@ import pm.antani.resentin.net.dto.ReadCursorRequestDto
 import pm.antani.resentin.net.dto.ReadCursorResponseDto
 import pm.antani.resentin.net.dto.ScrollbackMessageDto
 import pm.antani.resentin.net.dto.SendMessageDto
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -18,6 +19,18 @@ interface MessagesApi {
         @Path("channel") channel: String,
         @Body body: SendMessageDto,
     ): Response<ScrollbackMessageDto>
+
+    /** Same POST but without decoding the 201 body — service PRIVMSGs (NickServ,
+     * ChanServ, ...) answer with a bare ack, not a scrollback row, so the typed
+     * [sendMessage] converter blows up on them ("fields [id, network, ...] are
+     * required"). The reply is never echoed into a window anyway (it lands on
+     * $server via the services-sender routing), so there is nothing to record. */
+    @POST("networks/{slug}/channels/{channel}/messages")
+    suspend fun sendServiceMessage(
+        @Path("slug") slug: String,
+        @Path("channel") channel: String,
+        @Body body: SendMessageDto,
+    ): Response<ResponseBody>
 
     @GET("networks/{slug}/channels/{channel}/messages")
     suspend fun getMessages(

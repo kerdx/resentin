@@ -16,6 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import pm.antani.resentin.domain.events.WsEvent
 import pm.antani.resentin.domain.session.ConnectionManager
+import pm.antani.resentin.net.AppJson
 import pm.antani.resentin.net.dto.AliasesEnvelopeDto
 import pm.antani.resentin.net.dto.DisplayPrefsDto
 import pm.antani.resentin.net.dto.DisplayPrefsEnvelopeDto
@@ -23,6 +24,7 @@ import pm.antani.resentin.net.dto.MutedTargetDto
 import pm.antani.resentin.net.dto.NotificationPrefsDto
 import pm.antani.resentin.net.dto.VhostSelectionUpdateDto
 import pm.antani.resentin.net.dto.VhostSettingsDto
+import pm.antani.resentin.net.dto.WatchlistDto
 import pm.antani.resentin.net.rest.UserSettingsApi
 
 /** Server muted_targets key: "<slug> <ascii-folded target>" (Identifier.channel_key/2)
@@ -197,4 +199,35 @@ class UserSettingsRepository(
         }
         authRepository.api(UserSettingsApi::class.java).updateAutoAwayDebounce(body).autoAwayDebounceSeconds
     }.onSuccess { _autoAwayDebounceSeconds.value = it }
+
+    // `/hilight` watchlist — highlight keyword patterns stored SERVER-side in
+    // `user_settings.highlight_patterns` (NOT the /me/settings/* REST family: the
+    // highlight list has no REST arm, only the `watchlist` verb). `null` = never
+    // loaded; callers fall back to nick-only matching until the first `list` lands.
+    // Same no-broadcast mirror discipline as cicchetto's highlightList signal: the
+    // server never pushes changes, every mutation returns the full list in the reply.
+    private val _highlightPatterns = MutableStateFlow<List<String>?>(null)
+    val highlightPatterns: StateFlow<List<String>?> = _highlightPatterns.asStateFlow()
+
+    suspend fun refreshWatchlist(subject: String): Result<List<String>> =
+        updateWatchlist(subject, "list", null)
+
+    suspend fun addHighlight(subject: String, pattern: String): Result<List<String>> =
+        updateWatchlist(subject, "add", pattern)
+
+    suspend fun removeHighlight(subject: String, pattern: String): Result<List<String>> =
+        updateWatchlist(subject, "del", pattern)
+
+    private suspend fun updateWatchlist(subject: String, action: String, pattern: String?): Result<List<String>> =
+        runCatching {
+            val reply = connectionManager.pushVerb(
+                "grappa:user:$subject",
+                "watchlist",
+                buildJsonObject {
+                    put("action", action)
+                    pattern?.let { put("pattern", it) }
+                },
+            )
+            AppJson.decodeFromJsonElement(WatchlistDto.serializer(), reply).patterns
+        }.onSuccess { _highlightPatterns.value = it }
 }

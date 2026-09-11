@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,10 +39,10 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -62,6 +64,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,9 +83,12 @@ import pm.antani.resentin.data.db.NetworkEntity
 import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.repository.serverChannelKey
 import pm.antani.resentin.ui.common.MircText
+import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.ResentinDropdownMenu
 import pm.antani.resentin.ui.common.ResentinDropdownMenuItem
 import pm.antani.resentin.ui.common.ResentinHeaderAction
+import pm.antani.resentin.ui.common.ResentinEmptyState
+import pm.antani.resentin.ui.common.ResentinLoadingState
 
 private data class ChannelActionsTarget(val networkSlug: String, val channel: ChannelEntity)
 
@@ -106,6 +112,9 @@ fun HomeScreen(
     val draftChannels by viewModel.draftChannels.collectAsState()
     val pinnedChannels by viewModel.pinnedChannels.collectAsState()
     val mutedChannels by viewModel.mutedChannels.collectAsState()
+    // NavHost removes Home from the composition while a chat is open. Keep the same
+    // scroll position when it comes back instead of rebuilding from the top.
+    val homeListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     // Pin is local-only (slash key), mute is the server muted_targets map (space key)
     // — resolved here so ChannelRow stays a dumb renderer.
     val pinMutedOf: (networkSlug: String, channel: ChannelEntity) -> Pair<Boolean, Boolean> =
@@ -180,6 +189,8 @@ fun HomeScreen(
                         onClick = viewModel::refresh,
                         icon = Icons.Outlined.Refresh,
                         contentDescription = stringResource(R.string.cd_refresh),
+                        enabled = !isRefreshing,
+                        loading = isRefreshing,
                     )
                     ResentinHeaderAction(
                         onClick = onAppSettingsClick,
@@ -198,16 +209,36 @@ fun HomeScreen(
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
                 isRefreshing && networks.isEmpty() -> {
-                    CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    ResentinLoadingState(
+                        title = stringResource(R.string.home_connection_loading_title),
+                        description = stringResource(R.string.home_connection_loading_description),
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                networks.isEmpty() && error != null -> {
+                    ResentinEmptyState(
+                        icon = Icons.Outlined.WifiOff,
+                        title = stringResource(R.string.home_connection_error_title),
+                        description = stringResource(R.string.home_connection_error_description),
+                        actionLabel = stringResource(R.string.home_connection_retry),
+                        onAction = viewModel::refresh,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
                 networks.isEmpty() -> {
-                    Text(stringResource(R.string.home_no_networks), modifier = Modifier.align(Alignment.Center))
+                    ResentinEmptyState(
+                        icon = Icons.Outlined.Public,
+                        title = stringResource(R.string.home_no_networks_title),
+                        description = stringResource(R.string.home_no_networks_description),
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
                 else -> {
                     LazyColumn(
+                        state = homeListState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp * LocalDensityScale.current),
                     ) {
                         item(key = "home-summary") {
                             HomeSectionHeader(networkCount = networks.size)
@@ -238,7 +269,8 @@ fun HomeScreen(
                     }
                 }
             }
-            error?.let { message ->
+            if (error != null && networks.isNotEmpty()) {
+                val message = error!!
                 Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
                     Text(message)
                 }
@@ -580,7 +612,17 @@ private fun NetworkGroupCard(
                 onAddClick = onAddClick,
                 onBrowseDirectory = onBrowseDirectory,
             )
-            channels.forEachIndexed { index, channel ->
+            if (channels.isEmpty()) {
+                ResentinEmptyState(
+                    icon = Icons.Outlined.Tag,
+                    title = stringResource(R.string.home_network_empty_title),
+                    description = stringResource(R.string.home_network_empty_description),
+                    actionLabel = stringResource(R.string.home_new_chat_browse),
+                    onAction = onBrowseDirectory,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            } else {
+                channels.forEachIndexed { index, channel ->
                 if (index == 0) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -602,22 +644,18 @@ private fun NetworkGroupCard(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                     )
                 }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun networkAvatarColor(slug: String): Pair<Color, Color> {
+private fun networkAvatarColor(): Pair<Color, Color> {
     val scheme = MaterialTheme.colorScheme
-    val palettes = remember(scheme) {
-        listOf(
-            scheme.primaryContainer to scheme.onPrimaryContainer,
-            scheme.secondaryContainer to scheme.onSecondaryContainer,
-            scheme.tertiaryContainer to scheme.onTertiaryContainer,
-        )
+    return remember(scheme) {
+        scheme.primaryContainer to scheme.onPrimaryContainer
     }
-    return palettes[(slug.hashCode().and(Int.MAX_VALUE)) % palettes.size]
 }
 
 @Composable
@@ -630,7 +668,8 @@ private fun NetworkHeader(
     onBrowseDirectory: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val (avatarContainer, avatarContent) = networkAvatarColor(network.slug)
+    val densityScale = LocalDensityScale.current
+    val (avatarContainer, avatarContent) = networkAvatarColor()
     val stateLabel = if (network.connectionState == "connected") {
         stringResource(R.string.network_settings_connected)
     } else {
@@ -640,7 +679,7 @@ private fun NetworkHeader(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 12.dp, end = 4.dp, top = 8.dp * densityScale, bottom = 8.dp * densityScale),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
@@ -724,7 +763,6 @@ private fun ChannelRow(
     onLongClick: () -> Unit,
 ) {
     val hasUnread = channel.unreadMessages > 0
-    val hasMention = channel.unreadMentions > 0
     val isQuery = channel.source == "query"
     val topic = channel.topic?.takeIf { it.isNotBlank() }
     // Resentin: nasconde il segnaposto rumoroso "nessun topic" — titolo su una
@@ -735,7 +773,7 @@ private fun ChannelRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(start = 12.dp, end = 12.dp, top = 9.dp, bottom = 9.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 9.dp * LocalDensityScale.current, bottom = 9.dp * LocalDensityScale.current),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
@@ -744,24 +782,25 @@ private fun ChannelRow(
             color = if (isQuery) {
                 MaterialTheme.colorScheme.tertiaryContainer
             } else {
-                MaterialTheme.colorScheme.secondaryContainer
+                MaterialTheme.colorScheme.surfaceVariant
             },
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = if (isQuery) Icons.Outlined.ChatBubbleOutline else Icons.Outlined.Tag,
-                    contentDescription = if (isQuery) {
-                        stringResource(R.string.cd_direct_message)
-                    } else {
-                        null
-                    },
-                    modifier = Modifier.size(18.dp),
-                    tint = if (isQuery) {
-                        MaterialTheme.colorScheme.onTertiaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                    },
-                )
+                if (isQuery) {
+                    Text(
+                        text = channel.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        fontWeight = FontWeight.Bold,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Tag,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
         Spacer(Modifier.width(12.dp))
@@ -798,13 +837,14 @@ private fun ChannelRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        enableLinks = false,
                     )
                 }
             }
         }
         if (hasUnread) {
             Spacer(Modifier.width(8.dp))
-            UnreadBadge(count = channel.unreadMessages, isMention = hasMention)
+            UnreadBadge(count = channel.unreadMessages)
         }
         if (hasDraft || pinned || muted) {
             Spacer(Modifier.width(6.dp))
@@ -841,15 +881,11 @@ private fun ChannelRow(
 }
 
 @Composable
-private fun UnreadBadge(count: Int, isMention: Boolean) {
+private fun UnreadBadge(count: Int) {
     Box(
         modifier = Modifier
             .background(
-                color = if (isMention) {
-                    MaterialTheme.colorScheme.errorContainer
-                } else {
-                    MaterialTheme.colorScheme.primary
-                },
+                color = MaterialTheme.colorScheme.primary,
                 shape = RoundedCornerShape(12.dp),
             )
             .padding(horizontal = 9.dp, vertical = 4.dp),
@@ -857,11 +893,7 @@ private fun UnreadBadge(count: Int, isMention: Boolean) {
         Text(
             text = if (count > 99) "99+" else count.toString(),
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = if (isMention) {
-                MaterialTheme.colorScheme.onErrorContainer
-            } else {
-                MaterialTheme.colorScheme.onPrimary
-            },
+            color = MaterialTheme.colorScheme.onPrimary,
         )
     }
 }

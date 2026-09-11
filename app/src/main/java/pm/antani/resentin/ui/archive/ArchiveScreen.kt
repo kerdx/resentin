@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,6 +54,9 @@ import java.time.format.FormatStyle
 import pm.antani.resentin.R
 import pm.antani.resentin.net.dto.ArchiveEntryDto
 import pm.antani.resentin.ui.common.ResentinHeaderAction
+import pm.antani.resentin.ui.common.LocalDensityScale
+import pm.antani.resentin.ui.common.ResentinEmptyState
+import pm.antani.resentin.ui.common.ResentinLoadingState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,6 +99,8 @@ fun ArchiveScreen(
                         onClick = viewModel::load,
                         icon = Icons.Outlined.Refresh,
                         contentDescription = stringResource(R.string.cd_refresh),
+                        enabled = !state.isLoading,
+                        loading = state.isLoading,
                     )
                 },
             )
@@ -103,13 +109,27 @@ fun ArchiveScreen(
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
                 state.isLoading && state.entries.isEmpty() -> {
-                    CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    ResentinLoadingState(
+                        title = stringResource(R.string.archive_loading_title),
+                        description = stringResource(R.string.archive_loading_description),
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                state.entries.isEmpty() && state.error != null -> {
+                    ResentinEmptyState(
+                        icon = Icons.Outlined.WifiOff,
+                        title = stringResource(R.string.home_connection_error_title),
+                        description = stringResource(R.string.archive_error_description),
+                        actionLabel = stringResource(R.string.home_connection_retry),
+                        onAction = viewModel::load,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
                 state.entries.isEmpty() -> {
-                    Text(
-                        stringResource(R.string.archive_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ResentinEmptyState(
+                        icon = Icons.Outlined.ChatBubbleOutline,
+                        title = stringResource(R.string.archive_empty_title),
+                        description = stringResource(R.string.archive_empty_description),
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
@@ -117,7 +137,7 @@ fun ArchiveScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp * LocalDensityScale.current),
                     ) {
                         items(state.entries, key = { it.target }) { entry ->
                             ArchiveRow(
@@ -129,7 +149,8 @@ fun ArchiveScreen(
                     }
                 }
             }
-            state.error?.let { message ->
+            if (state.error != null && state.entries.isNotEmpty()) {
+                val message = state.error!!
                 Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
                     Text(message)
                 }
@@ -182,7 +203,7 @@ private fun ArchiveRow(entry: ArchiveEntryDto, onClick: () -> Unit, onDelete: ()
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(12.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp * LocalDensityScale.current),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
@@ -191,7 +212,7 @@ private fun ArchiveRow(entry: ArchiveEntryDto, onClick: () -> Unit, onDelete: ()
                 color = if (isQuery) {
                     MaterialTheme.colorScheme.tertiaryContainer
                 } else {
-                    MaterialTheme.colorScheme.secondaryContainer
+                    MaterialTheme.colorScheme.surfaceVariant
                 },
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -206,7 +227,7 @@ private fun ArchiveRow(entry: ArchiveEntryDto, onClick: () -> Unit, onDelete: ()
                         tint = if (isQuery) {
                             MaterialTheme.colorScheme.onTertiaryContainer
                         } else {
-                            MaterialTheme.colorScheme.onSecondaryContainer
+                            MaterialTheme.colorScheme.onSurfaceVariant
                         },
                     )
                 }

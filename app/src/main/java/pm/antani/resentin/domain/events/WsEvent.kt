@@ -3,15 +3,19 @@ package pm.antani.resentin.domain.events
 import kotlinx.serialization.json.JsonObject
 import pm.antani.resentin.net.dto.AutoAwayDebounceDto
 import pm.antani.resentin.net.dto.AvatarReadyDto
+import pm.antani.resentin.net.dto.AwayConfirmedDto
 import pm.antani.resentin.net.dto.BanlistBundleDto
 import pm.antani.resentin.net.dto.ChannelModesChangedDto
 import pm.antani.resentin.net.dto.IsupportChangedDto
+import pm.antani.resentin.net.dto.LusersBundleDto
 import pm.antani.resentin.net.dto.MembersSeededDto
 import pm.antani.resentin.net.dto.QueryWindowsListDto
 import pm.antani.resentin.net.dto.ScrollbackMessageDto
 import pm.antani.resentin.net.dto.TopicChangedDto
 import pm.antani.resentin.net.dto.WebSessionSeveredDto
+import pm.antani.resentin.net.dto.WhoReplyDto
 import pm.antani.resentin.net.dto.WhoisBundleDto
+import pm.antani.resentin.net.dto.WhowasBundleDto
 
 sealed interface WsEvent {
     data class MessageReceived(val message: ScrollbackMessageDto) : WsEvent
@@ -37,6 +41,21 @@ sealed interface WsEvent {
      * only mirror it — same push fires for every device on the subject's account). */
     data class AutoAwayDebounceChanged(val debounce: AutoAwayDebounceDto) : WsEvent
     data class QueryWindowsListReceived(val windows: QueryWindowsListDto) : WsEvent
+
+    /** The `away` verb landed — explicit away set or cleared for one network
+     * (cicchetto's `away_confirmed`, mirrored into per-network away state). */
+    data class AwayConfirmed(val away: AwayConfirmedDto) : WsEvent
+
+    /** Reply to a `whowas` verb query — one ephemeral bundle per nick. */
+    data class WhowasBundle(val whowas: WhowasBundleDto) : WsEvent
+
+    /** Reply to a `who` verb query — the folded 352 burst for one target. */
+    data class WhoReply(val who: WhoReplyDto) : WsEvent
+
+    /** Reply to an `lusers` verb query — the RFC 2812 §3.4.2 counters. The
+     * server also auto-emits one on connect welcome, which receivers must drop
+     * unless they asked (same consume-once gate as cicchetto's lusersBundle). */
+    data class LusersBundle(val lusers: LusersBundleDto) : WsEvent
 
     /** `read_cursor_set` carries no network/channel in its payload — only in the topic
      * it arrives on (`grappa:user:{u}/network:{slug}/channel:{chan}`), so [topic] is

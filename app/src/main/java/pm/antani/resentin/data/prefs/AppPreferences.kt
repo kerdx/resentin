@@ -35,6 +35,22 @@ enum class ReplyStyle {
     CUSTOM,
 }
 
+/** Vertical density of message rows and list rows app-wide — NORMAL preserves the
+ * previous spacing. The [scale] multiplies vertical rhythm paddings (see
+ * `LocalDensityScale`); chat bubbles keep hand-tuned values on the same 0.5/1/1.5 ladder. */
+enum class MessageDensity(val scale: Float) {
+    COMPACT(0.5f),
+    NORMAL(1f),
+    COMFORTABLE(1.5f),
+}
+
+/** Forced color scheme override — SYSTEM follows the OS (previous behavior). */
+enum class ThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK,
+}
+
 class AppPreferences(private val context: Context) {
 
     private val keyStayConnected = booleanPreferencesKey("stay_connected")
@@ -54,6 +70,10 @@ class AppPreferences(private val context: Context) {
         stringPreferencesKey("draft_${channelKey(networkSlug, channel)}")
     private val keyUnreadFirst = booleanPreferencesKey("unread_first")
     private val keyFontScale = floatPreferencesKey("font_scale")
+    private val keyThemeMode = stringPreferencesKey("theme_mode")
+    private val keyMessageDensity = stringPreferencesKey("message_density")
+    private val keyLineSpacing = stringPreferencesKey("line_spacing")
+    private val keyLineHeightScale = floatPreferencesKey("line_height_scale")
 
     val pinnedChannels: Flow<Set<String>> = context.dataStore.data.map { it[keyPinnedChannels] ?: emptySet() }
 
@@ -99,6 +119,39 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setFontScale(value: Float) {
         context.dataStore.edit { it[keyFontScale] = value }
+    }
+
+    /** Vertical density of chat message rows — NORMAL preserves the previous spacing. */
+    val messageDensity: Flow<MessageDensity> = context.dataStore.data.map {
+        runCatching { MessageDensity.valueOf(it[keyMessageDensity] ?: MessageDensity.NORMAL.name) }.getOrDefault(MessageDensity.NORMAL)
+    }
+
+    suspend fun setMessageDensity(density: MessageDensity) {
+        context.dataStore.edit { it[keyMessageDensity] = density.name }
+    }
+
+    /** Extra line-height multiplier on top of the font scale — 1 is previous behavior.
+     * Migrates the short-lived 3-stop enum (same key family): COMPACT → 0.9,
+     * RELAXED → 1.25, anything else → 1. */
+    val lineHeightScale: Flow<Float> = context.dataStore.data.map { prefs ->
+        prefs[keyLineHeightScale] ?: when (prefs[keyLineSpacing]) {
+            "COMPACT" -> 0.9f
+            "RELAXED" -> 1.25f
+            else -> 1f
+        }
+    }
+
+    suspend fun setLineHeightScale(scale: Float) {
+        context.dataStore.edit { it[keyLineHeightScale] = scale }
+    }
+
+    /** Forced theme override — SYSTEM (default) keeps the previous follow-the-OS behavior. */
+    val themeMode: Flow<ThemeMode> = context.dataStore.data.map {
+        runCatching { ThemeMode.valueOf(it[keyThemeMode] ?: ThemeMode.SYSTEM.name) }.getOrDefault(ThemeMode.SYSTEM)
+    }
+
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { it[keyThemeMode] = mode.name }
     }
 
     val stayConnected: Flow<Boolean> = context.dataStore.data.map { it[keyStayConnected] ?: false }

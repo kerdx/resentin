@@ -7,13 +7,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import pm.antani.resentin.data.prefs.MessageDensity
+import pm.antani.resentin.data.prefs.ThemeMode
 import pm.antani.resentin.service.NotificationRouter
 import pm.antani.resentin.ui.AppRoot
 import pm.antani.resentin.ui.DeepLinkChat
+import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.login.parseGrappaLoginLink
 import pm.antani.resentin.ui.theme.ResentinTheme
 
@@ -30,9 +35,19 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         setContent {
             // Global text size (Settings slider) — read here so the whole theme,
-            // every screen included, rescales live with it.
+            // every screen included, rescales live with it. Same for the forced
+            // theme override (Settings > Aspetto): SYSTEM keeps following the OS.
             val fontScale by container.appPreferences.fontScale.collectAsState(initial = 1f)
-            ResentinTheme(fontScale = fontScale) {
+            val lineHeightScale by container.appPreferences.lineHeightScale.collectAsState(initial = 1f)
+            val messageDensity by container.appPreferences.messageDensity.collectAsState(initial = MessageDensity.NORMAL)
+            val themeMode by container.appPreferences.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+            val useDarkTheme = when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            }
+            ResentinTheme(darkTheme = useDarkTheme, fontScale = fontScale, lineHeightScale = lineHeightScale) {
+                CompositionLocalProvider(LocalDensityScale provides messageDensity.scale) {
                 AppRoot(
                     container = container,
                     deepLink = pendingDeepLink.value,
@@ -42,6 +57,7 @@ class MainActivity : ComponentActivity() {
                     loginLink = pendingLoginLink.value,
                     onLoginLinkConsumed = { pendingLoginLink.value = null },
                 )
+                }
             }
         }
     }

@@ -115,8 +115,14 @@ class ChatRepository(
     }
 
     suspend fun recordIncoming(message: ScrollbackMessageDto) {
-        db.messageDao().upsert(
-            MessageEntity(
+        recordIncoming(listOf(message))
+    }
+
+    private suspend fun recordIncoming(messages: List<ScrollbackMessageDto>) {
+        if (messages.isEmpty()) return
+        db.messageDao().upsertAll(
+            messages.map { message ->
+                MessageEntity(
                 networkSlug = message.network,
                 channelName = queryBucket(message),
                 id = message.id,
@@ -125,7 +131,8 @@ class ChatRepository(
                 sender = message.sender,
                 body = message.body,
                 metaJson = AppJson.encodeToString(JsonObject.serializer(), message.meta),
-            ),
+                )
+            },
         )
     }
 
@@ -141,6 +148,15 @@ class ChatRepository(
         }
         check(response.isSuccessful) { "HTTP ${response.code()}" }
         response.body()?.let { recordIncoming(it) }
+    }
+
+    /** Service-targeted variant of [sendMessage] — see
+     * [MessagesApi.sendServiceMessage]: the ack body is not a message row and must
+     * not be decoded or recorded. */
+    suspend fun sendServiceMessage(networkSlug: String, service: String, body: String): Result<Unit> = runCatching {
+        val api = authRepository.api(MessagesApi::class.java)
+        val response = api.sendServiceMessage(networkSlug, service, SendMessageDto(body))
+        check(response.isSuccessful) { "HTTP ${response.code()}" }
     }
 
     /** Fills the gap since the last locally-known message — called after (re)connecting
@@ -160,18 +176,18 @@ class ChatRepository(
         val canonicalChannelName = canonicalTarget(channelName)
         val lastId = db.messageDao().maxId(networkSlug, canonicalChannelName)
         if (lastId == null) {
-            api.getMessages(networkSlug, channelName, limit = BACKFILL_LIMIT).forEach { recordIncoming(it) }
+            recordIncoming(api.getMessages(networkSlug, channelName, limit = BACKFILL_LIMIT))
             return@runCatching
         }
 
         var anchor = lastId
         repeat(BACKFILL_MAX_PAGES) {
             val page = api.getMessages(networkSlug, channelName, after = anchor, limit = BACKFILL_LIMIT)
-            page.forEach { recordIncoming(it) }
+            recordIncoming(page)
             if (page.size < BACKFILL_LIMIT) return@runCatching
             anchor = page.maxOf { it.id }
         }
-        api.getMessages(networkSlug, channelName, limit = BACKFILL_LIMIT).forEach { recordIncoming(it) }
+        recordIncoming(api.getMessages(networkSlug, channelName, limit = BACKFILL_LIMIT))
     }
 
     /** Loads a page of history older than the earliest locally-known message, for
@@ -181,7 +197,7 @@ class ChatRepository(
         val canonicalChannelName = canonicalTarget(channelName)
         val oldestId = db.messageDao().minId(networkSlug, canonicalChannelName) ?: return@runCatching
         val messages = api.getMessages(networkSlug, channelName, before = oldestId, limit = PAGE_LIMIT)
-        messages.forEach { recordIncoming(it) }
+        recordIncoming(messages)
     }
 
     /** Tells the server we've read up to [messageId] (monotonic advance-only server-side,

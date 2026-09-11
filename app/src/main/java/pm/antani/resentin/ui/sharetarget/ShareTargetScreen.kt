@@ -139,12 +139,7 @@ private fun ShareNetworkGroupCard(
 private fun ShareNetworkHeader(network: NetworkEntity, channelCount: Int) {
     val scheme = MaterialTheme.colorScheme
     val (avatarContainer, avatarContent) = remember(scheme, network.slug) {
-        val palettes = listOf(
-            scheme.primaryContainer to scheme.onPrimaryContainer,
-            scheme.secondaryContainer to scheme.onSecondaryContainer,
-            scheme.tertiaryContainer to scheme.onTertiaryContainer,
-        )
-        palettes[(network.slug.hashCode().and(Int.MAX_VALUE)) % palettes.size]
+        scheme.primaryContainer to scheme.onPrimaryContainer
     }
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
@@ -200,7 +195,7 @@ private fun ShareChannelRow(channel: ChannelEntity, onClick: () -> Unit) {
             color = if (isQuery) {
                 MaterialTheme.colorScheme.tertiaryContainer
             } else {
-                MaterialTheme.colorScheme.secondaryContainer
+                MaterialTheme.colorScheme.surfaceVariant
             },
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -211,7 +206,7 @@ private fun ShareChannelRow(channel: ChannelEntity, onClick: () -> Unit) {
                     tint = if (isQuery) {
                         MaterialTheme.colorScheme.onTertiaryContainer
                     } else {
-                        MaterialTheme.colorScheme.onSecondaryContainer
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
             }
@@ -237,6 +232,7 @@ private fun ShareChannelRow(channel: ChannelEntity, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    enableLinks = false,
                 )
             }
         }

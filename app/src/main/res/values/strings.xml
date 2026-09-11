@@ -37,6 +37,13 @@
     <string name="home_sign_out_quit_hint">Disconnette anche dalle reti IRC prima di chiudere la sessione.</string>
     <string name="home_sign_out_quit">Disconnetti da IRC (quit)</string>
     <string name="home_no_networks">Nessuna rete</string>
+    <string name="home_no_networks_title">Nessuna rete collegata</string>
+    <string name="home_no_networks_description">Aggiungi una rete per iniziare a conversare.</string>
+    <string name="home_connection_error_title">Connessione non riuscita</string>
+    <string name="home_connection_error_description">Non riesco a caricare le tue reti. Controlla la connessione e riprova.</string>
+    <string name="home_connection_retry">Riprova</string>
+    <string name="home_connection_loading_title">Caricamento reti</string>
+    <string name="home_connection_loading_description">Sto verificando le connessioni disponibili.</string>
     <string name="home_networks_title">Le tue reti</string>
     <plurals name="home_network_count">
         <item quantity="one">%d rete</item>
@@ -60,6 +67,8 @@
     <string name="home_new_chat_join">Entra nel canale</string>
     <string name="home_new_chat_dm">Messaggio privato</string>
     <string name="home_new_chat_browse">Sfoglia elenco canali</string>
+    <string name="home_network_empty_title">Nessun canale ancora</string>
+    <string name="home_network_empty_description">Questa rete non ha ancora conversazioni aperte.</string>
 
     <!-- Channel directory -->
     <string name="directory_title">Canali su %1$s</string>
@@ -161,13 +170,31 @@
     <string name="irc_role_voice">Voice</string>
     <string name="cd_user_info">Info utente</string>
     <string name="cd_channel_settings">Impostazioni canale</string>
+    <string name="cd_channel_menu">Azioni canale</string>
+    <string name="chat_channel_members_action">Lista utenti</string>
     <string name="cd_attach_file">Allega file</string>
     <string name="chat_message_placeholder">Messaggio</string>
     <string name="cd_send">Invia</string>
     <string name="cd_scroll_to_bottom">Vai al fondo</string>
+    <plurals name="cd_jump_to_next_mention">
+        <item quantity="one">Salta alla prossima menzione (%1$d sotto)</item>
+        <item quantity="other">Salta alla prossima menzione (%1$d sotto)</item>
+    </plurals>
+    <string name="cd_search_chat">Cerca nella chat</string>
+    <string name="cd_search_previous">Risultato precedente</string>
+    <string name="cd_search_next">Risultato successivo</string>
+    <string name="cd_close_search">Chiudi ricerca</string>
+    <plurals name="chat_channel_title_with_users">
+          <item quantity="one">%1$s (1)</item>
+          <item quantity="other">%1$s (%2$d)</item>
+      </plurals>
+    <string name="chat_search_hint">Cerca messaggio o nickname…</string>
+    <string name="chat_search_counter">%1$d di %2$d</string>
+    <string name="chat_search_no_results">Nessun risultato</string>
     <string name="chat_topic_dialog_title">Topic</string>
     <string name="chat_dialog_close">Chiudi</string>
     <string name="chat_unread_divider">Hai letto fino a qui</string>
+    <string name="chat_motd_title">Messaggio del giorno</string>
     <string name="chat_date_today">Oggi</string>
     <string name="chat_date_yesterday">Ieri</string>
     <string name="cd_reply">Rispondi</string>
@@ -207,6 +234,31 @@
 
     <!-- App settings -->
     <string name="settings_title">Impostazioni</string>
+    <string name="settings_group_appearance">Aspetto</string>
+    <string name="settings_group_appearance_desc">Tema, lingua, testo e spaziatura</string>
+    <string name="settings_group_chat">Chat e messaggi</string>
+    <string name="settings_group_chat_desc">Bolle, risposte e dettagli dei messaggi</string>
+    <string name="settings_group_notifications">Notifiche</string>
+    <string name="settings_group_notifications_desc">Connessione in background e push</string>
+    <string name="settings_group_presence">Presenza</string>
+    <string name="settings_group_presence_desc">Come appari quando non ci sei</string>
+    <string name="settings_group_identity">Identità</string>
+    <string name="settings_group_identity_desc">Indirizzo con cui ti colleghi alle reti</string>
+    <string name="settings_group_commands">Comandi</string>
+    <string name="settings_group_commands_desc">Alias personali per la chat</string>
+    <string name="settings_group_data">Spazio e dati</string>
+    <string name="settings_group_data_desc">Dati salvati su questo dispositivo</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_system">Sistema</string>
+    <string name="settings_theme_light">Chiaro</string>
+    <string name="settings_theme_dark">Scuro</string>
+    <string name="settings_density">Densità</string>
+    <string name="settings_density_compact">Compatta</string>
+    <string name="settings_density_normal">Normale</string>
+    <string name="settings_density_comfortable">Ampia</string>
+    <string name="settings_line_spacing">Interlinea</string>
+    <string name="settings_line_spacing_value">%1$d%%</string>
+    <string name="settings_line_spacing_preview">Prima riga di anteprima per l\'interlinea.\nSeconda riga, per vedere lo spazio tra le righe.\nTerza riga di esempio.</string>
     <string name="settings_stay_connected">Resta connesso in background</string>
     <string name="settings_stay_connected_desc">Mantiene la connessione attiva e mostra notifiche per i messaggi privati e le menzioni</string>
     <string name="settings_colored_nicklist">Nick colorati</string>
@@ -257,6 +309,10 @@
     <string name="settings_push_this_device">Questo dispositivo</string>
     <string name="settings_push_last_used">Ultimo utilizzo: %1$s</string>
     <string name="settings_push_revoke">Revoca</string>
+    <string name="settings_highlights">Termini evidenziati</string>
+    <string name="settings_highlight_desc">Gli stessi di /hilight: i messaggi che li contengono vengono evidenziati</string>
+    <string name="settings_highlight_label">Nuovo termine</string>
+    <string name="settings_add_highlight">Aggiungi termine</string>
     <string name="settings_aliases">Alias</string>
     <string name="settings_alias_name_label">Nome alias</string>
     <string name="settings_alias_expansion_label">Espansione</string>
@@ -314,10 +370,25 @@
     <!-- Archive -->
     <string name="archive_title">Archivio di %1$s</string>
     <string name="archive_empty">Nessuna conversazione archiviata</string>
+    <string name="archive_empty_title">Archivio vuoto</string>
+    <string name="archive_empty_description">Qui troverai le conversazioni che hai chiuso.</string>
+    <string name="archive_loading_title">Caricamento archivio</string>
+    <string name="archive_loading_description">Sto recuperando le conversazioni archiviate.</string>
+    <string name="archive_error_description">Non riesco a caricare l’archivio. Controlla la connessione e riprova.</string>
     <string name="archive_row_meta">%1$d messaggi · %2$s</string>
     <string name="archive_delete_title">Elimina definitivamente</string>
     <string name="archive_delete_confirm">Eliminare per sempre la cronologia locale di %1$s? Il canale resta comunque raggiungibile lato server.</string>
     <string name="archive_delete_action">Elimina</string>
+
+    <!-- Chat states -->
+    <string name="chat_history_loading">Caricamento storico</string>
+    <string name="chat_history_loading_description">Sto recuperando gli ultimi messaggi.</string>
+    <string name="chat_history_loading_older">Caricamento messaggi precedenti…</string>
+    <string name="chat_history_empty_title">Nessun messaggio ancora</string>
+    <string name="chat_history_empty_description">Quando arriverà un messaggio, lo vedrai qui.</string>
+    <string name="chat_history_error_title">Impossibile caricare la conversazione</string>
+    <string name="chat_history_error_description">Controlla la connessione e riprova.</string>
+    <string name="chat_history_retry">Riprova</string>
 
     <!-- Share target -->
     <string name="share_target_title">Condividi in...</string>
@@ -424,4 +495,30 @@
     <string name="chat_slash_description_disconnect">Disconnetti una rete</string>
     <string name="chat_slash_description_quit">Chiude la sessione IRC</string>
     <string name="chat_slash_channel_only">Comando disponibile solo nei canali</string>
+    <string name="chat_away_badge">away</string>
+    <string name="chat_slash_kb_host_unknown">Host di %1$s sconosciuto, espulso comunque</string>
+    <string name="chat_slash_hilight_list">highlight (%1$d): %2$s</string>
+    <string name="chat_whowas_user_line">%1$s@%2$s</string>
+    <string name="chat_whowas_realname_line">Nome reale: %1$s</string>
+    <string name="chat_whowas_server_line">Server: %1$s</string>
+    <string name="chat_whowas_logoff_line">Ultimo accesso: %1$s</string>
+    <string name="chat_whowas_not_found">Nessuna informazione su %1$s</string>
+    <string name="chat_who_title">WHO %1$s</string>
+    <string name="chat_who_empty">Nessun utente trovato</string>
+    <string name="chat_lusers_title">Lusers %1$s</string>
+    <string name="chat_lusers_users_line">Utenti: %1$s</string>
+    <string name="chat_lusers_invisible_line">Invisibili: %1$s</string>
+    <string name="chat_lusers_servers_line">Server: %1$s</string>
+    <string name="chat_lusers_operators_line">Operatori: %1$s</string>
+    <string name="chat_lusers_unknown_line">Connessioni sconosciute: %1$s</string>
+    <string name="chat_lusers_channels_line">Canali: %1$s</string>
+    <string name="chat_lusers_local_line">Locali: %1$s (max %2$s)</string>
+    <string name="chat_lusers_global_line">Globali: %1$s (max %2$s)</string>
+    <string name="chat_credits_title">Crediti</string>
+    <string name="chat_credits_line1">Resentin %1$s — client IRC Android per grappa</string>
+    <string name="chat_credits_line2">Interfaccia in stile Resentin, costruita con Jetpack Compose e Material 3</string>
+    <string name="chat_credits_line3">Parità di comandi con cicchetto, il client web di riferimento</string>
+    <string name="chat_credits_close">Chiudi</string>
+    <string name="chat_multiline_title">Incolla come %1$d messaggi?</string>
+    <string name="chat_multiline_body">Il testo verrà inviato a %1$s come %2$d messaggi separati (uno per riga).</string>
     <string name="chat_slash_alias_builtin">Non puoi sostituire un comando integrato</string></resources>

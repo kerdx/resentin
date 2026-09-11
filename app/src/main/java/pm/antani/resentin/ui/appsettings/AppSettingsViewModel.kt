@@ -19,7 +19,9 @@ import kotlinx.coroutines.launch
 import org.unifiedpush.android.connector.UnifiedPush
 import pm.antani.resentin.data.prefs.AppPreferences
 import pm.antani.resentin.data.prefs.ChatDisplayMode
+import pm.antani.resentin.data.prefs.MessageDensity
 import pm.antani.resentin.data.prefs.ReplyStyle
+import pm.antani.resentin.data.prefs.ThemeMode
 import pm.antani.resentin.domain.repository.AuthRepository
 import pm.antani.resentin.domain.repository.ChatRepository
 import pm.antani.resentin.domain.repository.PushRepository
@@ -48,6 +50,8 @@ data class AppSettingsUiState(
     val autoAwayCustomMode: Boolean = false,
     val autoAwayCustomDraft: String = "",
     val autoAwaySavingError: String? = null,
+    val newHighlight: String = "",
+    val highlightError: String? = null,
 )
 
 class AppSettingsViewModel(
@@ -116,6 +120,27 @@ class AppSettingsViewModel(
         viewModelScope.launch { appPreferences.setFontScale(scale) }
     }
 
+    val themeMode: StateFlow<ThemeMode> = appPreferences.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { appPreferences.setThemeMode(mode) }
+    }
+
+    val messageDensity: StateFlow<MessageDensity> = appPreferences.messageDensity
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MessageDensity.NORMAL)
+
+    fun setMessageDensity(density: MessageDensity) {
+        viewModelScope.launch { appPreferences.setMessageDensity(density) }
+    }
+
+    val lineHeightScale: StateFlow<Float> = appPreferences.lineHeightScale
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
+
+    fun setLineHeightScale(scale: Float) {
+        viewModelScope.launch { appPreferences.setLineHeightScale(scale) }
+    }
+
     val replyStyle: StateFlow<ReplyStyle> = appPreferences.replyStyle
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReplyStyle.NICK)
 
@@ -159,6 +184,44 @@ class AppSettingsViewModel(
         }
         refreshVhostSettings()
         refreshAutoAwayDebounce()
+        refreshWatchlist()
+    }
+
+    // `/hilight` watchlist — server-side patterns, cached in the repository (same
+    // rationale as the auto-away preference above); this is just a passthrough plus
+    // the add/remove affordances, which need the WS subject for the user topic.
+    val highlightPatterns: StateFlow<List<String>?> = userSettingsRepository.highlightPatterns
+
+    private fun watchlistSubject(): String? = authRepository.session.value?.wsSubject
+
+    fun refreshWatchlist() {
+        viewModelScope.launch {
+            val subject = watchlistSubject() ?: return@launch
+            userSettingsRepository.refreshWatchlist(subject)
+                .onFailure { error -> _uiState.update { it.copy(highlightError = error.message) } }
+        }
+    }
+
+    fun onNewHighlightChange(value: String) =
+        _uiState.update { it.copy(newHighlight = value, highlightError = null) }
+
+    fun addHighlight() {
+        val pattern = _uiState.value.newHighlight.trim()
+        if (pattern.isEmpty()) return
+        viewModelScope.launch {
+            val subject = watchlistSubject() ?: return@launch
+            userSettingsRepository.addHighlight(subject, pattern)
+                .onSuccess { _uiState.update { it.copy(newHighlight = "", highlightError = null) } }
+                .onFailure { error -> _uiState.update { it.copy(highlightError = error.message) } }
+        }
+    }
+
+    fun removeHighlight(pattern: String) {
+        viewModelScope.launch {
+            val subject = watchlistSubject() ?: return@launch
+            userSettingsRepository.removeHighlight(subject, pattern)
+                .onFailure { error -> _uiState.update { it.copy(highlightError = error.message) } }
+        }
     }
 
     // #348 on grappa-irc — cached in the repository (not this ViewModel) so the live

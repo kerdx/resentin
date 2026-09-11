@@ -27,7 +27,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import pm.antani.resentin.ui.common.ResentinFilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +60,7 @@ import pm.antani.resentin.irc.canonicalTarget
 import pm.antani.resentin.net.dto.DirectoryEntryDto
 import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.ui.common.MircText
+import pm.antani.resentin.ui.common.LocalDensityScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,13 +142,13 @@ fun DirectoryScreen(
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                FilterChip(
+                ResentinFilterChip(
                     selected = state.sort == "users",
                     onClick = { viewModel.setSort("users") },
                     label = { Text(stringResource(R.string.directory_sort_users)) },
                 )
                 Spacer(Modifier.width(8.dp))
-                FilterChip(
+                ResentinFilterChip(
                     selected = state.sort == "name",
                     onClick = { viewModel.setSort("name") },
                     label = { Text(stringResource(R.string.directory_sort_name)) },
@@ -197,7 +198,7 @@ fun DirectoryContent(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp * LocalDensityScale.current),
     ) {
         if (state.isFeaturedLoading && state.featured.isEmpty()) {
             item(key = "featured-loading") {
@@ -280,14 +281,14 @@ private fun FeaturedChannelRow(
             Surface(
                 modifier = Modifier.size(40.dp),
                 shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.tertiaryContainer,
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Outlined.Star,
                         contentDescription = stringResource(R.string.directory_featured),
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
@@ -346,20 +347,20 @@ private fun DirectoryRow(entry: DirectoryEntryDto, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp * LocalDensityScale.current),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
             modifier = Modifier.size(40.dp),
             shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.secondaryContainer,
+            color = MaterialTheme.colorScheme.surfaceVariant,
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     Icons.Outlined.Tag,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
