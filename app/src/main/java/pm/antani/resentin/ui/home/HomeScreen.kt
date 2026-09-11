@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -62,6 +64,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -109,6 +112,9 @@ fun HomeScreen(
     val draftChannels by viewModel.draftChannels.collectAsState()
     val pinnedChannels by viewModel.pinnedChannels.collectAsState()
     val mutedChannels by viewModel.mutedChannels.collectAsState()
+    // NavHost removes Home from the composition while a chat is open. Keep the same
+    // scroll position when it comes back instead of rebuilding from the top.
+    val homeListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     // Pin is local-only (slash key), mute is the server muted_targets map (space key)
     // — resolved here so ChannelRow stays a dumb renderer.
     val pinMutedOf: (networkSlug: String, channel: ChannelEntity) -> Pair<Boolean, Boolean> =
@@ -229,6 +235,7 @@ fun HomeScreen(
                 }
                 else -> {
                     LazyColumn(
+                        state = homeListState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp * LocalDensityScale.current),
@@ -779,20 +786,21 @@ private fun ChannelRow(
             },
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = if (isQuery) Icons.Outlined.ChatBubbleOutline else Icons.Outlined.Tag,
-                    contentDescription = if (isQuery) {
-                        stringResource(R.string.cd_direct_message)
-                    } else {
-                        null
-                    },
-                    modifier = Modifier.size(18.dp),
-                    tint = if (isQuery) {
-                        MaterialTheme.colorScheme.onTertiaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
+                if (isQuery) {
+                    Text(
+                        text = channel.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        fontWeight = FontWeight.Bold,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Tag,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
         Spacer(Modifier.width(12.dp))

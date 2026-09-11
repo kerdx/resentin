@@ -169,10 +169,21 @@ class ChatViewModel(
     private val _initialReadCursor = MutableStateFlow<Long?>(null)
     val initialReadCursor: StateFlow<Long?> = _initialReadCursor.asStateFlow()
 
+    // The initial cursor is intentionally frozen for the first landing position.
+    // This live copy advances after the chat is actually marked read so the UI can
+    // remove the unread divider without recreating the screen.
+    private val _readCursor = MutableStateFlow<Long?>(null)
+    val readCursor: StateFlow<Long?> = _readCursor.asStateFlow()
+
     // Distinguishes "not known yet" from "known to be null" (never read) — the UI must
     // wait for this before deciding where to scroll, or it'll always land on the bottom.
     private val _initialReadCursorReady = MutableStateFlow(false)
     val initialReadCursorReady: StateFlow<Boolean> = _initialReadCursorReady.asStateFlow()
+
+    // Separate from the cursor: the cursor is local and can be known immediately,
+    // while the REST history may still be filling the cache in the background.
+    private val _initialHistoryReady = MutableStateFlow(false)
+    val initialHistoryReady: StateFlow<Boolean> = _initialHistoryReady.asStateFlow()
 
     private var lastMarkedRead = 0L
 
@@ -209,7 +220,12 @@ class ChatViewModel(
             if (!draftChangedByUser) _draft.value = savedDraft
         }
         viewModelScope.launch {
-            _initialReadCursor.value = networksRepository.getStoredReadCursor(networkSlug, channelName)
+            val cursor = networksRepository.getStoredReadCursor(networkSlug, channelName)
+            _initialReadCursor.value = cursor
+            _readCursor.value = cursor
+            // The first layout can now use cached messages without waiting for the
+            // network join or the full backfill to finish.
+            _initialReadCursorReady.value = true
             runCatching {
                 connectionManager.connect()
                 connectionManager.joinChannel("grappa:user:$subject")
@@ -222,21 +238,16 @@ class ChatViewModel(
                 // even opened, via the same applyJoinResponse path) — if we still have no
                 // scroll target by then, fall back to whatever Room ended up with.
                 if (_initialReadCursor.value == null) {
-                    _initialReadCursor.value = networksRepository.getStoredReadCursor(networkSlug, channelName)
+                    val cursor = networksRepository.getStoredReadCursor(networkSlug, channelName)
+                    _initialReadCursor.value = cursor
+                    _readCursor.value = cursor
                 }
             }.onFailure {
                 if (!channelReady.isCompleted) channelReady.completeExceptionally(it)
                 _error.value = it.message
             }
-            // Only now, not before backfill() — while it's running, `messages` is a
-            // partial, arbitrarily-ordered-by-arrival prefix of the true history (Room
-            // emits on every individual upsert), so indexOfFirst{it.id > cursor} against
-            // that partial snapshot can match a much-too-early row and then latch onto
-            // it forever (ChatScreen sets hasScrolledInitially on its first pass once
-            // this flips true). Waiting for backfill's suspend call to actually return
-            // guarantees the full page is committed before that first pass runs.
             chatRepository.backfill(networkSlug, channelName).onFailure { _error.value = it.message }
-            _initialReadCursorReady.value = true
+            _initialHistoryReady.value = true
         }
         // Marks the newest loaded message as read whenever it changes — the chat being
         // open (this ViewModel existing) is already the "the user is looking at this"
@@ -251,6 +262,9 @@ class ChatViewModel(
         lastMarkedRead = messageId
         viewModelScope.launch {
             chatRepository.markRead(networkSlug, channelName, messageId)
+                .onSuccess {
+                    _readCursor.value = maxOf(_readCursor.value ?: Long.MIN_VALUE, messageId)
+                }
         }
     }
 

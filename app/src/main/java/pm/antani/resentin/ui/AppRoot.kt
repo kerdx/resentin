@@ -4,6 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -106,8 +109,55 @@ fun AppRoot(
         navController.navigate("chat/$networkSlug/${encode(nick)}")
     }
 
-    NavHost(navController = navController, startDestination = ROUTE_HOME) {
-        composable(ROUTE_HOME) {
+    NavHost(
+        navController = navController,
+        startDestination = ROUTE_HOME,
+        // Use one navigation motion for every screen. A route without explicit
+        // transitions otherwise changes instantly and can expose a one-frame strip
+        // of the outgoing layout, especially around top-bar actions on the right.
+        enterTransition = {
+            slideInHorizontally(
+                animationSpec = tween(260),
+                initialOffsetX = { fullWidth -> fullWidth },
+            )
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                animationSpec = tween(260),
+                targetOffsetX = { fullWidth -> -fullWidth / 5 },
+            )
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                animationSpec = tween(260),
+                initialOffsetX = { fullWidth -> -fullWidth / 5 },
+            )
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                animationSpec = tween(260),
+                targetOffsetX = { fullWidth -> fullWidth },
+            )
+        },
+    ) {
+        composable(
+            ROUTE_HOME,
+            // Keep Home in the same motion system as Chat. Without these two
+            // pop/push counterparts, Home was being mounted instantly underneath
+            // the sliding Chat screen, which looked like a full-page flash on back.
+            exitTransition = {
+                slideOutHorizontally(
+                    animationSpec = tween(260),
+                    targetOffsetX = { fullWidth -> -fullWidth / 5 },
+                )
+            },
+            popEnterTransition = {
+                slideInHorizontally(
+                    animationSpec = tween(260),
+                    initialOffsetX = { fullWidth -> -fullWidth / 5 },
+                )
+            },
+        ) {
             val viewModel: HomeViewModel = viewModel(
                 factory = HomeViewModel.factory(
                     container.networksRepository,
@@ -208,6 +258,33 @@ fun AppRoot(
                 navArgument("networkSlug") { type = NavType.StringType },
                 navArgument("channelName") { type = NavType.StringType },
             ),
+            // Telegram-style navigation: a single horizontal movement, no alpha
+            // blending. The previous screen stays visible underneath the new one,
+            // so neither opening nor closing looks like a full-page refresh.
+            enterTransition = {
+                slideInHorizontally(
+                    animationSpec = tween(260),
+                    initialOffsetX = { fullWidth -> fullWidth },
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    animationSpec = tween(260),
+                    targetOffsetX = { fullWidth -> -fullWidth / 5 },
+                )
+            },
+            popEnterTransition = {
+                slideInHorizontally(
+                    animationSpec = tween(260),
+                    initialOffsetX = { fullWidth -> -fullWidth / 5 },
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    animationSpec = tween(260),
+                    targetOffsetX = { fullWidth -> fullWidth },
+                )
+            },
         ) { backStackEntry ->
             val networkSlug = backStackEntry.arguments?.getString("networkSlug").orEmpty()
             val channelName = decode(backStackEntry.arguments?.getString("channelName").orEmpty())

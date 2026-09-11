@@ -3,7 +3,9 @@ package pm.antani.resentin.ui.chat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -11,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Send
@@ -95,6 +98,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -127,6 +131,41 @@ import pm.antani.resentin.ui.common.linkStylesFor
 import pm.antani.resentin.ui.common.mircAnnotatedString
 import pm.antani.resentin.ui.common.sigilsOf
 import pm.antani.resentin.ui.common.withClickableLinks
+
+/**
+ * Moves to the final row without LazyColumn's long-distance item-by-item spring.
+ * That default animation can visibly pause while new rows are measured. Small,
+ * timed pixel chunks keep the motion continuous; the final snap is only a residual
+ * correction after the bottom anchor has been composed.
+ */
+private suspend fun LazyListState.animateToChatBottom() {
+    repeat(8) {
+        val layoutInfo = layoutInfo
+        val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull() ?: return
+        val targetIndex = layoutInfo.totalItemsCount - 1
+        if (targetIndex < 0) return
+
+        val lastItemEnd = lastVisible.offset + lastVisible.size
+        if (lastVisible.index >= targetIndex && lastItemEnd <= layoutInfo.viewportEndOffset) return
+
+        val averageItemSize = layoutInfo.visibleItemsInfo
+            .map { it.size }
+            .average()
+            .toFloat()
+            .coerceAtLeast(1f)
+        val remainingItems = (targetIndex - lastVisible.index).coerceAtLeast(0)
+        val clippedTail = (lastItemEnd - layoutInfo.viewportEndOffset).coerceAtLeast(0)
+        val estimatedDistance = remainingItems * averageItemSize + clippedTail
+        val distance = estimatedDistance.coerceIn(240f, 1400f)
+        val duration = (distance / 4f).roundToInt().coerceIn(120, 260)
+        animateScrollBy(
+            value = distance,
+            animationSpec = tween(durationMillis = duration, easing = LinearOutSlowInEasing),
+        )
+    }
+
+    layoutInfo.totalItemsCount.takeIf { it > 0 }?.let { scrollToItem(it - 1) }
+}
 
 private val TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
 private val TIME_FORMATTER_WITH_SECONDS = DateTimeFormatter.ofPattern("HH:mm:ss")
@@ -177,7 +216,9 @@ fun ChatScreen(
     val ownSigils by viewModel.ownSigils.collectAsState()
     val privilegeModes by viewModel.privilegeModes.collectAsState()
     val initialReadCursor by viewModel.initialReadCursor.collectAsState()
+    val readCursor by viewModel.readCursor.collectAsState()
     val initialReadCursorReady by viewModel.initialReadCursorReady.collectAsState()
+    val initialHistoryReady by viewModel.initialHistoryReady.collectAsState()
     val members by viewModel.members.collectAsState()
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -259,10 +300,15 @@ fun ChatScreen(
     val coloredNicklist by viewModel.coloredNicklist.collectAsState()
     val showHostmaskInEvents by viewModel.showHostmaskInEvents.collectAsState()
     val myNick by viewModel.myNick.collectAsState()
-    val listState = rememberLazyListState()
-    val showHistoryLoading = messages.isEmpty() && (!initialReadCursorReady || isRefreshing)
-    val showHistoryError = messages.isEmpty() && initialReadCursorReady && error != null && !isRefreshing
-    var hasScrolledInitially by remember { mutableStateOf(false) }
+    var initialListIndex by remember { mutableStateOf<Int?>(null) }
+    val positioned = initialListIndex != null
+    val listState = remember(initialListIndex) {
+        LazyListState(firstVisibleItemIndex = initialListIndex ?: 0)
+    }
+    val showHistoryLoading = messages.isEmpty() && (!initialHistoryReady || isRefreshing)
+    val showHistoryError = messages.isEmpty() && initialHistoryReady && error != null && !isRefreshing
+    // Do not briefly compose the list at index 0 and then jump to the unread divider.
+    // The first LazyColumn is created with the final landing index already applied.
     var showTopicDialog by remember { mutableStateOf(false) }
     var showChannelMenu by remember { mutableStateOf(false) }
     // The long-pressed row's plain text, threaded to UserCardSheet for its "Copia"/
@@ -289,13 +335,14 @@ fun ChatScreen(
     }
 
     // Position (within `messages`) of the first message past where the reader left off —
-    // also where the "Hai letto fino a qui" divider renders. Derived from
-    // initialReadCursor, which is frozen for this screen's whole lifetime (see
-    // ChatViewModel), so the divider stays put even as newly-arrived messages get
-    // marked read live: it marks where you left off, not a constantly-advancing cursor.
+    // also where the "Hai letto fino a qui" divider renders. During the first layout
+    // use the frozen cursor so it remains a stable landing target. Once positioned,
+    // switch to the live cursor so the divider disappears as soon as this chat is
+    // confirmed read, without requiring a navigation away and back.
     // Null when there's nothing to mark (cursor still loading, never read anything, or
     // everything is already read).
-    val dividerIndex = initialReadCursor?.let { cursor ->
+    val dividerCursor = if (positioned) readCursor ?: initialReadCursor else initialReadCursor
+    val dividerIndex = dividerCursor?.let { cursor ->
         messages.indexOfFirst { it.id > cursor }.takeIf { it >= 0 }
     }
 
@@ -312,21 +359,36 @@ fun ChatScreen(
     // ChatViewModel.initialReadCursorReady: null is ambiguous between "not loaded yet"
     // and "never read anything").
     LaunchedEffect(messages, initialReadCursorReady) {
-        if (hasScrolledInitially || !initialReadCursorReady || messages.isEmpty()) return@LaunchedEffect
-        listState.scrollToItem(dividerIndex ?: (messages.size - 1))
-        hasScrolledInitially = true
+        if (initialListIndex != null || !initialReadCursorReady || messages.isEmpty()) return@LaunchedEffect
+        initialListIndex = dividerIndex ?: (messages.size - 1)
     }
 
-    // Whether the tail of the list is already on screen — read BEFORE a new message's
-    // recomposition lands (LazyColumn hasn't re-laid-out to include it yet), so this is
-    // "was the reader already following the bottom" at the moment the new item arrives,
-    // not a stale flag that needs separate resetting. A 1-item tolerance covers the
-    // divider's own row without needing to special-case it here.
-    val isAtBottom by remember {
-        derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf true
-            lastVisible.index >= layoutInfo.totalItemsCount - 2
+    // Keep the bottom status based on the actual last composed row. In this screen
+    // LazyColumn can report canScrollForward=false while it is still settling after
+    // a large gesture, which leaves the jump button permanently hidden.
+    var isAtBottom by remember { mutableStateOf(true) }
+    var showJumpToBottom by remember { mutableStateOf(false) }
+    LaunchedEffect(listState, positioned, messages.isNotEmpty()) {
+        if (!positioned || messages.isEmpty()) {
+            isAtBottom = true
+            showJumpToBottom = false
+            return@LaunchedEffect
+        }
+
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()
+            val totalItems = info.totalItemsCount
+            val lastVisibleIndex = lastVisible?.index ?: -1
+            val lastVisibleEnd = lastVisible?.let { it.offset + it.size } ?: Int.MIN_VALUE
+            val viewportEnd = info.viewportEndOffset
+            Triple(totalItems, lastVisibleIndex, lastVisibleEnd <= viewportEnd)
+        }.collect { (totalItems, lastVisibleIndex, lastVisibleIsFullyVisible) ->
+            val atBottom = totalItems > 0 &&
+                lastVisibleIndex >= totalItems - 1 &&
+                lastVisibleIsFullyVisible
+            isAtBottom = atBottom
+            showJumpToBottom = !atBottom
         }
     }
 
@@ -340,18 +402,18 @@ fun ChatScreen(
     val density = LocalDensity.current
     LaunchedEffect(listState) {
         snapshotFlow {
-            val lastIndex = messages.size - 1 + if (dividerIndex != null) 1 else 0
+            val bottomIndex = messages.size + if (dividerIndex != null) 1 else 0
             Triple(
                 imeInsets.getBottom(density),
-                shouldScrollToBottomOnIme && hasScrolledInitially,
-                lastIndex,
+                shouldScrollToBottomOnIme && positioned,
+                bottomIndex,
             )
-        }.collectLatest { (imeBottom, shouldFollow, lastIndex) ->
-            if (imeBottom <= 0 || !shouldFollow || lastIndex < 0) return@collectLatest
+        }.collectLatest { (imeBottom, shouldFollow, bottomIndex) ->
+            if (imeBottom <= 0 || !shouldFollow || bottomIndex < 0) return@collectLatest
             // IME insets animate over multiple frames. Keep the tail aligned
             // after each inset change, once the current layout has measured.
             withFrameNanos { }
-            listState.scrollToItem(lastIndex)
+            listState.scrollToItem(bottomIndex)
         }
     }
 
@@ -361,9 +423,15 @@ fun ChatScreen(
     // stays exactly where the reader put it. loadOlder() prepends at the head, which
     // doesn't change `lastOrNull()?.id`, so this never fires for that case either.
     LaunchedEffect(messages.lastOrNull()?.id) {
-        if (hasScrolledInitially && messages.isNotEmpty() && isAtBottom) {
-            val lastIndex = messages.size - 1 + if (dividerIndex != null) 1 else 0
-            listState.animateScrollToItem(lastIndex)
+        if (positioned && messages.isNotEmpty() && isAtBottom) {
+            val bottomIndex = messages.size + if (dividerIndex != null) 1 else 0
+            // During the initial REST fill, follow the cache with a snap. Once the
+            // history is ready, live messages can use the normal smooth follow.
+            if (initialHistoryReady) {
+                listState.animateScrollToItem(bottomIndex)
+            } else {
+                listState.scrollToItem(bottomIndex)
+            }
         }
     }
 
@@ -651,7 +719,7 @@ fun ChatScreen(
                         .focusRequester(draftFocusRequester)
                         .onFocusChanged { focusState ->
                             shouldScrollToBottomOnIme = if (focusState.isFocused) {
-                                hasScrolledInitially && isAtBottom
+                                positioned && isAtBottom
                             } else {
                                 false
                             }
@@ -718,6 +786,11 @@ fun ChatScreen(
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
+                !positioned -> {
+                    // Cached messages may already be available while the read cursor or
+                    // backfill is settling. Keep the content area stable until the list
+                    // state has been positioned, avoiding the visible top-to-unread jump.
+                }
                 else -> {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 messages.forEachIndexed { index, message ->
@@ -760,6 +833,13 @@ fun ChatScreen(
                             )
                         }
                     }
+                }
+                // A dedicated final row makes "go to bottom" unambiguous. Scrolling
+                // to the last message alone can leave a long message clipped; this
+                // anchor is always the final row and therefore clamps at the true
+                // end of the viewport.
+                item(key = "chat-bottom-anchor") {
+                    Spacer(Modifier.size(1.dp))
                 }
             }
             if (isLoadingOlder) {
@@ -815,14 +895,18 @@ fun ChatScreen(
             ) {
                 topVisibleTime?.let { DateChip(timeMillis = it) }
             }
-            if (hasScrolledInitially && messages.isNotEmpty() && !isAtBottom) {
+            // Show the jump control only while there is content below the viewport.
+            // The bottom anchor makes this check reliable even with long final rows.
+            if (showJumpToBottom) {
                 val scope = rememberCoroutineScope()
                 SmallFloatingActionButton(
                     onClick = {
-                        val lastIndex = messages.size - 1 + if (dividerIndex != null) 1 else 0
-                        scope.launch { listState.animateScrollToItem(lastIndex) }
+                        scope.launch { listState.animateToChatBottom() }
                     },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp)
+                        .zIndex(1f),
                 ) {
                     Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = stringResource(R.string.cd_scroll_to_bottom))
                 }

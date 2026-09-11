@@ -39,6 +39,9 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(message: MessageEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(messages: List<MessageEntity>)
+
     /** Startup retention sweep (see ChatRepository.pruneOldMessages) — server backfill
      * can always refetch anything actually needed again, so an old, already-read row is
      * safe to drop locally rather than let the cache grow forever. */
