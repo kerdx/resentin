@@ -51,6 +51,18 @@ enum class ThemeMode {
     DARK,
 }
 
+/** Bundled monospace families available to the app. SYSTEM keeps the platform
+ * default for the regular UI and the platform monospace face for code/IRC rows. */
+enum class AppFontFamily {
+    SYSTEM,
+    JETBRAINS_MONO,
+    FIRA_CODE,
+    SOURCE_CODE_PRO,
+    IBM_PLEX_MONO,
+    CASCADIA_CODE,
+    HACK,
+}
+
 class AppPreferences(private val context: Context) {
 
     private val keyStayConnected = booleanPreferencesKey("stay_connected")
@@ -71,6 +83,7 @@ class AppPreferences(private val context: Context) {
     private val keyUnreadFirst = booleanPreferencesKey("unread_first")
     private val keyFontScale = floatPreferencesKey("font_scale")
     private val keyThemeMode = stringPreferencesKey("theme_mode")
+    private val keyFontFamily = stringPreferencesKey("font_family")
     private val keyMessageDensity = stringPreferencesKey("message_density")
     private val keyLineSpacing = stringPreferencesKey("line_spacing")
     private val keyLineHeightScale = floatPreferencesKey("line_height_scale")
@@ -152,6 +165,16 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { it[keyThemeMode] = mode.name }
+    }
+
+    /** Global bundled font choice. SYSTEM preserves the pre-existing typography. */
+    val fontFamily: Flow<AppFontFamily> = context.dataStore.data.map {
+        runCatching { AppFontFamily.valueOf(it[keyFontFamily] ?: AppFontFamily.SYSTEM.name) }
+            .getOrDefault(AppFontFamily.SYSTEM)
+    }
+
+    suspend fun setFontFamily(fontFamily: AppFontFamily) {
+        context.dataStore.edit { it[keyFontFamily] = fontFamily.name }
     }
 
     val stayConnected: Flow<Boolean> = context.dataStore.data.map { it[keyStayConnected] ?: false }

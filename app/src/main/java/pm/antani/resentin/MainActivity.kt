@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import pm.antani.resentin.data.prefs.MessageDensity
+import pm.antani.resentin.data.prefs.AppFontFamily
 import pm.antani.resentin.data.prefs.ThemeMode
 import pm.antani.resentin.service.NotificationRouter
 import pm.antani.resentin.ui.AppRoot
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
             // every screen included, rescales live with it. Same for the forced
             // theme override (Settings > Aspetto): SYSTEM keeps following the OS.
             val fontScale by container.appPreferences.fontScale.collectAsState(initial = 1f)
+            val fontFamily by container.appPreferences.fontFamily.collectAsState(initial = AppFontFamily.SYSTEM)
             val lineHeightScale by container.appPreferences.lineHeightScale.collectAsState(initial = 1f)
             val messageDensity by container.appPreferences.messageDensity.collectAsState(initial = MessageDensity.NORMAL)
             val themeMode by container.appPreferences.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
@@ -46,7 +48,12 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
             }
-            ResentinTheme(darkTheme = useDarkTheme, fontScale = fontScale, lineHeightScale = lineHeightScale) {
+            ResentinTheme(
+                darkTheme = useDarkTheme,
+                fontScale = fontScale,
+                lineHeightScale = lineHeightScale,
+                fontFamilyChoice = fontFamily,
+            ) {
                 CompositionLocalProvider(LocalDensityScale provides messageDensity.scale) {
                 AppRoot(
                     container = container,

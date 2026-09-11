@@ -252,6 +252,14 @@
     <string name="settings_theme_system">System</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <string name="settings_font_family">App font</string>
+    <string name="settings_font_family_system">System</string>
+    <string name="settings_font_family_jetbrains">JetBrains Mono</string>
+    <string name="settings_font_family_fira">Fira Code</string>
+    <string name="settings_font_family_source_code">Source Code Pro</string>
+    <string name="settings_font_family_ibm_plex">IBM Plex Mono</string>
+    <string name="settings_font_family_cascadia">Cascadia Code</string>
+    <string name="settings_font_family_hack">Hack</string>
     <string name="settings_density">Density</string>
     <string name="settings_density_compact">Compact</string>
     <string name="settings_density_normal">Normal</string>
