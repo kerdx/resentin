@@ -18,8 +18,8 @@ private const val SUPPORTED_PROTOCOL_VERSION = 1
 enum class LoginMode { TOKEN, PASSWORD, VISITOR }
 
 data class LoginUiState(
-    val host: String = "",
-    val mode: LoginMode = LoginMode.TOKEN,
+    val host: String = "irc.sindro.me",
+    val mode: LoginMode = LoginMode.VISITOR,
     val token: String = "",
     val username: String = "",
     val password: String = "",
