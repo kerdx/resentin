@@ -1,0 +1,349 @@
+/* style.css — Resentin's credits roll. Adapted from grappa-irc/cicchetto's
+   `.credits-*` rules in themes/default.css (#1773 onward), with cic's
+   theme custom properties replaced by fixed values (this page has no
+   surrounding app theme to inherit from) and the CSS-Animation-phase
+   introspection trick replaced by a plain JS state machine driving the
+   same --credits-roll-h / class toggles (see main.js). */
+
+:root {
+  --fg: #f2ede0;
+  --muted: #8f8a7c;
+  --accent: #ffb000;
+  --bg: #000;
+  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  overscroll-behavior: none;
+}
+
+.credits-modal {
+  position: fixed;
+  inset: 0;
+  overflow: clip;
+  background: #000;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  touch-action: none;
+}
+
+.credits-rain {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+  mix-blend-mode: screen;
+}
+
+.credits-rain canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.credits-chrome {
+  position: absolute;
+  z-index: 2;
+  top: max(0.5rem, env(safe-area-inset-top));
+  right: max(0.5rem, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.credits-chrome button {
+  font: inherit;
+  color: var(--fg);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--muted);
+  border-radius: 0.25rem;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.credits-chrome button[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.credits-movement {
+  position: absolute;
+  z-index: 2;
+  left: max(0.5rem, env(safe-area-inset-left));
+  bottom: max(0.5rem, env(safe-area-inset-bottom));
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  pointer-events: none;
+}
+
+.credits-viewport {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: clip;
+  pointer-events: none;
+  --credits-mask-fade: 12%;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--credits-mask-fade), #000 calc(100% - var(--credits-mask-fade)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--credits-mask-fade), #000 calc(100% - var(--credits-mask-fade)), transparent 100%);
+}
+
+.credits-roll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 1.5rem;
+  text-align: center;
+  text-shadow: 0 0 0.5rem var(--accent);
+  font-size: 1.15em;
+  animation: credits-roll 36s linear infinite;
+}
+
+.credits-roll.held {
+  animation-play-state: paused;
+}
+
+@keyframes credits-roll {
+  0% { transform: translateY(100dvh); }
+  91% { transform: translateY(calc(-1 * var(--credits-roll-h, 100%))); }
+  100% { transform: translateY(calc(-1 * var(--credits-roll-h, 100%))); }
+}
+
+.credits-block {
+  display: flex;
+  flex-direction: inherit;
+  align-items: inherit;
+  gap: inherit;
+  transition: opacity 1s linear;
+}
+
+.credits-block.fading {
+  opacity: 0;
+}
+
+.credits-block.returning {
+  animation: credits-block-return 1.6s ease-out 1 both;
+}
+
+@keyframes credits-block-return {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.credits-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.8em;
+  letter-spacing: 0.35em;
+  color: var(--accent);
+}
+
+.credits-version {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.credits-build {
+  margin: 0 0 1.5rem;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.credits-heading {
+  margin: 0 0 0.5rem;
+  font-size: 0.9em;
+  font-weight: normal;
+  letter-spacing: 0.3em;
+  color: var(--muted);
+}
+
+.credits-list {
+  margin: 0 0 3rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: min(20rem, 80vw);
+}
+
+.credits-person {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.5rem;
+}
+
+.credits-person-name {
+  text-align: left;
+  min-width: 0;
+  text-shadow: 0 0 0.5rem var(--accent), 0 1px 1px rgba(255, 176, 0, 0.55);
+}
+
+.credits-person-count {
+  flex: none;
+  color: var(--muted);
+}
+
+.credits-cow {
+  margin: 0 0 3rem;
+  font-family: var(--font-mono);
+  font-size: min(1.1em, 4.8vw);
+  line-height: 1.15;
+  white-space: pre;
+  text-align: left;
+  color: var(--fg);
+  text-shadow: none;
+}
+
+.credits-thanks {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(58ch, 88vw);
+  text-align: left;
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+.credits-thanks-who {
+  color: var(--accent);
+}
+
+.credits-thanks-why {
+  color: var(--muted);
+}
+
+.credits-prose {
+  margin: 1.5rem 0;
+  max-width: min(58ch, 88vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  text-align: left;
+  font-size: 0.95em;
+  line-height: 1.55;
+}
+
+.credits-prose p {
+  margin: 0;
+}
+
+.credits-prose-title {
+  margin: 0;
+  font-size: 1em;
+  font-weight: normal;
+  font-style: italic;
+  color: var(--accent);
+}
+
+.credits-heart {
+  margin: 2rem 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: min(4rem, 18vw);
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 0 1.5rem var(--accent);
+  animation: credits-heart-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes credits-heart-pulse {
+  0%, 60%, 100% { transform: scale(1); }
+  15% { transform: scale(1.18); }
+  30% { transform: scale(1.02); }
+  45% { transform: scale(1.12); }
+}
+
+.credits-finale-line {
+  margin: 0 0 1.5rem;
+  max-width: min(58ch, 88vw);
+  font-size: 1.1em;
+  color: var(--fg);
+}
+
+.credits-close-cta {
+  margin: 0 0 2rem;
+  padding: 0.6rem 1.4rem;
+  font: inherit;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.credits-manifesto {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: min(64ch, 88vw);
+  text-align: left;
+  font-size: 0.95em;
+  line-height: 1.6;
+}
+
+.credits-manifesto-text {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--fg);
+}
+
+.credits-manifesto-attribution {
+  margin: 0;
+  font-size: 0.85em;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* The ending: the roll stops travelling and becomes a plain scrollable
+   column, same posture cic's reduced-motion fallback uses — the close
+   button must not be something you wait 34s for. */
+.credits-viewport.ended {
+  overflow-x: hidden;
+  overflow-y: auto;
+  pointer-events: auto;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.credits-roll.ended {
+  position: static;
+  animation: none;
+  padding: max(3rem, env(safe-area-inset-top)) 1.5rem max(3rem, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .credits-viewport {
+    overflow-x: hidden;
+    overflow-y: auto;
+    pointer-events: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .credits-modal {
+    touch-action: pan-y;
+  }
+  .credits-roll {
+    position: static;
+    animation: none;
+    padding: max(3rem, env(safe-area-inset-top)) 1.5rem max(3rem, env(safe-area-inset-bottom));
+  }
+  .credits-heart {
+    animation: none;
+  }
+}

@@ -374,6 +374,21 @@
     <string name="network_settings_saved">Salvato</string>
     <string name="network_settings_save">Salva</string>
     <string name="network_settings_archive">Conversazioni archiviate</string>
+    <string name="network_settings_profile_label">Profilo</string>
+    <string name="network_settings_profile_age_label">Età</string>
+    <string name="network_settings_profile_gender_label">Genere</string>
+    <string name="network_settings_profile_gender_unset">Non impostato</string>
+    <string name="network_settings_profile_gender_male">Uomo</string>
+    <string name="network_settings_profile_gender_female">Donna</string>
+    <string name="network_settings_profile_gender_nonbinary">Non binario</string>
+    <string name="network_settings_profile_location_label">Posizione</string>
+    <string name="network_settings_profile_languages_label">Lingue</string>
+    <string name="network_settings_profile_custom_label">Personalizzato</string>
+    <string name="network_settings_profile_hint">Risposta a una richiesta CTCP USERINFO; un campo vuoto lo cancella.</string>
+    <string name="network_settings_avatar_label">Avatar</string>
+    <string name="network_settings_avatar_pick">Scegli immagine</string>
+    <string name="network_settings_avatar_remove">Rimuovi avatar</string>
+    <string name="network_settings_avatar_hint">Risposta a una richiesta CTCP AVATAR.</string>
 
     <!-- Archive -->
     <string name="archive_title">Archivio di %1$s</string>
@@ -522,11 +537,6 @@
     <string name="chat_lusers_channels_line">Canali: %1$s</string>
     <string name="chat_lusers_local_line">Locali: %1$s (max %2$s)</string>
     <string name="chat_lusers_global_line">Globali: %1$s (max %2$s)</string>
-    <string name="chat_credits_title">Crediti</string>
-    <string name="chat_credits_line1">Resentin %1$s — client IRC Android per grappa</string>
-    <string name="chat_credits_line2">Interfaccia in stile Resentin, costruita con Jetpack Compose e Material 3</string>
-    <string name="chat_credits_line3">Parità di comandi con cicchetto, il client web di riferimento</string>
-    <string name="chat_credits_close">Chiudi</string>
     <string name="chat_multiline_title">Incolla come %1$d messaggi?</string>
     <string name="chat_multiline_body">Il testo verrà inviato a %1$s come %2$d messaggi separati (uno per riga).</string>
     <string name="chat_slash_alias_builtin">Non puoi sostituire un comando integrato</string></resources>

@@ -110,7 +110,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import pm.antani.resentin.R
-import pm.antani.resentin.BuildConfig
 import pm.antani.resentin.data.db.MemberEntity
 import pm.antani.resentin.data.db.MessageEntity
 import pm.antani.resentin.data.prefs.ChatDisplayMode
@@ -1166,42 +1165,7 @@ fun ChatScreen(
     }
 
     if (showCredits) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissCredits,
-            shape = RoundedCornerShape(28.dp),
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 0.dp,
-            title = {
-                Text(
-                    stringResource(R.string.chat_credits_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        stringResource(R.string.chat_credits_line1, BuildConfig.VERSION_NAME),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        stringResource(R.string.chat_credits_line2),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        stringResource(R.string.chat_credits_line3),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::dismissCredits) {
-                    Text(stringResource(R.string.chat_credits_close))
-                }
-            },
-        )
+        CreditsScreen(onClose = viewModel::dismissCredits)
     }
 
     // Flood guard: a multi-line draft would be sent as one PRIVMSG per line, so

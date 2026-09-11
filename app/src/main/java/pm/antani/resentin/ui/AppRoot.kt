@@ -369,7 +369,7 @@ fun AppRoot(
             val networkSlug = backStackEntry.arguments?.getString("networkSlug").orEmpty()
             val viewModel: NetworkSettingsViewModel = viewModel(
                 key = "networksettings/$networkSlug",
-                factory = NetworkSettingsViewModel.factory(container.networksRepository, networkSlug),
+                factory = NetworkSettingsViewModel.factory(container.networksRepository, appContext, networkSlug),
             )
             NetworkSettingsScreen(
                 viewModel = viewModel,

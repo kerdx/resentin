@@ -374,6 +374,21 @@
     <string name="network_settings_saved">Saved</string>
     <string name="network_settings_save">Save</string>
     <string name="network_settings_archive">Archived conversations</string>
+    <string name="network_settings_profile_label">Profile</string>
+    <string name="network_settings_profile_age_label">Age</string>
+    <string name="network_settings_profile_gender_label">Gender</string>
+    <string name="network_settings_profile_gender_unset">Unset</string>
+    <string name="network_settings_profile_gender_male">Male</string>
+    <string name="network_settings_profile_gender_female">Female</string>
+    <string name="network_settings_profile_gender_nonbinary">Non-binary</string>
+    <string name="network_settings_profile_location_label">Location</string>
+    <string name="network_settings_profile_languages_label">Languages</string>
+    <string name="network_settings_profile_custom_label">Custom</string>
+    <string name="network_settings_profile_hint">Answered to a CTCP USERINFO query; a blank field clears it.</string>
+    <string name="network_settings_avatar_label">Avatar</string>
+    <string name="network_settings_avatar_pick">Choose image</string>
+    <string name="network_settings_avatar_remove">Remove avatar</string>
+    <string name="network_settings_avatar_hint">Answered to a CTCP AVATAR query.</string>
 
     <!-- Archive -->
     <string name="archive_title">%1$s archive</string>
@@ -522,11 +537,6 @@
     <string name="chat_lusers_channels_line">Channels: %1$s</string>
     <string name="chat_lusers_local_line">Local: %1$s (max %2$s)</string>
     <string name="chat_lusers_global_line">Global: %1$s (max %2$s)</string>
-    <string name="chat_credits_title">Credits</string>
-    <string name="chat_credits_line1">Resentin %1$s — Android IRC client for grappa</string>
-    <string name="chat_credits_line2">Resentin-style interface, built with Jetpack Compose and Material 3</string>
-    <string name="chat_credits_line3">Command parity with cicchetto, the reference web client</string>
-    <string name="chat_credits_close">Close</string>
     <string name="chat_multiline_title">Paste as %1$d messages?</string>
     <string name="chat_multiline_body">This will be sent to %1$s as %2$d separate messages (one per line).</string>
     <string name="chat_slash_alias_builtin">Built-in commands cannot be shadowed</string></resources>
