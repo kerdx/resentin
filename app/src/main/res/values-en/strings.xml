@@ -96,6 +96,7 @@
     <string name="directory_featured_title">Featured channels</string>
     <string name="directory_all_channels">All channels</string>
     <string name="directory_featured_join">Join</string>
+    <string name="home_featured_channel_dismiss">Hide %1$s from Home</string>
     <string name="directory_featured_open">Open</string>
     <string name="directory_featured_loading">Loading featured channels…</string>
     <string name="directory_featured_unavailable">Featured channels unavailable</string>

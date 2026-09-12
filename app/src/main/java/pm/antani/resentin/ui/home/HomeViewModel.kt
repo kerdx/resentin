@@ -69,6 +69,9 @@ class HomeViewModel(
     val pinnedChannels: StateFlow<Set<String>> = appPreferences.pinnedChannels
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
+    val dismissedFeaturedChannels: StateFlow<Set<String>> = appPreferences.dismissedFeaturedChannels
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     /** Server mute keys (muted_targets) — unexpired only, so the mute icon never
      * outlives a snooze the server already dropped. */
     val mutedChannels: StateFlow<Set<String>> = userSettingsRepository.notificationPrefs
@@ -150,6 +153,13 @@ class HomeViewModel(
                     .onSuccess { featured -> _featuredChannels.value = _featuredChannels.value + (slug to featured) }
                     .onFailure { featuredRequests.remove(slug) }
             }
+        }
+    }
+
+    /** Hides a curated channel from the Home suggestions; it remains available in Directory. */
+    fun dismissFeaturedChannel(networkSlug: String, channelName: String) {
+        viewModelScope.launch {
+            appPreferences.setFeaturedChannelDismissed(networkSlug, channelName, dismissed = true)
         }
     }
 
@@ -284,5 +294,18 @@ class HomeViewModel(
                     ) as T
                 }
             }
+    }
+}
+
+internal fun filterVisibleFeaturedChannels(
+    networkSlug: String,
+    featuredChannels: List<FeaturedChannelDto>,
+    joinedChannelNames: Set<String>,
+    dismissedChannelKeys: Set<String>,
+): List<FeaturedChannelDto> {
+    val joined = joinedChannelNames.map(::canonicalTarget).toSet()
+    return featuredChannels.filter { channel ->
+        canonicalTarget(channel.name) !in joined &&
+            channelKey(networkSlug, channel.name) !in dismissedChannelKeys
     }
 }

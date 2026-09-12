@@ -45,6 +45,7 @@
     <string name="home_available_network_connect">Connetti</string>
     <string name="home_available_network_connecting">Connessione…</string>
     <string name="home_featured_channels_title">Canali in evidenza</string>
+    <string name="home_featured_channel_dismiss">Nascondi %1$s dalla Home</string>
     <string name="home_connection_error_title">Connessione non riuscita</string>
     <string name="home_connection_error_description">Non riesco a caricare le tue reti. Controlla la connessione e riprova.</string>
     <string name="home_connection_retry">Riprova</string>

@@ -78,6 +78,7 @@ class AppPreferences(private val context: Context) {
     private val keyUnifiedPushSubscriptionId = stringPreferencesKey("unifiedpush_subscription_id")
     private val keyPushDecryptionFailureAt = longPreferencesKey("push_decryption_failure_at")
     private val keyPinnedChannels = stringSetPreferencesKey("pinned_channels")
+    private val keyDismissedFeaturedChannels = stringSetPreferencesKey("dismissed_featured_channels")
     private fun draftKey(networkSlug: String, channel: String) =
         stringPreferencesKey("draft_${channelKey(networkSlug, channel)}")
     private val keyUnreadFirst = booleanPreferencesKey("unread_first")
@@ -90,6 +91,11 @@ class AppPreferences(private val context: Context) {
     private val keyLineHeightScale = floatPreferencesKey("line_height_scale")
 
     val pinnedChannels: Flow<Set<String>> = context.dataStore.data.map { it[keyPinnedChannels] ?: emptySet() }
+
+    /** Featured network channels hidden from Home on this device. */
+    val dismissedFeaturedChannels: Flow<Set<String>> = context.dataStore.data.map {
+        it[keyDismissedFeaturedChannels] ?: emptySet()
+    }
 
     /** Canonical network/target keys whose local draft is currently non-empty. */
     val chatDrafts: Flow<Set<String>> = context.dataStore.data.map { preferences ->
@@ -104,6 +110,15 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit {
             val current = it[keyPinnedChannels] ?: emptySet()
             it[keyPinnedChannels] = if (pinned) current + channelKey(networkSlug, channel) else current - channelKey(networkSlug, channel)
+        }
+    }
+
+    /** Hides or restores one curated channel suggestion on this device. */
+    suspend fun setFeaturedChannelDismissed(networkSlug: String, channel: String, dismissed: Boolean) {
+        context.dataStore.edit {
+            val current = it[keyDismissedFeaturedChannels] ?: emptySet()
+            val key = channelKey(networkSlug, channel)
+            it[keyDismissedFeaturedChannels] = if (dismissed) current + key else current - key
         }
     }
 

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.WifiOff
@@ -84,7 +85,6 @@ import androidx.compose.ui.unit.sp
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.ChannelEntity
 import pm.antani.resentin.data.db.NetworkEntity
-import pm.antani.resentin.irc.canonicalTarget
 import pm.antani.resentin.net.dto.AvailableNetworkDto
 import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.data.prefs.channelKey
@@ -121,6 +121,7 @@ fun HomeScreen(
     val error by viewModel.error.collectAsState()
     val draftChannels by viewModel.draftChannels.collectAsState()
     val pinnedChannels by viewModel.pinnedChannels.collectAsState()
+    val dismissedFeaturedChannels by viewModel.dismissedFeaturedChannels.collectAsState()
     val mutedChannels by viewModel.mutedChannels.collectAsState()
     // NavHost removes Home from the composition while a chat is open. Keep the same
     // scroll position when it comes back instead of rebuilding from the top.
@@ -275,6 +276,7 @@ fun HomeScreen(
                                         .filter { it.source != "server" }
                                         .sortedBy { it.source == "query" },
                                     featuredChannels = featuredChannels[networkWithChannels.network.slug].orEmpty(),
+                                    dismissedChannelKeys = dismissedFeaturedChannels,
                                     pinMutedOf = pinMutedOf,
                                     draftChannels = draftChannels,
                                     fetchAvatarBytes = viewModel::fetchAvatarBytes,
@@ -290,6 +292,9 @@ fun HomeScreen(
                                     },
                                     onFeaturedChannelClick = { name ->
                                         viewModel.openFeaturedChannel(networkWithChannels.network.slug, name)
+                                    },
+                                    onDismissFeaturedChannel = { name ->
+                                        viewModel.dismissFeaturedChannel(networkWithChannels.network.slug, name)
                                     },
                                 )
                             }
@@ -699,6 +704,7 @@ private fun NetworkGroupCard(
     network: NetworkEntity,
     channels: List<ChannelEntity>,
     featuredChannels: List<FeaturedChannelDto>,
+    dismissedChannelKeys: Set<String>,
     pinMutedOf: (networkSlug: String, channel: ChannelEntity) -> Pair<Boolean, Boolean>,
     draftChannels: Set<String>,
     fetchAvatarBytes: suspend (String) -> ByteArray?,
@@ -709,6 +715,7 @@ private fun NetworkGroupCard(
     onChannelClick: (ChannelEntity) -> Unit,
     onChannelLongClick: (ChannelEntity) -> Unit,
     onFeaturedChannelClick: (String) -> Unit,
+    onDismissFeaturedChannel: (String) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -726,12 +733,18 @@ private fun NetworkGroupCard(
                 onAddClick = onAddClick,
                 onBrowseDirectory = onBrowseDirectory,
             )
-            if (featuredChannels.isNotEmpty()) {
+            val visibleFeaturedChannels = filterVisibleFeaturedChannels(
+                networkSlug = network.slug,
+                featuredChannels = featuredChannels,
+                joinedChannelNames = channels.filter { it.joined }
+                    .map { it.name }.toSet(),
+                dismissedChannelKeys = dismissedChannelKeys,
+            )
+            if (visibleFeaturedChannels.isNotEmpty()) {
                 FeaturedChannelsSection(
-                    featuredChannels = featuredChannels,
-                    joinedChannels = channels.filter { it.joined && it.source == "channel" }
-                        .map { canonicalTarget(it.name) }.toSet(),
+                    featuredChannels = visibleFeaturedChannels,
                     onClick = onFeaturedChannelClick,
+                    onDismiss = onDismissFeaturedChannel,
                 )
             }
             if (channels.isEmpty()) {
@@ -776,8 +789,8 @@ private fun NetworkGroupCard(
 @Composable
 private fun FeaturedChannelsSection(
     featuredChannels: List<FeaturedChannelDto>,
-    joinedChannels: Set<String>,
     onClick: (String) -> Unit,
+    onDismiss: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -789,7 +802,6 @@ private fun FeaturedChannelsSection(
             modifier = Modifier.padding(start = ResentinSpacing.medium, end = ResentinSpacing.medium, top = 10.dp, bottom = 2.dp),
         )
         featuredChannels.forEachIndexed { index, channel ->
-            val joined = canonicalTarget(channel.name) in joinedChannels
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -818,11 +830,19 @@ private fun FeaturedChannelsSection(
                 }
                 Spacer(Modifier.width(ResentinSpacing.small))
                 Text(
-                    text = stringResource(if (joined) R.string.directory_featured_open else R.string.directory_featured_join),
+                    text = stringResource(R.string.directory_featured_join),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
                 )
+                IconButton(onClick = { onDismiss(channel.name) }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = stringResource(R.string.home_featured_channel_dismiss, channel.name),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             if (index < featuredChannels.lastIndex) {
                 HorizontalDivider(
