@@ -72,6 +72,10 @@ class HomeViewModel(
     val dismissedFeaturedChannels: StateFlow<Set<String>> = appPreferences.dismissedFeaturedChannels
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
+    private val _optimisticallyJoinedFeaturedChannels = MutableStateFlow<Set<String>>(emptySet())
+    val optimisticallyJoinedFeaturedChannels: StateFlow<Set<String>> =
+        _optimisticallyJoinedFeaturedChannels.asStateFlow()
+
     /** Server mute keys (muted_targets) — unexpired only, so the mute icon never
      * outlives a snooze the server already dropped. */
     val mutedChannels: StateFlow<Set<String>> = userSettingsRepository.notificationPrefs
@@ -194,8 +198,11 @@ class HomeViewModel(
                 ?.any { it.joined && canonicalTarget(it.name) == canonicalTarget(channelName) }
                 ?: false
             val result = if (alreadyJoined) Result.success(Unit) else networksRepository.joinChannel(networkSlug, channelName)
-            result.onSuccess { _navigateToChat.tryEmit(networkSlug to channelName) }
-                .onFailure { _error.value = it.message ?: context.getString(R.string.home_unknown_error) }
+            result.onSuccess {
+                _optimisticallyJoinedFeaturedChannels.value =
+                    _optimisticallyJoinedFeaturedChannels.value + channelKey(networkSlug, channelName)
+                _navigateToChat.tryEmit(networkSlug to channelName)
+            }.onFailure { _error.value = it.message ?: context.getString(R.string.home_unknown_error) }
         }
     }
 
@@ -222,7 +229,12 @@ class HomeViewModel(
             } else {
                 networksRepository.partChannel(networkSlug, channel.name)
             }
-            result.onFailure { _error.value = it.message ?: context.getString(R.string.home_unknown_error) }
+            result.onSuccess {
+                if (channel.source != "query") {
+                    _optimisticallyJoinedFeaturedChannels.value =
+                        _optimisticallyJoinedFeaturedChannels.value - channelKey(networkSlug, channel.name)
+                }
+            }.onFailure { _error.value = it.message ?: context.getString(R.string.home_unknown_error) }
         }
     }
 
@@ -302,10 +314,13 @@ internal fun filterVisibleFeaturedChannels(
     featuredChannels: List<FeaturedChannelDto>,
     joinedChannelNames: Set<String>,
     dismissedChannelKeys: Set<String>,
+    optimisticallyJoinedChannelKeys: Set<String> = emptySet(),
 ): List<FeaturedChannelDto> {
     val joined = joinedChannelNames.map(::canonicalTarget).toSet()
     return featuredChannels.filter { channel ->
+        val key = channelKey(networkSlug, channel.name)
         canonicalTarget(channel.name) !in joined &&
-            channelKey(networkSlug, channel.name) !in dismissedChannelKeys
+            key !in dismissedChannelKeys &&
+            key !in optimisticallyJoinedChannelKeys
     }
 }

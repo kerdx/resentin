@@ -122,6 +122,7 @@ fun HomeScreen(
     val draftChannels by viewModel.draftChannels.collectAsState()
     val pinnedChannels by viewModel.pinnedChannels.collectAsState()
     val dismissedFeaturedChannels by viewModel.dismissedFeaturedChannels.collectAsState()
+    val optimisticallyJoinedFeaturedChannels by viewModel.optimisticallyJoinedFeaturedChannels.collectAsState()
     val mutedChannels by viewModel.mutedChannels.collectAsState()
     // NavHost removes Home from the composition while a chat is open. Keep the same
     // scroll position when it comes back instead of rebuilding from the top.
@@ -277,6 +278,7 @@ fun HomeScreen(
                                         .sortedBy { it.source == "query" },
                                     featuredChannels = featuredChannels[networkWithChannels.network.slug].orEmpty(),
                                     dismissedChannelKeys = dismissedFeaturedChannels,
+                                    optimisticallyJoinedChannelKeys = optimisticallyJoinedFeaturedChannels,
                                     pinMutedOf = pinMutedOf,
                                     draftChannels = draftChannels,
                                     fetchAvatarBytes = viewModel::fetchAvatarBytes,
@@ -705,6 +707,7 @@ private fun NetworkGroupCard(
     channels: List<ChannelEntity>,
     featuredChannels: List<FeaturedChannelDto>,
     dismissedChannelKeys: Set<String>,
+    optimisticallyJoinedChannelKeys: Set<String>,
     pinMutedOf: (networkSlug: String, channel: ChannelEntity) -> Pair<Boolean, Boolean>,
     draftChannels: Set<String>,
     fetchAvatarBytes: suspend (String) -> ByteArray?,
@@ -739,6 +742,7 @@ private fun NetworkGroupCard(
                 joinedChannelNames = channels.filter { it.joined }
                     .map { it.name }.toSet(),
                 dismissedChannelKeys = dismissedChannelKeys,
+                optimisticallyJoinedChannelKeys = optimisticallyJoinedChannelKeys,
             )
             if (visibleFeaturedChannels.isNotEmpty()) {
                 FeaturedChannelsSection(
