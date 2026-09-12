@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
@@ -266,7 +264,7 @@ private fun EditNetworkDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         title = {
@@ -293,7 +291,7 @@ private fun EditNetworkDialog(
                     onValueChange = { maxVisitor = it.filter(Char::isDigit) },
                     label = { Text(stringResource(R.string.admin_cap_visitor_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -301,7 +299,7 @@ private fun EditNetworkDialog(
                     onValueChange = { maxUser = it.filter(Char::isDigit) },
                     label = { Text(stringResource(R.string.admin_cap_user_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -309,7 +307,7 @@ private fun EditNetworkDialog(
                     onValueChange = { maxPerIp = it.filter(Char::isDigit) },
                     label = { Text(stringResource(R.string.admin_cap_per_ip_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -468,7 +466,7 @@ private fun VisitorsTab(visitors: List<VisitorAdminDto>, lastSweepCount: Int?, v
             }
             Button(
                 onClick = viewModel::sweepVisitors,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text(stringResource(R.string.admin_sweep_now))
             }
@@ -533,10 +531,9 @@ private fun EmptyHint(text: String) {
 private fun AdminRowCard(content: @Composable RowScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -553,7 +550,7 @@ private fun adminListPadding() = PaddingValues(start = 16.dp, end = 16.dp, top =
 private fun ConfirmDialog(title: String, message: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         title = {
@@ -574,7 +571,7 @@ private fun SingleFieldDialog(title: String, hint: String, onDismiss: () -> Unit
     var value by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         title = {
@@ -590,7 +587,7 @@ private fun SingleFieldDialog(title: String, hint: String, onDismiss: () -> Unit
                 onValueChange = { value = it },
                 placeholder = { Text(hint) },
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth(),
             )
         },
@@ -608,7 +605,7 @@ private fun NewNetworkDialog(onDismiss: () -> Unit, onCreate: (slug: String) -> 
     var slug by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         title = {
@@ -624,7 +621,7 @@ private fun NewNetworkDialog(onDismiss: () -> Unit, onCreate: (slug: String) -> 
                 onValueChange = { slug = it },
                 placeholder = { Text(stringResource(R.string.admin_new_network_hint)) },
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth(),
             )
         },
@@ -644,7 +641,7 @@ private fun AddServerDialog(networkSlug: String, onDismiss: () -> Unit, onCreate
     var tls by remember { mutableStateOf(true) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         title = {
@@ -661,7 +658,7 @@ private fun AddServerDialog(networkSlug: String, onDismiss: () -> Unit, onCreate
                     onValueChange = { host = it },
                     placeholder = { Text(stringResource(R.string.admin_server_host_hint)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -670,7 +667,7 @@ private fun AddServerDialog(networkSlug: String, onDismiss: () -> Unit, onCreate
                     onValueChange = { port = it.filter(Char::isDigit) },
                     placeholder = { Text(stringResource(R.string.admin_server_port_hint)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -697,7 +694,7 @@ private fun NewUserDialog(onDismiss: () -> Unit, onCreate: (name: String, passwo
     var password by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         title = {
@@ -714,7 +711,7 @@ private fun NewUserDialog(onDismiss: () -> Unit, onCreate: (name: String, passwo
                     onValueChange = { name = it },
                     placeholder = { Text(stringResource(R.string.admin_user_name_hint)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -723,7 +720,7 @@ private fun NewUserDialog(onDismiss: () -> Unit, onCreate: (name: String, passwo
                     onValueChange = { password = it },
                     placeholder = { Text(stringResource(R.string.admin_user_password_hint)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

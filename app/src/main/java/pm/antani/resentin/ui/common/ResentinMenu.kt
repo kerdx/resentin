@@ -1,7 +1,6 @@
 package pm.antani.resentin.ui.common
 
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -25,7 +24,7 @@ fun ResentinDropdownMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.medium,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         shadowElevation = 8.dp,

@@ -1,5 +1,7 @@
 package pm.antani.resentin.ui.chat
 
+import pm.antani.resentin.ui.theme.ResentinSpacing
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
@@ -514,7 +516,7 @@ fun ChatScreen(
                                 .focusRequester(searchFocusRequester),
                             placeholder = { Text(stringResource(R.string.chat_search_hint)) },
                             singleLine = true,
-                            shape = RoundedCornerShape(20.dp),
+                            shape = MaterialTheme.shapes.medium,
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -529,7 +531,7 @@ fun ChatScreen(
                                     bitmap = peerAvatarBitmap.asImageBitmap(),
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
-                                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)),
+                                    modifier = Modifier.size(36.dp).clip(MaterialTheme.shapes.extraSmall),
                                 )
                                 Spacer(Modifier.width(8.dp))
                             }
@@ -566,7 +568,7 @@ fun ChatScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = MaterialTheme.shapes.extraSmall,
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 border = BorderStroke(
                                     1.dp,
@@ -587,7 +589,7 @@ fun ChatScreen(
                             if (awayState == "away") {
                                 Spacer(Modifier.size(6.dp))
                                 Surface(
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = MaterialTheme.shapes.extraSmall,
                                     color = MaterialTheme.colorScheme.tertiaryContainer,
                                 ) {
                                     Text(
@@ -768,7 +770,7 @@ fun ChatScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(28.dp),
+                    shape = MaterialTheme.shapes.large,
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
                     border = BorderStroke(
                         1.dp,
@@ -814,7 +816,8 @@ fun ChatScreen(
                         )
                     },
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalResentinChatFontFamily.current),
-                    shape = RoundedCornerShape(20.dp),
+                    maxLines = 4,
+                    shape = MaterialTheme.shapes.medium,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                         unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -938,12 +941,12 @@ fun ChatScreen(
             if (isLoadingOlder) {
                 Surface(
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     tonalElevation = 2.dp,
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        modifier = Modifier.padding(horizontal = ResentinSpacing.large, vertical = ResentinSpacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         CircularProgressIndicator(
@@ -1103,7 +1106,7 @@ fun ChatScreen(
     if (showTopicDialog && topic != null) {
         AlertDialog(
             onDismissRequest = { showTopicDialog = false },
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.large,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 0.dp,
             title = {
@@ -1128,7 +1131,7 @@ fun ChatScreen(
     if (whoReplyValue != null) {
         AlertDialog(
             onDismissRequest = viewModel::dismissWho,
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.large,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 0.dp,
             title = {
@@ -1206,7 +1209,7 @@ fun ChatScreen(
         val messageCount = MessageLines.splitMessageLines(pendingSend).size
         AlertDialog(
             onDismissRequest = viewModel::dismissMultiLineSend,
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.large,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 0.dp,
             title = {
@@ -1244,7 +1247,7 @@ private fun EphemeralResultCard(
 ) {
     Surface(
         modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         tonalElevation = 2.dp,
@@ -1466,7 +1469,7 @@ private fun DateChip(timeMillis: Long, modifier: Modifier = Modifier) {
         }
     }
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.extraSmall,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shadowElevation = 4.dp,
@@ -1492,7 +1495,7 @@ private fun UnreadDivider(density: MessageDensity) {
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
         )
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.extraSmall,
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -1539,7 +1542,7 @@ private fun MentionCountBadge(count: Int, modifier: Modifier = Modifier) {
         modifier = modifier
             .background(
                 color = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.extraSmall,
             )
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
@@ -1654,11 +1657,11 @@ private fun MessageRow(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 32.dp, vertical = density.systemVertical()),
+                        .padding(horizontal = ResentinSpacing.xxLarge, vertical = density.systemVertical()),
                     contentAlignment = Alignment.Center,
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surfaceContainer,
                         border = BorderStroke(
                             1.dp,
@@ -1752,10 +1755,10 @@ private fun BubbleRow(
     }
     val lightTheme = isLightTheme()
     val timestampStyle = SpanStyle(
-        fontSize = 10.sp,
+        fontSize = 11.sp,
         fontStyle = FontStyle.Normal,
         fontFamily = LocalResentinChatFontFamily.current,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     val bodyWithTime = remember(formatted.text, formatted.isNotice, continuesGroup, time, lightTheme, timestampStyle) {
         buildAnnotatedString {
@@ -1822,7 +1825,7 @@ private fun BubbleRow(
                 shape = if (continuesGroup) {
                     RoundedCornerShape(topStart = 7.dp, topEnd = 20.dp, bottomEnd = 20.dp, bottomStart = 20.dp)
                 } else {
-                    RoundedCornerShape(20.dp)
+                    MaterialTheme.shapes.medium
                 },
                 color = bubbleColor,
                 border = bubbleBorder,
@@ -1855,10 +1858,10 @@ private fun BubbleRow(
                             Text(
                                 text = time,
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     fontFamily = LocalResentinChatFontFamily.current,
                                 ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                             )
                         }

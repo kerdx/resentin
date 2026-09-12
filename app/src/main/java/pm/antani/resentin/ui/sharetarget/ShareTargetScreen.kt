@@ -1,6 +1,7 @@
 package pm.antani.resentin.ui.sharetarget
 
-import androidx.compose.foundation.BorderStroke
+import pm.antani.resentin.ui.theme.ResentinSpacing
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -107,10 +107,9 @@ private fun ShareNetworkGroupCard(
     // stable avatar tint per slug, dividers between rows.
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             ShareNetworkHeader(network = network, channelCount = channels.size)
@@ -147,7 +146,7 @@ private fun ShareNetworkHeader(network: NetworkEntity, channelCount: Int) {
     ) {
         Surface(
             modifier = Modifier.size(44.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.medium,
             color = avatarContainer,
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -186,12 +185,12 @@ private fun ShareChannelRow(channel: ChannelEntity, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(start = 12.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
+            .padding(start = ResentinSpacing.medium, end = ResentinSpacing.large, top = ResentinSpacing.small, bottom = ResentinSpacing.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
             modifier = Modifier.size(40.dp),
-            shape = RoundedCornerShape(14.dp),
+            shape = MaterialTheme.shapes.extraSmall,
             color = if (isQuery) {
                 MaterialTheme.colorScheme.tertiaryContainer
             } else {

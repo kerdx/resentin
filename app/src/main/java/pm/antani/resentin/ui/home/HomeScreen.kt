@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.outlined.Refresh
@@ -34,7 +33,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -45,6 +43,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -75,6 +74,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,11 +89,10 @@ import pm.antani.resentin.domain.repository.serverChannelKey
 import pm.antani.resentin.ui.common.MircText
 import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.rememberAvatarBitmap
-import pm.antani.resentin.ui.common.ResentinDropdownMenu
-import pm.antani.resentin.ui.common.ResentinDropdownMenuItem
 import pm.antani.resentin.ui.common.ResentinHeaderAction
 import pm.antani.resentin.ui.common.ResentinEmptyState
 import pm.antani.resentin.ui.common.ResentinLoadingState
+import pm.antani.resentin.ui.theme.ResentinSpacing
 
 private data class ChannelActionsTarget(val networkSlug: String, val channel: ChannelEntity)
 
@@ -150,7 +150,7 @@ fun HomeScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
                             modifier = Modifier.size(40.dp),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = MaterialTheme.shapes.extraSmall,
                             color = Color(0xFF4E342E),
                         ) {
                             androidx.compose.foundation.Image(
@@ -161,7 +161,7 @@ fun HomeScreen(
                                 modifier = Modifier.padding(5.dp),
                             )
                         }
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(ResentinSpacing.medium))
                         Column {
                             Text(
                                 text = "Resentin",
@@ -169,7 +169,7 @@ fun HomeScreen(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = MaterialTheme.shapes.extraSmall,
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 border = BorderStroke(
                                     1.dp,
@@ -241,8 +241,8 @@ fun HomeScreen(
                     LazyColumn(
                         state = homeListState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp * LocalDensityScale.current),
+                        contentPadding = PaddingValues(start = ResentinSpacing.large, end = ResentinSpacing.large, top = ResentinSpacing.small, bottom = ResentinSpacing.xLarge),
+                        verticalArrangement = Arrangement.spacedBy(ResentinSpacing.medium * LocalDensityScale.current),
                     ) {
                         item(key = "home-summary") {
                             HomeSectionHeader(networkCount = networks.size)
@@ -276,7 +276,7 @@ fun HomeScreen(
             }
             if (error != null && networks.isNotEmpty()) {
                 val message = error!!
-                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
+                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(ResentinSpacing.large)) {
                     Text(message)
                 }
             }
@@ -302,7 +302,7 @@ fun HomeScreen(
         val isQuery = target.channel.source == "query"
         AlertDialog(
             onDismissRequest = { leaveConfirmTarget = null },
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.large,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 0.dp,
             title = {
@@ -410,7 +410,7 @@ private fun NewChatDialog(
     var text by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         title = {
@@ -427,13 +427,13 @@ private fun NewChatDialog(
                     onValueChange = { text = it },
                     placeholder = { Text(stringResource(R.string.home_new_chat_hint)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(12.dp))
                 androidx.compose.material3.OutlinedButton(
                     onClick = onBrowseDirectory,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(
@@ -441,7 +441,7 @@ private fun NewChatDialog(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ResentinSpacing.small))
                     Text(stringResource(R.string.home_new_chat_browse))
                 }
             }
@@ -539,14 +539,14 @@ private fun SheetActionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
             modifier = Modifier.size(40.dp),
-            shape = RoundedCornerShape(14.dp),
+            shape = MaterialTheme.shapes.extraSmall,
             color = iconContainer,
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -558,7 +558,7 @@ private fun SheetActionRow(
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(ResentinSpacing.medium))
         Text(
             text = text,
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
@@ -604,10 +604,9 @@ private fun NetworkGroupCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             NetworkHeader(
@@ -676,25 +675,20 @@ private fun NetworkHeader(
     onAddClick: () -> Unit,
     onBrowseDirectory: () -> Unit,
 ) {
-    var showMenu by remember { mutableStateOf(false) }
     val densityScale = LocalDensityScale.current
     val (avatarContainer, avatarContent) = networkAvatarColor()
     val avatarBitmap = rememberAvatarBitmap(network.avatarUrl, fetchAvatarBytes)
-    val stateLabel = if (network.connectionState == "connected") {
-        stringResource(R.string.network_settings_connected)
-    } else {
-        network.connectionState
-    }
+    val stateLabel = stringResource(connectionStateLabel(network.connectionState))
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(start = 12.dp, end = 4.dp, top = 8.dp * densityScale, bottom = 8.dp * densityScale),
+            .padding(start = ResentinSpacing.medium, end = ResentinSpacing.xSmall, top = ResentinSpacing.small * densityScale, bottom = ResentinSpacing.small * densityScale),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
             modifier = Modifier.size(44.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.medium,
             color = avatarContainer,
         ) {
             if (avatarBitmap != null) {
@@ -715,7 +709,7 @@ private fun NetworkHeader(
                 }
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(ResentinSpacing.medium))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = network.slug,
@@ -737,36 +731,14 @@ private fun NetworkHeader(
                 )
             }
         }
-        Box {
-            IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.cd_network_settings))
-            }
-            ResentinDropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                ResentinDropdownMenuItem(
-                    text = stringResource(R.string.cd_new_chat),
-                    icon = Icons.Outlined.Add,
-                    onClick = {
-                        showMenu = false
-                        onAddClick()
-                    },
-                )
-                ResentinDropdownMenuItem(
-                    text = stringResource(R.string.home_new_chat_browse),
-                    icon = Icons.Outlined.Public,
-                    onClick = {
-                        showMenu = false
-                        onBrowseDirectory()
-                    },
-                )
-                ResentinDropdownMenuItem(
-                    text = stringResource(R.string.cd_network_settings),
-                    icon = Icons.Outlined.Settings,
-                    onClick = {
-                        showMenu = false
-                        onSettingsClick()
-                    },
-                )
-            }
+        FilledTonalIconButton(onClick = onAddClick) {
+            Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.cd_new_chat))
+        }
+        IconButton(onClick = onBrowseDirectory) {
+            Icon(Icons.Outlined.Public, contentDescription = stringResource(R.string.home_new_chat_browse))
+        }
+        IconButton(onClick = onSettingsClick) {
+            Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.cd_network_settings))
         }
     }
 }
@@ -783,6 +755,7 @@ private fun ChannelRow(
     onLongClick: () -> Unit,
 ) {
     val hasUnread = channel.unreadMessages > 0
+    val hasMentions = channel.unreadMentions > 0
     val isQuery = channel.source == "query"
     val avatarBitmap = rememberAvatarBitmap(channel.avatarUrl.takeIf { isQuery }, fetchAvatarBytes)
     val topic = channel.topic?.takeIf { it.isNotBlank() }
@@ -794,12 +767,12 @@ private fun ChannelRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(start = 12.dp, end = 12.dp, top = 9.dp * LocalDensityScale.current, bottom = 9.dp * LocalDensityScale.current),
+            .padding(start = ResentinSpacing.medium, end = ResentinSpacing.medium, top = ResentinSpacing.small * LocalDensityScale.current, bottom = ResentinSpacing.small * LocalDensityScale.current),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
             modifier = Modifier.size(40.dp),
-            shape = RoundedCornerShape(14.dp),
+            shape = MaterialTheme.shapes.extraSmall,
             color = if (isQuery) {
                 MaterialTheme.colorScheme.tertiaryContainer
             } else {
@@ -831,12 +804,12 @@ private fun ChannelRow(
                 }
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(ResentinSpacing.medium))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = channel.name,
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = if (hasUnread) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = if (hasUnread || hasMentions) FontWeight.Bold else FontWeight.Medium,
                 ),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
@@ -870,9 +843,13 @@ private fun ChannelRow(
                 }
             }
         }
-        if (hasUnread) {
-            Spacer(Modifier.width(8.dp))
-            UnreadBadge(count = channel.unreadMessages)
+        if (hasUnread || hasMentions) {
+            Spacer(Modifier.width(ResentinSpacing.small))
+            if (hasMentions) {
+                UnreadBadge(count = channel.unreadMentions, isMention = true)
+                if (hasUnread) Spacer(Modifier.width(ResentinSpacing.xSmall))
+            }
+            if (hasUnread) UnreadBadge(count = channel.unreadMessages)
         }
         if (hasDraft || pinned || muted) {
             Spacer(Modifier.width(6.dp))
@@ -909,28 +886,43 @@ private fun ChannelRow(
 }
 
 @Composable
-private fun UnreadBadge(count: Int) {
+private fun UnreadBadge(count: Int, isMention: Boolean = false) {
+    val accessibilityLabel = pluralStringResource(
+        if (isMention) R.plurals.home_unread_mentions_accessibility else R.plurals.home_unread_messages_accessibility,
+        count,
+        count,
+    )
+    val badgeText = (if (isMention) "@" else "") + (if (count > 99) "99+" else count.toString())
+    val backgroundColor = if (isMention) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    val foregroundColor = if (isMention) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Box(
         modifier = Modifier
-            .background(
-                color = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(12.dp),
-            )
-            .padding(horizontal = 9.dp, vertical = 4.dp),
+            .semantics(mergeDescendants = true) { contentDescription = accessibilityLabel }
+            .background(color = backgroundColor, shape = MaterialTheme.shapes.extraSmall)
+            .padding(horizontal = ResentinSpacing.small, vertical = ResentinSpacing.xSmall),
     ) {
         Text(
-            text = if (count > 99) "99+" else count.toString(),
+            text = badgeText,
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onPrimary,
+            color = foregroundColor,
         )
     }
 }
 
 @Composable
 private fun ConnectionStateDot(connectionState: String) {
-    val color = when (connectionState) {
+    val color = when (connectionState.lowercase()) {
         "connected" -> Color(0xFF4CAF50)
-        "failed" -> MaterialTheme.colorScheme.error
+        "connecting", "reconnecting", "retrying", "backoff" -> MaterialTheme.colorScheme.primary
+        "failed", "error" -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.outline
     }
     Box(
@@ -938,4 +930,14 @@ private fun ConnectionStateDot(connectionState: String) {
             .size(8.dp)
             .background(color, CircleShape),
     )
+}
+
+private fun connectionStateLabel(connectionState: String): Int = when (connectionState.lowercase()) {
+    "connected" -> R.string.network_settings_connected
+    "connecting", "starting" -> R.string.home_connection_state_connecting
+    "reconnecting", "retrying", "backoff" -> R.string.home_connection_state_reconnecting
+    "disconnecting", "stopping" -> R.string.home_connection_state_disconnecting
+    "disconnected", "offline" -> R.string.home_connection_state_disconnected
+    "failed", "error" -> R.string.home_connection_state_failed
+    else -> R.string.home_connection_state_unknown
 }

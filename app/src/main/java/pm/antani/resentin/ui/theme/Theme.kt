@@ -92,10 +92,10 @@ private val LightColorScheme = lightColorScheme(
 
 private val ResentinShapes = Shapes(
     extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-    small = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
     medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
     large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
 )
 
 @Composable

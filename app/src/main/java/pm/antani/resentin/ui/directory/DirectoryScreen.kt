@@ -1,5 +1,7 @@
 package pm.antani.resentin.ui.directory
 
+import pm.antani.resentin.ui.theme.ResentinSpacing
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Refresh
@@ -109,7 +110,7 @@ fun DirectoryScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(28.dp),
+                shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerHighest,
                 border = BorderStroke(
                     1.dp,
@@ -127,7 +128,7 @@ fun DirectoryScreen(
                         modifier = Modifier.weight(1f),
                         placeholder = { Text(stringResource(R.string.directory_search_hint)) },
                         singleLine = true,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = MaterialTheme.shapes.medium,
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                             unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -269,10 +270,9 @@ private fun FeaturedChannelRow(
         ?: featured.description?.takeIf { it.isNotBlank() }
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -280,7 +280,7 @@ private fun FeaturedChannelRow(
         ) {
             Surface(
                 modifier = Modifier.size(40.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = MaterialTheme.shapes.extraSmall,
                 color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -315,7 +315,7 @@ private fun FeaturedChannelRow(
             Spacer(Modifier.width(8.dp))
             Button(
                 onClick = onClick,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.testTag("directory-featured-action"),
             ) {
                 Text(stringResource(if (isJoined) R.string.directory_featured_open else R.string.directory_featured_join))
@@ -352,7 +352,7 @@ private fun DirectoryRow(entry: DirectoryEntryDto, onClick: () -> Unit) {
     ) {
         Surface(
             modifier = Modifier.size(40.dp),
-            shape = RoundedCornerShape(14.dp),
+            shape = MaterialTheme.shapes.extraSmall,
             color = MaterialTheme.colorScheme.surfaceVariant,
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -391,15 +391,14 @@ private fun DirectoryRow(entry: DirectoryEntryDto, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(8.dp))
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.extraSmall,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         ) {
             Text(
                 entry.userCount.toString(),
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = ResentinSpacing.small, vertical = ResentinSpacing.xSmall),
             )
         }
     }

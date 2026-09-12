@@ -67,6 +67,20 @@
     <string name="home_new_chat_join">Entra nel canale</string>
     <string name="home_new_chat_dm">Messaggio privato</string>
     <string name="home_new_chat_browse">Sfoglia elenco canali</string>
+    <string name="home_connection_state_connecting">Connessione in corso</string>
+    <string name="home_connection_state_reconnecting">Riconnessione in corso</string>
+    <string name="home_connection_state_disconnecting">Disconnessione in corso</string>
+    <string name="home_connection_state_disconnected">Disconnesso</string>
+    <string name="home_connection_state_failed">Connessione non riuscita</string>
+    <string name="home_connection_state_unknown">Stato non disponibile</string>
+    <plurals name="home_unread_messages_accessibility">
+        <item quantity="one">%d messaggio non letto</item>
+        <item quantity="other">%d messaggi non letti</item>
+    </plurals>
+    <plurals name="home_unread_mentions_accessibility">
+        <item quantity="one">%d menzione</item>
+        <item quantity="other">%d menzioni</item>
+    </plurals>
     <string name="home_network_empty_title">Nessun canale ancora</string>
     <string name="home_network_empty_description">Questa rete non ha ancora conversazioni aperte.</string>
 

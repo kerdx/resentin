@@ -2,7 +2,6 @@ package pm.antani.resentin.ui.networksettings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -99,7 +97,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                     onValueChange = viewModel::onNickChange,
                     label = { Text(stringResource(R.string.network_settings_nick_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -108,7 +106,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                     onValueChange = viewModel::onIdentChange,
                     label = { Text(stringResource(R.string.network_settings_ident_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -117,7 +115,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                     onValueChange = viewModel::onRealnameChange,
                     label = { Text(stringResource(R.string.network_settings_realname_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -134,7 +132,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                     onValueChange = viewModel::onProfileAgeChange,
                     label = { Text(stringResource(R.string.network_settings_profile_age_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -165,7 +163,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                     onValueChange = viewModel::onProfileLocationChange,
                     label = { Text(stringResource(R.string.network_settings_profile_location_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -174,7 +172,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                     onValueChange = viewModel::onProfileLanguagesChange,
                     label = { Text(stringResource(R.string.network_settings_profile_languages_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -183,7 +181,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                     onValueChange = viewModel::onProfileCustomChange,
                     label = { Text(stringResource(R.string.network_settings_profile_custom_label)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(4.dp))
@@ -207,13 +205,13 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                         Image(
                             bitmap = avatarBitmap.asImageBitmap(),
                             contentDescription = null,
-                            modifier = Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)),
+                            modifier = Modifier.size(64.dp).clip(MaterialTheme.shapes.medium),
                         )
                     } else {
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
-                                .clip(RoundedCornerShape(20.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -229,7 +227,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                         OutlinedButton(
                             onClick = { avatarPicker.launch("image/*") },
                             enabled = !state.avatarUploading,
-                            shape = RoundedCornerShape(16.dp),
+                            shape = MaterialTheme.shapes.medium,
                         ) {
                             Text(stringResource(R.string.network_settings_avatar_pick))
                         }
@@ -238,7 +236,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                             OutlinedButton(
                                 onClick = viewModel::deleteAvatar,
                                 enabled = !state.avatarUploading,
-                                shape = RoundedCornerShape(16.dp),
+                                shape = MaterialTheme.shapes.medium,
                             ) {
                                 Text(stringResource(R.string.network_settings_avatar_remove))
                             }
@@ -272,7 +270,7 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
                     onValueChange = viewModel::onPerformChange,
                     placeholder = { Text(stringResource(R.string.network_settings_perform_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     minLines = 4,
                 )
             }
@@ -285,14 +283,14 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
             Button(
                 onClick = viewModel::save,
                 enabled = !state.isSaving,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.network_settings_save))
             }
             OutlinedButton(
                 onClick = onArchiveClick,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.network_settings_archive))
@@ -305,10 +303,9 @@ fun NetworkSettingsScreen(viewModel: NetworkSettingsViewModel, onBack: () -> Uni
 private fun ResentinSectionCard(content: @Composable () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             content()

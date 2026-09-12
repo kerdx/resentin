@@ -1,5 +1,7 @@
 package pm.antani.resentin.ui.common
 
+import pm.antani.resentin.ui.theme.ResentinSpacing
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -7,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,13 +34,13 @@ fun ResentinEmptyState(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(32.dp),
+            .padding(ResentinSpacing.xxLarge),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Surface(
             modifier = Modifier.size(72.dp),
-            shape = RoundedCornerShape(24.dp),
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.primaryContainer,
         ) {
             androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
@@ -51,7 +52,7 @@ fun ResentinEmptyState(
                 )
             }
         }
-        Spacer(Modifier.size(20.dp))
+        Spacer(Modifier.size(ResentinSpacing.large))
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
@@ -67,10 +68,10 @@ fun ResentinEmptyState(
             textAlign = TextAlign.Center,
         )
         if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.size(20.dp))
+            Spacer(Modifier.size(ResentinSpacing.large))
             OutlinedButton(
                 onClick = onAction,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text(actionLabel)
             }
@@ -87,7 +88,7 @@ fun ResentinLoadingState(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(32.dp),
+            .padding(ResentinSpacing.xxLarge),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -95,7 +96,7 @@ fun ResentinLoadingState(
             modifier = Modifier.size(36.dp),
             strokeWidth = 3.dp,
         )
-        Spacer(Modifier.size(20.dp))
+        Spacer(Modifier.size(ResentinSpacing.large))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,

@@ -67,6 +67,20 @@
     <string name="home_new_chat_join">Join channel</string>
     <string name="home_new_chat_dm">Direct message</string>
     <string name="home_new_chat_browse">Browse channel directory</string>
+    <string name="home_connection_state_connecting">Connecting</string>
+    <string name="home_connection_state_reconnecting">Reconnecting</string>
+    <string name="home_connection_state_disconnecting">Disconnecting</string>
+    <string name="home_connection_state_disconnected">Disconnected</string>
+    <string name="home_connection_state_failed">Connection failed</string>
+    <string name="home_connection_state_unknown">Status unavailable</string>
+    <plurals name="home_unread_messages_accessibility">
+        <item quantity="one">%d unread message</item>
+        <item quantity="other">%d unread messages</item>
+    </plurals>
+    <plurals name="home_unread_mentions_accessibility">
+        <item quantity="one">%d mention</item>
+        <item quantity="other">%d mentions</item>
+    </plurals>
     <string name="home_network_empty_title">No channels yet</string>
     <string name="home_network_empty_description">This network does not have any open conversations yet.</string>
 
