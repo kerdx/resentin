@@ -817,6 +817,7 @@ fun ChatScreen(
                         }
                     }
                 }
+                val canSendDraft = draftFieldValue.text.isNotBlank()
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -830,73 +831,97 @@ fun ChatScreen(
                     tonalElevation = 0.dp,
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                IconButton(
-                    onClick = { filePicker.launch("*/*") },
-                    enabled = !isUploading,
-                    modifier = Modifier.size(40.dp),
-                ) {
-                    if (isUploading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Outlined.AttachFile, contentDescription = stringResource(R.string.cd_attach_file))
-                    }
-                }
-                TextField(
-                    value = draftFieldValue,
-                    onValueChange = { newValue ->
-                        draftFieldValue = newValue
-                        viewModel.onDraftChange(newValue.text)
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .focusRequester(draftFocusRequester)
-                        .onFocusChanged { focusState ->
-                            shouldScrollToBottomOnIme = if (focusState.isFocused) {
-                                positioned && isAtBottom
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(
+                            onClick = { filePicker.launch("*/*") },
+                            enabled = !isUploading,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceContainer,
+                                    CircleShape,
+                                ),
+                        ) {
+                            if (isUploading) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             } else {
-                                false
+                                Icon(
+                                    Icons.Outlined.AttachFile,
+                                    contentDescription = stringResource(R.string.cd_attach_file),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
-                        },
-                    placeholder = {
-                        Text(
-                            stringResource(R.string.chat_message_placeholder),
-                            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalResentinChatFontFamily.current),
+                        }
+                        TextField(
+                            value = draftFieldValue,
+                            onValueChange = { newValue ->
+                                draftFieldValue = newValue
+                                viewModel.onDraftChange(newValue.text)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(max = 120.dp)
+                                .focusRequester(draftFocusRequester)
+                                .onFocusChanged { focusState ->
+                                    shouldScrollToBottomOnIme = if (focusState.isFocused) {
+                                        positioned && isAtBottom
+                                    } else {
+                                        false
+                                    }
+                                },
+                            placeholder = {
+                                Text(
+                                    stringResource(R.string.chat_message_placeholder),
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontFamily = LocalResentinChatFontFamily.current,
+                                    ),
+                                )
+                            },
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                fontFamily = LocalResentinChatFontFamily.current,
+                            ),
+                            minLines = 1,
+                            maxLines = 4,
+                            shape = MaterialTheme.shapes.medium,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            ),
                         )
-                    },
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalResentinChatFontFamily.current),
-                    maxLines = 4,
-                    shape = MaterialTheme.shapes.medium,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                        unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    ),
-                )
-                IconButton(
-                    onClick = viewModel::send,
-                    enabled = !isSending,
-                    modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
-                ) {
-                    if (isSending) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    } else {
-                        Icon(
-                            Icons.AutoMirrored.Outlined.Send,
-                            contentDescription = stringResource(R.string.cd_send),
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
+                        IconButton(
+                            onClick = viewModel::send,
+                            enabled = !isSending && canSendDraft,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    color = if (canSendDraft) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceContainer,
+                                    shape = CircleShape,
+                                ),
+                        ) {
+                            if (isSending) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            } else {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.Send,
+                                    contentDescription = stringResource(R.string.cd_send),
+                                    tint = if (canSendDraft) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
                     }
                 }
             }
