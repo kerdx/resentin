@@ -859,32 +859,6 @@ fun ChatScreen(
                                 )
                             }
                         }
-                        if (draftFieldValue.text.isEmpty()) {
-                            IconButton(
-                                onClick = {
-                                    val commandStarter = TextFieldValue("/", TextRange(1))
-                                    draftFieldValue = commandStarter
-                                    viewModel.onDraftChange(commandStarter.text)
-                                    draftFocusRequester.requestFocus()
-                                },
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.surfaceContainer,
-                                        CircleShape,
-                                    )
-                                    .semantics(mergeDescendants = true) {
-                                        contentDescription = slashCommandsLabel
-                                    },
-                            ) {
-                                Text(
-                                    "/",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
                         TextField(
                             value = draftFieldValue,
                             onValueChange = { newValue ->
@@ -924,6 +898,32 @@ fun ChatScreen(
                                 unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                             ),
                         )
+                        if (draftFieldValue.text.isEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    val commandStarter = TextFieldValue("/", TextRange(1))
+                                    draftFieldValue = commandStarter
+                                    viewModel.onDraftChange(commandStarter.text)
+                                    draftFocusRequester.requestFocus()
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.surfaceContainer,
+                                        CircleShape,
+                                    )
+                                    .semantics(mergeDescendants = true) {
+                                        contentDescription = slashCommandsLabel
+                                    },
+                            ) {
+                                Text(
+                                    "/",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         IconButton(
                             onClick = viewModel::send,
                             enabled = !isSending && canSendDraft,
