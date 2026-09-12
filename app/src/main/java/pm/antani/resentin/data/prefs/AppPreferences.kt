@@ -84,6 +84,7 @@ class AppPreferences(private val context: Context) {
     private val keyFontScale = floatPreferencesKey("font_scale")
     private val keyThemeMode = stringPreferencesKey("theme_mode")
     private val keyFontFamily = stringPreferencesKey("font_family")
+    private val keyChatFontFamily = stringPreferencesKey("chat_font_family")
     private val keyMessageDensity = stringPreferencesKey("message_density")
     private val keyLineSpacing = stringPreferencesKey("line_spacing")
     private val keyLineHeightScale = floatPreferencesKey("line_height_scale")
@@ -175,6 +176,18 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setFontFamily(fontFamily: AppFontFamily) {
         context.dataStore.edit { it[keyFontFamily] = fontFamily.name }
+    }
+
+    /** Font used by chat messages and the composer. Existing installs inherit their
+     * previous global font choice until the chat font is changed independently. The
+     * IRC-line view keeps the platform monospace face when SYSTEM is selected. */
+    val chatFontFamily: Flow<AppFontFamily> = context.dataStore.data.map { preferences ->
+        val saved = preferences[keyChatFontFamily] ?: preferences[keyFontFamily] ?: AppFontFamily.SYSTEM.name
+        runCatching { AppFontFamily.valueOf(saved) }.getOrDefault(AppFontFamily.SYSTEM)
+    }
+
+    suspend fun setChatFontFamily(fontFamily: AppFontFamily) {
+        context.dataStore.edit { it[keyChatFontFamily] = fontFamily.name }
     }
 
     val stayConnected: Flow<Boolean> = context.dataStore.data.map { it[keyStayConnected] ?: false }

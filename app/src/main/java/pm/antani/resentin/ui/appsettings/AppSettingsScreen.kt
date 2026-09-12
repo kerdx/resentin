@@ -188,6 +188,8 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     val fontScale by viewModel.fontScale.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val fontFamily by viewModel.fontFamily.collectAsState()
+    val chatFontFamily by viewModel.chatFontFamily.collectAsState()
+    val fontFamilyOptions = appFontFamilyOptions()
     val messageDensity by viewModel.messageDensity.collectAsState()
     val lineHeightScale by viewModel.lineHeightScale.collectAsState()
     val replyStyle by viewModel.replyStyle.collectAsState()
@@ -398,25 +400,32 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         text = stringResource(R.string.settings_font_family),
                         icon = Icons.Outlined.TextFields,
                     )
+                    Text(
+                        text = stringResource(R.string.settings_font_family_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Spacer(Modifier.height(8.dp))
                     SettingsDropdown(
                         selected = fontFamily,
-                        options = AppFontFamily.entries.map { choice ->
-                            SettingsDropdownOption(
-                                value = choice,
-                                label = when (choice) {
-                                    AppFontFamily.SYSTEM -> stringResource(R.string.settings_font_family_system)
-                                    AppFontFamily.JETBRAINS_MONO -> stringResource(R.string.settings_font_family_jetbrains)
-                                    AppFontFamily.FIRA_CODE -> stringResource(R.string.settings_font_family_fira)
-                                    AppFontFamily.SOURCE_CODE_PRO -> stringResource(R.string.settings_font_family_source_code)
-                                    AppFontFamily.IBM_PLEX_MONO -> stringResource(R.string.settings_font_family_ibm_plex)
-                                    AppFontFamily.CASCADIA_CODE -> stringResource(R.string.settings_font_family_cascadia)
-                                    AppFontFamily.HACK -> stringResource(R.string.settings_font_family_hack)
-                                },
-                                fontFamily = choice.toComposeFontFamily(),
-                            )
-                        },
+                        options = fontFamilyOptions,
                         onSelected = viewModel::setFontFamily,
+                    )
+                    SettingsRowDivider()
+                    SettingsBlockLabel(
+                        text = stringResource(R.string.settings_chat_font_family),
+                        icon = Icons.Outlined.ChatBubbleOutline,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_chat_font_family_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    SettingsDropdown(
+                        selected = chatFontFamily,
+                        options = fontFamilyOptions,
+                        onSelected = viewModel::setChatFontFamily,
                     )
                     SettingsRowDivider()
                     SettingsBlockLabel(
@@ -1082,6 +1091,24 @@ private fun <T> SettingsDropdown(
         }
     }
 }
+
+@Composable
+private fun appFontFamilyOptions(): List<SettingsDropdownOption<AppFontFamily>> =
+    AppFontFamily.entries.map { choice ->
+        SettingsDropdownOption(
+            value = choice,
+            label = when (choice) {
+                AppFontFamily.SYSTEM -> stringResource(R.string.settings_font_family_system)
+                AppFontFamily.JETBRAINS_MONO -> stringResource(R.string.settings_font_family_jetbrains)
+                AppFontFamily.FIRA_CODE -> stringResource(R.string.settings_font_family_fira)
+                AppFontFamily.SOURCE_CODE_PRO -> stringResource(R.string.settings_font_family_source_code)
+                AppFontFamily.IBM_PLEX_MONO -> stringResource(R.string.settings_font_family_ibm_plex)
+                AppFontFamily.CASCADIA_CODE -> stringResource(R.string.settings_font_family_cascadia)
+                AppFontFamily.HACK -> stringResource(R.string.settings_font_family_hack)
+            },
+            fontFamily = choice.toComposeFontFamily(),
+        )
+    }
 
 /** The hub menu: one row per group, same row language as the home's channel rows
  * (40dp icon avatar, title + subtitle, chevron). Groups without content available

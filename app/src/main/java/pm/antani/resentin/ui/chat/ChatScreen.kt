@@ -146,6 +146,7 @@ import pm.antani.resentin.ui.common.linkStylesFor
 import pm.antani.resentin.ui.common.mircAnnotatedString
 import pm.antani.resentin.ui.common.sigilsOf
 import pm.antani.resentin.ui.common.withClickableLinks
+import pm.antani.resentin.ui.theme.LocalResentinChatFontFamily
 import pm.antani.resentin.ui.theme.LocalResentinCodeFontFamily
 
 /**
@@ -806,7 +807,13 @@ fun ChatScreen(
                                 false
                             }
                         },
-                    placeholder = { Text(stringResource(R.string.chat_message_placeholder)) },
+                    placeholder = {
+                        Text(
+                            stringResource(R.string.chat_message_placeholder),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalResentinChatFontFamily.current),
+                        )
+                    },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalResentinChatFontFamily.current),
                     shape = RoundedCornerShape(20.dp),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -1663,7 +1670,7 @@ private fun MessageRow(
                     ) {
                         MircText(
                             text = "$eventText · $time",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelSmall.copy(fontFamily = LocalResentinChatFontFamily.current),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         )
@@ -1747,6 +1754,7 @@ private fun BubbleRow(
     val timestampStyle = SpanStyle(
         fontSize = 10.sp,
         fontStyle = FontStyle.Normal,
+        fontFamily = LocalResentinChatFontFamily.current,
         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f),
     )
     val bodyWithTime = remember(formatted.text, formatted.isNotice, continuesGroup, time, lightTheme, timestampStyle) {
@@ -1831,7 +1839,10 @@ private fun BubbleRow(
                                 } else {
                                     prefix + message.sender
                                 },
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontFamily = LocalResentinChatFontFamily.current,
+                                ),
                                 color = if (coloredNicklist) {
                                     colorForNick(message.sender, lightTheme)
                                 } else {
@@ -1843,7 +1854,10 @@ private fun BubbleRow(
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = time,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    fontFamily = LocalResentinChatFontFamily.current,
+                                ),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f),
                                 maxLines = 1,
                             )
@@ -1852,10 +1866,16 @@ private fun BubbleRow(
                     if (formatted.isAction) {
                         Text(
                             text = actionWithTime,
-                            style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontStyle = FontStyle.Italic,
+                                fontFamily = LocalResentinChatFontFamily.current,
+                            ),
                         )
                     } else {
-                        Text(text = bodyWithTime, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = bodyWithTime,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalResentinChatFontFamily.current),
+                        )
                     }
                 }
             }

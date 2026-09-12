@@ -105,6 +105,7 @@ fun ResentinTheme(
     fontScale: Float = 1f,
     lineHeightScale: Float = 1f,
     fontFamilyChoice: AppFontFamily = AppFontFamily.SYSTEM,
+    chatFontFamilyChoice: AppFontFamily = AppFontFamily.SYSTEM,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -113,9 +114,11 @@ fun ResentinTheme(
     }
 
     val fontFamily = fontFamilyChoice.toComposeFontFamily()
-    val codeFontFamily = fontFamilyChoice.toComposeCodeFontFamily()
+    val chatFontFamily = chatFontFamilyChoice.toComposeFontFamily()
+    val codeFontFamily = chatFontFamilyChoice.toComposeCodeFontFamily()
     CompositionLocalProvider(
         LocalResentinFontFamily provides fontFamily,
+        LocalResentinChatFontFamily provides chatFontFamily,
         LocalResentinCodeFontFamily provides codeFontFamily,
     ) {
         MaterialTheme(

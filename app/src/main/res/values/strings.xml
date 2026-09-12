@@ -256,6 +256,9 @@
     <string name="settings_theme_light">Chiaro</string>
     <string name="settings_theme_dark">Scuro</string>
     <string name="settings_font_family">Font dell’app</string>
+    <string name="settings_font_family_desc">Si applica a tutta l’interfaccia.</string>
+    <string name="settings_chat_font_family">Font della chat</string>
+    <string name="settings_chat_font_family_desc">Si applica ai messaggi e al testo che scrivi.</string>
     <string name="settings_font_family_system">Sistema</string>
     <string name="settings_font_family_jetbrains">JetBrains Mono</string>
     <string name="settings_font_family_fira">Fira Code</string>

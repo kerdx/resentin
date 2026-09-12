@@ -138,6 +138,13 @@ class AppSettingsViewModel(
         viewModelScope.launch { appPreferences.setFontFamily(fontFamily) }
     }
 
+    val chatFontFamily: StateFlow<AppFontFamily> = appPreferences.chatFontFamily
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppFontFamily.SYSTEM)
+
+    fun setChatFontFamily(fontFamily: AppFontFamily) {
+        viewModelScope.launch { appPreferences.setChatFontFamily(fontFamily) }
+    }
+
     val messageDensity: StateFlow<MessageDensity> = appPreferences.messageDensity
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MessageDensity.NORMAL)
 
