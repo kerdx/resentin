@@ -123,9 +123,9 @@ fun LoginScreen(viewModel: LoginViewModel) {
             )
             Spacer(Modifier.height(16.dp))
             val loginModes = listOf(
-                LoginMode.TOKEN to R.string.login_mode_token,
-                LoginMode.PASSWORD to R.string.login_mode_password,
                 LoginMode.VISITOR to R.string.login_mode_visitor,
+                LoginMode.PASSWORD to R.string.login_mode_password,
+                LoginMode.TOKEN to R.string.login_mode_token,
             )
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 loginModes.forEachIndexed { index, (mode, labelRes) ->

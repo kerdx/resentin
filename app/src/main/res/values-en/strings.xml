@@ -11,7 +11,7 @@
     <string name="login_title">Connect to grappa</string>
     <string name="login_server_label">Server</string>
     <string name="login_mode_token">Token</string>
-    <string name="login_mode_password">Username and password</string>
+    <string name="login_mode_password">Registered</string>
     <string name="login_mode_visitor">Visitor</string>
     <string name="login_token_label">Token</string>
     <string name="login_username_label">Username</string>

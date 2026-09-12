@@ -11,8 +11,8 @@
     <string name="login_title">Connetti a grappa</string>
     <string name="login_server_label">Server</string>
     <string name="login_mode_token">Token</string>
-    <string name="login_mode_password">Username e password</string>
-    <string name="login_mode_visitor">Visitor</string>
+    <string name="login_mode_password">Registrato</string>
+    <string name="login_mode_visitor">Visitatore</string>
     <string name="login_token_label">Token</string>
     <string name="login_username_label">Username</string>
     <string name="login_password_label">Password</string>
