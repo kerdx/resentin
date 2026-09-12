@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -33,8 +34,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
@@ -49,6 +52,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import pm.antani.resentin.ui.common.ResentinFilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -75,6 +80,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -378,81 +384,55 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         icon = Icons.Outlined.Palette,
                     )
                     Spacer(Modifier.height(8.dp))
-                    FlowRow(modifier = Modifier.fillMaxWidth()) {
-                        ResentinFilterChip(
-                            selected = themeMode == ThemeMode.SYSTEM,
-                            onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
-                            label = { Text(stringResource(R.string.settings_theme_system)) },
-                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                        )
-                        ResentinFilterChip(
-                            selected = themeMode == ThemeMode.LIGHT,
-                            onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
-                            label = { Text(stringResource(R.string.settings_theme_light)) },
-                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                        )
-                        ResentinFilterChip(
-                            selected = themeMode == ThemeMode.DARK,
-                            onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
-                            label = { Text(stringResource(R.string.settings_theme_dark)) },
-                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                        )
-                    }
+                    SettingsDropdown(
+                        selected = themeMode,
+                        options = listOf(
+                            SettingsDropdownOption(ThemeMode.SYSTEM, stringResource(R.string.settings_theme_system)),
+                            SettingsDropdownOption(ThemeMode.LIGHT, stringResource(R.string.settings_theme_light)),
+                            SettingsDropdownOption(ThemeMode.DARK, stringResource(R.string.settings_theme_dark)),
+                        ),
+                        onSelected = viewModel::setThemeMode,
+                    )
                     SettingsRowDivider()
                     SettingsBlockLabel(
                         text = stringResource(R.string.settings_font_family),
                         icon = Icons.Outlined.TextFields,
                     )
                     Spacer(Modifier.height(8.dp))
-                    FlowRow(modifier = Modifier.fillMaxWidth()) {
-                        AppFontFamily.entries.forEach { choice ->
-                            ResentinFilterChip(
-                                selected = fontFamily == choice,
-                                onClick = { viewModel.setFontFamily(choice) },
-                                label = {
-                                    Text(
-                                        text = when (choice) {
-                                            AppFontFamily.SYSTEM -> stringResource(R.string.settings_font_family_system)
-                                            AppFontFamily.JETBRAINS_MONO -> stringResource(R.string.settings_font_family_jetbrains)
-                                            AppFontFamily.FIRA_CODE -> stringResource(R.string.settings_font_family_fira)
-                                            AppFontFamily.SOURCE_CODE_PRO -> stringResource(R.string.settings_font_family_source_code)
-                                            AppFontFamily.IBM_PLEX_MONO -> stringResource(R.string.settings_font_family_ibm_plex)
-                                            AppFontFamily.CASCADIA_CODE -> stringResource(R.string.settings_font_family_cascadia)
-                                            AppFontFamily.HACK -> stringResource(R.string.settings_font_family_hack)
-                                        },
-                                        fontFamily = choice.toComposeFontFamily(),
-                                    )
+                    SettingsDropdown(
+                        selected = fontFamily,
+                        options = AppFontFamily.entries.map { choice ->
+                            SettingsDropdownOption(
+                                value = choice,
+                                label = when (choice) {
+                                    AppFontFamily.SYSTEM -> stringResource(R.string.settings_font_family_system)
+                                    AppFontFamily.JETBRAINS_MONO -> stringResource(R.string.settings_font_family_jetbrains)
+                                    AppFontFamily.FIRA_CODE -> stringResource(R.string.settings_font_family_fira)
+                                    AppFontFamily.SOURCE_CODE_PRO -> stringResource(R.string.settings_font_family_source_code)
+                                    AppFontFamily.IBM_PLEX_MONO -> stringResource(R.string.settings_font_family_ibm_plex)
+                                    AppFontFamily.CASCADIA_CODE -> stringResource(R.string.settings_font_family_cascadia)
+                                    AppFontFamily.HACK -> stringResource(R.string.settings_font_family_hack)
                                 },
-                                modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
+                                fontFamily = choice.toComposeFontFamily(),
                             )
-                        }
-                    }
+                        },
+                        onSelected = viewModel::setFontFamily,
+                    )
                     SettingsRowDivider()
                     SettingsBlockLabel(
                         text = stringResource(R.string.settings_language),
                         icon = Icons.Outlined.Language,
                     )
                     Spacer(Modifier.height(8.dp))
-                    FlowRow(modifier = Modifier.fillMaxWidth()) {
-                        ResentinFilterChip(
-                            selected = currentLanguageTag == null,
-                            onClick = { setLanguage(null) },
-                            label = { Text(stringResource(R.string.settings_language_system)) },
-                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                        )
-                        ResentinFilterChip(
-                            selected = currentLanguageTag == "it",
-                            onClick = { setLanguage("it") },
-                            label = { Text(stringResource(R.string.settings_language_italian)) },
-                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                        )
-                        ResentinFilterChip(
-                            selected = currentLanguageTag == "en",
-                            onClick = { setLanguage("en") },
-                            label = { Text(stringResource(R.string.settings_language_english)) },
-                            modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
-                        )
-                    }
+                    SettingsDropdown(
+                        selected = currentLanguageTag,
+                        options = listOf(
+                            SettingsDropdownOption(null, stringResource(R.string.settings_language_system)),
+                            SettingsDropdownOption("it", stringResource(R.string.settings_language_italian)),
+                            SettingsDropdownOption("en", stringResource(R.string.settings_language_english)),
+                        ),
+                        onSelected = ::setLanguage,
+                    )
                     SettingsRowDivider()
                     // Fixed seven-stop slider (XXS–XXL): discrete writes, live theme preview.
                     // The live value sits in the header and only the two end labels are
@@ -1038,9 +1018,75 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     }
 }
 
+private data class SettingsDropdownOption<T>(
+    val value: T,
+    val label: String,
+    val fontFamily: FontFamily? = null,
+)
+
+@Composable
+private fun <T> SettingsDropdown(
+    selected: T,
+    options: List<SettingsDropdownOption<T>>,
+    onSelected: (T) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedOption = options.firstOrNull { it.value == selected } ?: options.first()
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        ) {
+            Text(
+                text = selectedOption.label,
+                modifier = Modifier.weight(1f),
+                fontFamily = selectedOption.fontFamily,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(
+                imageVector = Icons.Outlined.KeyboardArrowDown,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.width(maxWidth),
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label, fontFamily = option.fontFamily) },
+                    onClick = {
+                        onSelected(option.value)
+                        expanded = false
+                    },
+                    trailingIcon = if (option.value == selected) {
+                        {
+                            Icon(
+                                imageVector = Icons.Outlined.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                )
+            }
+        }
+    }
+}
+
 /** The hub menu: one row per group, same row language as the home's channel rows
  * (40dp icon avatar, title + subtitle, chevron). Groups without content available
  * right now (e.g. Identità with no vhost options) are hidden, not disabled. */
+
 @Composable
 private fun SettingsHubCard(
     showIdentity: Boolean,
