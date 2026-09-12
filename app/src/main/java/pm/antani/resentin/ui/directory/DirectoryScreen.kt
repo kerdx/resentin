@@ -62,6 +62,7 @@ import pm.antani.resentin.net.dto.DirectoryEntryDto
 import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.ui.common.MircText
 import pm.antani.resentin.ui.common.LocalDensityScale
+import pm.antani.resentin.ui.common.ResentinHeaderAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,22 +86,20 @@ fun DirectoryScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.directory_title, networkSlug)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.cd_back))
-                    }
+                    ResentinHeaderAction(
+                        onClick = onBack,
+                        icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = stringResource(R.string.cd_back),
+                    )
                 },
                 actions = {
-                    IconButton(onClick = viewModel::refresh) {
-                        if (state.isRefreshing) {
-                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(
-                                Icons.Outlined.Refresh,
-                                contentDescription = stringResource(R.string.cd_refresh),
-                                tint = if (state.status == "stale") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
+                    ResentinHeaderAction(
+                        onClick = viewModel::refresh,
+                        icon = Icons.Outlined.Refresh,
+                        contentDescription = stringResource(R.string.cd_refresh),
+                        loading = state.isRefreshing,
+                        iconTint = if (state.status == "stale") MaterialTheme.colorScheme.error else null,
+                    )
                 },
             )
         },
@@ -366,8 +365,18 @@ private fun DirectoryRow(entry: DirectoryEntryDto, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(entry.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    entry.name,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 if (entry.featured) {
                     Spacer(Modifier.width(4.dp))
                     Icon(
