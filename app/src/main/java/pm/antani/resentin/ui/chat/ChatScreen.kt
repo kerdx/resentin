@@ -95,6 +95,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -818,6 +820,7 @@ fun ChatScreen(
                     }
                 }
                 val canSendDraft = draftFieldValue.text.isNotBlank()
+                val slashCommandsLabel = stringResource(R.string.cd_slash_commands)
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -853,6 +856,32 @@ fun ChatScreen(
                                     Icons.Outlined.AttachFile,
                                     contentDescription = stringResource(R.string.cd_attach_file),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (draftFieldValue.text.isEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    val commandStarter = TextFieldValue("/", TextRange(1))
+                                    draftFieldValue = commandStarter
+                                    viewModel.onDraftChange(commandStarter.text)
+                                    draftFocusRequester.requestFocus()
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.surfaceContainer,
+                                        CircleShape,
+                                    )
+                                    .semantics(mergeDescendants = true) {
+                                        contentDescription = slashCommandsLabel
+                                    },
+                            ) {
+                                Text(
+                                    "/",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
