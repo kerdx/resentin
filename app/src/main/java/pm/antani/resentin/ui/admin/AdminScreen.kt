@@ -95,13 +95,21 @@ fun AdminScreen(viewModel: AdminViewModel, onBack: () -> Unit) {
                             ResentinHeaderAction(
                                 onClick = { showCreateDialog = true },
                                 icon = Icons.Outlined.Add,
-                                contentDescription = stringResource(R.string.cd_new_chat),
+                                contentDescription = stringResource(
+                                    when (state.tab) {
+                                        AdminTab.NETWORKS -> R.string.admin_action_create_network
+                                        AdminTab.VHOSTS -> R.string.admin_action_create_vhost
+                                        else -> R.string.admin_action_create_user
+                                    },
+                                ),
                             )
                         }
                         ResentinHeaderAction(
                             onClick = viewModel::refreshAll,
                             icon = Icons.Outlined.Refresh,
                             contentDescription = stringResource(R.string.cd_refresh),
+                            enabled = !state.isLoading,
+                            loading = state.isLoading,
                         )
                     },
                 )

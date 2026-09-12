@@ -685,6 +685,9 @@ fun ChatScreen(
                             onClick = { showChannelMenu = true },
                             icon = Icons.Outlined.MoreVert,
                             contentDescription = stringResource(R.string.cd_channel_menu),
+                            stateDescription = stringResource(
+                                if (showChannelMenu) R.string.cd_menu_open else R.string.cd_menu_closed,
+                            ),
                         )
                         ResentinDropdownMenu(
                             expanded = showChannelMenu,

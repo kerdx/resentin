@@ -84,6 +84,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import androidx.core.content.ContextCompat
@@ -1068,6 +1069,7 @@ private fun <T> SettingsDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.width(maxWidth),
+            properties = PopupProperties(focusable = true),
         ) {
             options.forEach { option ->
                 DropdownMenuItem(

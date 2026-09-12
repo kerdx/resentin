@@ -6,6 +6,9 @@
     <string name="cd_back">Back</string>
     <string name="cd_remove">Remove</string>
     <string name="cd_cancel">Cancel</string>
+    <string name="cd_loading">Loading</string>
+    <string name="cd_menu_open">Menu open</string>
+    <string name="cd_menu_closed">Menu closed</string>
 
     <!-- Login -->
     <string name="login_title">Connect to grappa</string>
@@ -51,7 +54,7 @@
     </plurals>
     <string name="channel_private_conversation">Private conversation</string>
     <string name="channel_no_topic">No topic set</string>
-    <string name="cd_network_settings">Network settings</string>
+    <string name="cd_network_settings">Open network settings</string>
     <string name="cd_direct_message">Direct message</string>
     <string name="cd_chat_draft">Saved draft</string>
     <string name="home_unknown_error">Unknown error</string>
@@ -114,6 +117,9 @@
     <string name="admin_tab_sessions">Sessions</string>
     <string name="admin_tab_visitors">Visitors</string>
     <string name="admin_create">Create</string>
+    <string name="admin_action_create_network">Create network</string>
+    <string name="admin_action_create_vhost">Create vhost</string>
+    <string name="admin_action_create_user">Create user</string>
     <string name="admin_networks_empty">No networks</string>
     <string name="admin_network_caps">max users %1$d · max visitors %2$d (-1 = unlimited)</string>
     <string name="admin_network_visitors_label">Visitors</string>

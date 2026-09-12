@@ -6,6 +6,9 @@
     <string name="cd_back">Indietro</string>
     <string name="cd_remove">Rimuovi</string>
     <string name="cd_cancel">Annulla</string>
+    <string name="cd_loading">Caricamento in corso</string>
+    <string name="cd_menu_open">Menu aperto</string>
+    <string name="cd_menu_closed">Menu chiuso</string>
 
     <!-- Login -->
     <string name="login_title">Connetti a grappa</string>
@@ -58,7 +61,7 @@
     </plurals>
     <string name="channel_private_conversation">Conversazione privata</string>
     <string name="channel_no_topic">Nessun topic impostato</string>
-    <string name="cd_network_settings">Impostazioni rete</string>
+    <string name="cd_network_settings">Apri impostazioni rete</string>
     <string name="cd_direct_message">Messaggio privato</string>
     <string name="cd_chat_draft">Bozza salvata</string>
     <string name="home_unknown_error">Errore sconosciuto</string>
@@ -120,6 +123,9 @@
     <string name="admin_tab_sessions">Sessioni</string>
     <string name="admin_tab_visitors">Visitor</string>
     <string name="admin_create">Crea</string>
+    <string name="admin_action_create_network">Crea rete</string>
+    <string name="admin_action_create_vhost">Crea vhost</string>
+    <string name="admin_action_create_user">Crea utente</string>
     <string name="admin_networks_empty">Nessuna rete</string>
     <string name="admin_network_caps">max utenti %1$d · max visitor %2$d (-1 = illimitato)</string>
     <string name="admin_network_visitors_label">Visitor</string>

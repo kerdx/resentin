@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 
 /** Menu overflow stile Resentin — stessa lingua delle card rete della home:
  * le card 28dp usano surfaceContainerHigh + bordo outlineVariant, il menu lo
@@ -28,6 +29,7 @@ fun ResentinDropdownMenu(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         shadowElevation = 8.dp,
+        properties = PopupProperties(focusable = true),
     ) {
         content()
     }
