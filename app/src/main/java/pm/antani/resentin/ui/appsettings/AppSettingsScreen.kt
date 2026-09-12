@@ -397,6 +397,21 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                     )
                     SettingsRowDivider()
                     SettingsBlockLabel(
+                        text = stringResource(R.string.settings_language),
+                        icon = Icons.Outlined.Language,
+                    )
+                    Spacer(Modifier.height(ResentinSpacing.small))
+                    SettingsDropdown(
+                        selected = currentLanguageTag,
+                        options = listOf(
+                            SettingsDropdownOption(null, stringResource(R.string.settings_language_system)),
+                            SettingsDropdownOption("it", stringResource(R.string.settings_language_italian)),
+                            SettingsDropdownOption("en", stringResource(R.string.settings_language_english)),
+                        ),
+                        onSelected = ::setLanguage,
+                    )
+                    SettingsRowDivider()
+                    SettingsBlockLabel(
                         text = stringResource(R.string.settings_font_family),
                         icon = Icons.Outlined.TextFields,
                     )
@@ -428,21 +443,7 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         onSelected = viewModel::setChatFontFamily,
                     )
                     SettingsRowDivider()
-                    SettingsBlockLabel(
-                        text = stringResource(R.string.settings_language),
-                        icon = Icons.Outlined.Language,
-                    )
-                    Spacer(Modifier.height(ResentinSpacing.small))
-                    SettingsDropdown(
-                        selected = currentLanguageTag,
-                        options = listOf(
-                            SettingsDropdownOption(null, stringResource(R.string.settings_language_system)),
-                            SettingsDropdownOption("it", stringResource(R.string.settings_language_italian)),
-                            SettingsDropdownOption("en", stringResource(R.string.settings_language_english)),
-                        ),
-                        onSelected = ::setLanguage,
-                    )
-                    SettingsRowDivider()
+
                     // Fixed seven-stop slider (XXS–XXL): discrete writes, live theme preview.
                     // The live value sits in the header and only the two end labels are
                     // shown below: a full 7-label strip can never align with the stops,
