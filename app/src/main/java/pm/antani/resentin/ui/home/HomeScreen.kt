@@ -84,6 +84,9 @@ import androidx.compose.ui.unit.sp
 import pm.antani.resentin.R
 import pm.antani.resentin.data.db.ChannelEntity
 import pm.antani.resentin.data.db.NetworkEntity
+import pm.antani.resentin.irc.canonicalTarget
+import pm.antani.resentin.net.dto.AvailableNetworkDto
+import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.data.prefs.channelKey
 import pm.antani.resentin.domain.repository.serverChannelKey
 import pm.antani.resentin.ui.common.MircText
@@ -111,6 +114,9 @@ fun HomeScreen(
     val onServerClick: (String) -> Unit = { networkSlug -> onChannelClick(networkSlug, "\$server") }
 
     val networks by viewModel.networks.collectAsState()
+    val availableNetworks by viewModel.availableNetworks.collectAsState()
+    val connectingNetworkSlug by viewModel.connectingNetworkSlug.collectAsState()
+    val featuredChannels by viewModel.featuredChannels.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val error by viewModel.error.collectAsState()
     val draftChannels by viewModel.draftChannels.collectAsState()
@@ -134,6 +140,9 @@ fun HomeScreen(
     // AuthRepository.detach), so the sign-out icon skips straight to it; a
     // registered user gets the cicchetto-parity detach/quit choice.
     var showSignOutChoice by remember { mutableStateOf(false) }
+
+    val networkSlugs = remember(networks) { networks.map { it.network.slug } }
+    LaunchedEffect(networkSlugs) { viewModel.loadFeaturedChannels(networkSlugs) }
 
     LaunchedEffect(viewModel) {
         viewModel.navigateToChat.collect { (networkSlug, nick) -> onChannelClick(networkSlug, nick) }
@@ -212,14 +221,14 @@ fun HomeScreen(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
-                isRefreshing && networks.isEmpty() -> {
+                isRefreshing && networks.isEmpty() && availableNetworks.isEmpty() -> {
                     ResentinLoadingState(
                         title = stringResource(R.string.home_connection_loading_title),
                         description = stringResource(R.string.home_connection_loading_description),
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
-                networks.isEmpty() && error != null -> {
+                networks.isEmpty() && availableNetworks.isEmpty() && error != null -> {
                     ResentinEmptyState(
                         icon = Icons.Outlined.WifiOff,
                         title = stringResource(R.string.home_connection_error_title),
@@ -229,7 +238,7 @@ fun HomeScreen(
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
-                networks.isEmpty() -> {
+                networks.isEmpty() && availableNetworks.isEmpty() -> {
                     ResentinEmptyState(
                         icon = Icons.Outlined.Public,
                         title = stringResource(R.string.home_no_networks_title),
@@ -244,37 +253,60 @@ fun HomeScreen(
                         contentPadding = PaddingValues(start = ResentinSpacing.large, end = ResentinSpacing.large, top = ResentinSpacing.small, bottom = ResentinSpacing.xLarge),
                         verticalArrangement = Arrangement.spacedBy(ResentinSpacing.medium * LocalDensityScale.current),
                     ) {
-                        item(key = "home-summary") {
-                            HomeSectionHeader(networkCount = networks.size)
+                        if (networks.isEmpty()) {
+                            item(key = "home-no-connected-networks") {
+                                ResentinEmptyState(
+                                    icon = Icons.Outlined.Public,
+                                    title = stringResource(R.string.home_no_networks_title),
+                                    description = stringResource(R.string.home_no_networks_available_description),
+                                )
+                            }
+                        } else {
+                            item(key = "home-summary") {
+                                HomeSectionHeader(networkCount = networks.size)
+                            }
+                            items(
+                                networks,
+                                key = { it.network.slug },
+                            ) { networkWithChannels ->
+                                NetworkGroupCard(
+                                    network = networkWithChannels.network,
+                                    channels = networkWithChannels.channels
+                                        .filter { it.source != "server" }
+                                        .sortedBy { it.source == "query" },
+                                    featuredChannels = featuredChannels[networkWithChannels.network.slug].orEmpty(),
+                                    pinMutedOf = pinMutedOf,
+                                    draftChannels = draftChannels,
+                                    fetchAvatarBytes = viewModel::fetchAvatarBytes,
+                                    onServerClick = { onServerClick(networkWithChannels.network.slug) },
+                                    onNetworkSettingsClick = { onNetworkSettingsClick(networkWithChannels.network.slug) },
+                                    onAddClick = { newChatNetwork = networkWithChannels.network.slug },
+                                    onBrowseDirectory = { onBrowseDirectory(networkWithChannels.network.slug) },
+                                    onChannelClick = { channel ->
+                                        onChannelClick(networkWithChannels.network.slug, channel.name)
+                                    },
+                                    onChannelLongClick = { channel ->
+                                        actionsTarget = ChannelActionsTarget(networkWithChannels.network.slug, channel)
+                                    },
+                                    onFeaturedChannelClick = { name ->
+                                        viewModel.openFeaturedChannel(networkWithChannels.network.slug, name)
+                                    },
+                                )
+                            }
                         }
-                        items(
-                            networks,
-                            key = { it.network.slug },
-                        ) { networkWithChannels ->
-                            NetworkGroupCard(
-                                network = networkWithChannels.network,
-                                channels = networkWithChannels.channels
-                                    .filter { it.source != "server" }
-                                    .sortedBy { it.source == "query" },
-                                pinMutedOf = pinMutedOf,
-                                draftChannels = draftChannels,
-                                fetchAvatarBytes = viewModel::fetchAvatarBytes,
-                                onServerClick = { onServerClick(networkWithChannels.network.slug) },
-                                onNetworkSettingsClick = { onNetworkSettingsClick(networkWithChannels.network.slug) },
-                                onAddClick = { newChatNetwork = networkWithChannels.network.slug },
-                                onBrowseDirectory = { onBrowseDirectory(networkWithChannels.network.slug) },
-                                onChannelClick = { channel ->
-                                    onChannelClick(networkWithChannels.network.slug, channel.name)
-                                },
-                                onChannelLongClick = { channel ->
-                                    actionsTarget = ChannelActionsTarget(networkWithChannels.network.slug, channel)
-                                },
-                            )
+                        if (availableNetworks.isNotEmpty()) {
+                            item(key = "home-available-networks") {
+                                AvailableNetworksSection(
+                                    networks = availableNetworks,
+                                    connectingNetworkSlug = connectingNetworkSlug,
+                                    onConnect = viewModel::connectAvailableNetwork,
+                                )
+                            }
                         }
                     }
                 }
             }
-            if (error != null && networks.isNotEmpty()) {
+            if (error != null && (networks.isNotEmpty() || availableNetworks.isNotEmpty())) {
                 val message = error!!
                 Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(ResentinSpacing.large)) {
                     Text(message)
@@ -568,6 +600,80 @@ private fun SheetActionRow(
 }
 
 @Composable
+private fun AvailableNetworksSection(
+    networks: List<AvailableNetworkDto>,
+    connectingNetworkSlug: String?,
+    onConnect: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(ResentinSpacing.small)) {
+        Text(
+            text = stringResource(R.string.home_available_networks_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        Text(
+            text = stringResource(R.string.home_available_networks_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        networks.forEach { network ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        modifier = Modifier.size(36.dp),
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Icon(
+                                imageVector = Icons.Outlined.Public,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(ResentinSpacing.medium))
+                    Text(
+                        text = network.slug,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    TextButton(
+                        onClick = { onConnect(network.slug) },
+                        enabled = connectingNetworkSlug == null,
+                    ) {
+                        Text(
+                            text = stringResource(
+                                if (connectingNetworkSlug == network.slug) {
+                                    R.string.home_available_network_connecting
+                                } else {
+                                    R.string.home_available_network_connect
+                                },
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun HomeSectionHeader(networkCount: Int) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
@@ -592,6 +698,7 @@ private fun HomeSectionHeader(networkCount: Int) {
 private fun NetworkGroupCard(
     network: NetworkEntity,
     channels: List<ChannelEntity>,
+    featuredChannels: List<FeaturedChannelDto>,
     pinMutedOf: (networkSlug: String, channel: ChannelEntity) -> Pair<Boolean, Boolean>,
     draftChannels: Set<String>,
     fetchAvatarBytes: suspend (String) -> ByteArray?,
@@ -601,6 +708,7 @@ private fun NetworkGroupCard(
     onBrowseDirectory: () -> Unit,
     onChannelClick: (ChannelEntity) -> Unit,
     onChannelLongClick: (ChannelEntity) -> Unit,
+    onFeaturedChannelClick: (String) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -618,6 +726,14 @@ private fun NetworkGroupCard(
                 onAddClick = onAddClick,
                 onBrowseDirectory = onBrowseDirectory,
             )
+            if (featuredChannels.isNotEmpty()) {
+                FeaturedChannelsSection(
+                    featuredChannels = featuredChannels,
+                    joinedChannels = channels.filter { it.joined && it.source == "channel" }
+                        .map { canonicalTarget(it.name) }.toSet(),
+                    onClick = onFeaturedChannelClick,
+                )
+            }
             if (channels.isEmpty()) {
                 ResentinEmptyState(
                     icon = Icons.Outlined.Tag,
@@ -652,6 +768,67 @@ private fun NetworkGroupCard(
                     )
                 }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeaturedChannelsSection(
+    featuredChannels: List<FeaturedChannelDto>,
+    joinedChannels: Set<String>,
+    onClick: (String) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        Text(
+            text = stringResource(R.string.home_featured_channels_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = ResentinSpacing.medium, end = ResentinSpacing.medium, top = 10.dp, bottom = 2.dp),
+        )
+        featuredChannels.forEachIndexed { index, channel ->
+            val joined = canonicalTarget(channel.name) in joinedChannels
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onClick(channel.name) }
+                    .padding(horizontal = ResentinSpacing.medium, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = channel.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    channel.description?.takeIf { it.isNotBlank() }?.let { description ->
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(ResentinSpacing.small))
+                Text(
+                    text = stringResource(if (joined) R.string.directory_featured_open else R.string.directory_featured_join),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            if (index < featuredChannels.lastIndex) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                )
             }
         }
     }

@@ -39,6 +39,12 @@
     <string name="home_no_networks">Nessuna rete</string>
     <string name="home_no_networks_title">Nessuna rete collegata</string>
     <string name="home_no_networks_description">Aggiungi una rete per iniziare a conversare.</string>
+    <string name="home_no_networks_available_description">Non hai reti collegate. Scegli una rete disponibile qui sotto per iniziare.</string>
+    <string name="home_available_networks_title">Reti disponibili</string>
+    <string name="home_available_networks_description">Connettiti a una rete proposta da Grappa e inizia a chattare.</string>
+    <string name="home_available_network_connect">Connetti</string>
+    <string name="home_available_network_connecting">Connessione…</string>
+    <string name="home_featured_channels_title">Canali in evidenza</string>
     <string name="home_connection_error_title">Connessione non riuscita</string>
     <string name="home_connection_error_description">Non riesco a caricare le tue reti. Controlla la connessione e riprova.</string>
     <string name="home_connection_retry">Riprova</string>
