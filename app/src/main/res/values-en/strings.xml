@@ -271,6 +271,17 @@
     <string name="event_mode">%1$s set mode %2$s%3$s</string>
     <string name="event_nick_change">%1$s is now known as %2$s</string>
     <string name="event_topic_changed">%1$s changed the topic</string>
+    <string name="chat_presence_burst_summary">%1$s · %2$s, %3$s</string>
+    <string name="chat_presence_burst_expand">Show individual lines</string>
+    <string name="chat_presence_burst_collapse">Hide individual lines</string>
+    <plurals name="chat_presence_joins">
+        <item quantity="one">%d join</item>
+        <item quantity="other">%d joins</item>
+    </plurals>
+    <plurals name="chat_presence_leaves">
+        <item quantity="one">%d leave</item>
+        <item quantity="other">%d leaves</item>
+    </plurals>
     <string name="paren_suffix">\ (%1$s)</string>
 
     <!-- App settings -->

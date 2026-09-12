@@ -343,6 +343,7 @@ fun ChatScreen(
     // The first LazyColumn is created with the final landing index already applied.
     var showTopicDialog by remember { mutableStateOf(false) }
     var showChannelMenu by remember { mutableStateOf(false) }
+    var expandedPresenceBursts by remember { mutableStateOf<Set<Long>>(emptySet()) }
     // The long-pressed row's plain text, threaded to UserCardSheet for its "Copia"/
     // "Copia parziale" actions — the sheet itself only knows the sender's nick (it opens
     // off a WHOIS reply, which arrives async), not which message triggered it.
@@ -366,7 +367,7 @@ fun ChatScreen(
         }
     }
 
-    // Position (within `messages`) of the first message past where the reader left off —
+    // Position (within the displayed timeline) of the first row past the read cursor —
     // also where the "Hai letto fino a qui" divider renders. During the first layout
     // use the frozen cursor so it remains a stable landing target. Once positioned,
     // switch to the live cursor so the divider disappears as soon as this chat is
@@ -374,21 +375,24 @@ fun ChatScreen(
     // Null when there's nothing to mark (cursor still loading, never read anything, or
     // everything is already read).
     val dividerCursor = if (positioned) readCursor ?: initialReadCursor else initialReadCursor
+    val timelineRows = remember(messages, dividerCursor) {
+        buildChatTimeline(messages, dividerCursor)
+    }
     val dividerIndex = dividerCursor?.let { cursor ->
-        messages.indexOfFirst { it.id > cursor }.takeIf { it >= 0 }
+        timelineRows.indexOfFirst { row -> row.messages.any { it.id > cursor } }.takeIf { it >= 0 }
     }
 
     // List indices of the mention rows (own nick / /hilight match from another
     // sender — the SAME isMentionRow predicate the per-row highlight uses, the
     // way cicchetto's badge reads the rows the highlight marks). The unread
-    // divider shifts every message row after it by one. Precomputed so the
+    // divider shifts every displayed row after it by one. Precomputed so the
     // scroll-path decision stays a cheap filter.
-    val mentionRowIndices by remember(messages, dividerIndex, myNick, highlightPatterns, isQuery) {
+    val mentionRowIndices by remember(timelineRows, dividerIndex, myNick, highlightPatterns, isQuery) {
         derivedStateOf {
             val divider = dividerIndex
             val indices = mutableListOf<Int>()
-            messages.forEachIndexed { index, message ->
-                if (isMentionRow(message, myNick, isQuery, highlightPatterns)) {
+            timelineRows.forEachIndexed { index, row ->
+                if (row.messages.any { isMentionRow(it, myNick, isQuery, highlightPatterns) }) {
                     indices.add(index + if (divider != null && index >= divider) 1 else 0)
                 }
             }
@@ -396,11 +400,11 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(searchOpen, selectedSearchMessageId, messages.size, dividerIndex) {
+    LaunchedEffect(searchOpen, selectedSearchMessageId, timelineRows, dividerIndex) {
         if (!searchOpen || selectedSearchMessageId == null) return@LaunchedEffect
-        val messageIndex = messages.indexOfFirst { it.id == selectedSearchMessageId }
-        if (messageIndex < 0) return@LaunchedEffect
-        val listIndex = messageIndex + if (dividerIndex != null && messageIndex >= dividerIndex) 1 else 0
+        val rowIndex = timelineRows.indexOfFirst { row -> row.messages.any { it.id == selectedSearchMessageId } }
+        if (rowIndex < 0) return@LaunchedEffect
+        val listIndex = rowIndex + if (dividerIndex != null && rowIndex >= dividerIndex) 1 else 0
         listState.animateScrollToItem(listIndex)
     }
 
@@ -408,9 +412,9 @@ fun ChatScreen(
     // bottom — only once, and only once we actually know where that is (see
     // ChatViewModel.initialReadCursorReady: null is ambiguous between "not loaded yet"
     // and "never read anything").
-    LaunchedEffect(messages, initialReadCursorReady) {
+    LaunchedEffect(timelineRows, initialReadCursorReady) {
         if (initialListIndex != null || !initialReadCursorReady || messages.isEmpty()) return@LaunchedEffect
-        initialListIndex = dividerIndex ?: (messages.size - 1)
+        initialListIndex = dividerIndex ?: (timelineRows.size - 1)
     }
 
     // Keep the bottom status based on the actual last composed row. In this screen
@@ -463,7 +467,7 @@ fun ChatScreen(
     val density = LocalDensity.current
     LaunchedEffect(listState) {
         snapshotFlow {
-            val bottomIndex = messages.size + if (dividerIndex != null) 1 else 0
+            val bottomIndex = timelineRows.size + if (dividerIndex != null) 1 else 0
             Triple(
                 imeInsets.getBottom(density),
                 shouldScrollToBottomOnIme && positioned,
@@ -485,7 +489,7 @@ fun ChatScreen(
     // doesn't change `lastOrNull()?.id`, so this never fires for that case either.
     LaunchedEffect(messages.lastOrNull()?.id) {
         if (positioned && messages.isNotEmpty() && isAtBottom) {
-            val bottomIndex = messages.size + if (dividerIndex != null) 1 else 0
+            val bottomIndex = timelineRows.size + if (dividerIndex != null) 1 else 0
             // During the initial REST fill, follow the cache with a snap. Once the
             // history is ready, live messages can use the normal smooth follow.
             if (initialHistoryReady) {
@@ -890,31 +894,22 @@ fun ChatScreen(
                 }
                 else -> {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                messages.forEachIndexed { index, message ->
+                timelineRows.forEachIndexed { index, row ->
                     if (index == dividerIndex) {
                         item(key = "unread-divider") { UnreadDivider(density = messageDensity) }
                     }
-                    item(key = message.id) {
-                        val previous = messages.getOrNull(index - 1)
-                        val gapFromPrevious = previous?.let { message.serverTime - it.serverTime }
-                        val tight = previous != null &&
-                            index != dividerIndex &&
-                            gapFromPrevious != null && gapFromPrevious in 0..MESSAGE_GROUP_WINDOW_MS &&
-                            previous.kind !in SYSTEM_EVENT_KINDS &&
-                            message.kind !in SYSTEM_EVENT_KINDS &&
-                            previous.sender.equals(message.sender, ignoreCase = true)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    if (message.id == selectedSearchMessageId) {
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
-                                    } else {
-                                        androidx.compose.ui.graphics.Color.Transparent
-                                    },
-                                ),
-                        ) {
-                            MessageRow(
+                    when (row) {
+                        is ChatTimelineRow.Message -> item(key = row.key) {
+                            val message = row.message
+                            val previous = timelineRows.getOrNull(index - 1)?.messages?.lastOrNull()
+                            val gapFromPrevious = previous?.let { message.serverTime - it.serverTime }
+                            val tight = previous != null &&
+                                index != dividerIndex &&
+                                gapFromPrevious != null && gapFromPrevious in 0..MESSAGE_GROUP_WINDOW_MS &&
+                                previous.kind !in SYSTEM_EVENT_KINDS &&
+                                message.kind !in SYSTEM_EVENT_KINDS &&
+                                previous.sender.equals(message.sender, ignoreCase = true)
+                            ChatTimelineMessageItem(
                                 message = message,
                                 members = members,
                                 displayMode = if (isServer) ChatDisplayMode.IRC_LINE else displayMode,
@@ -925,6 +920,7 @@ fun ChatScreen(
                                 isMention = isMentionRow(message, myNick, isQuery, highlightPatterns),
                                 isQuery = isQuery,
                                 isMine = isQuery && (myNick ?: viewerUsername).equals(message.sender, ignoreCase = true),
+                                isSelected = message.id == selectedSearchMessageId,
                                 onReply = viewModel::reply,
                                 onLongPress = { nick, text ->
                                     longPressedMessageText = text
@@ -932,6 +928,52 @@ fun ChatScreen(
                                 },
                                 tight = tight,
                             )
+                        }
+                        is ChatTimelineRow.PresenceBurst -> item(key = row.key) {
+                            val burstKey = row.messages.first().id
+                            val selectedInBurst = row.messages.any { it.id == selectedSearchMessageId }
+                            val expanded = selectedInBurst || burstKey in expandedPresenceBursts
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                PresenceBurstSummaryRow(
+                                    sender = row.messages.first().sender,
+                                    joins = row.joins,
+                                    leaves = row.leaves,
+                                    time = formatTime(row.messages.last().serverTime, showSeconds),
+                                    isIrcLine = isServer || displayMode == ChatDisplayMode.IRC_LINE,
+                                    expanded = expanded,
+                                    selected = selectedInBurst,
+                                    onToggle = {
+                                        expandedPresenceBursts = if (burstKey in expandedPresenceBursts) {
+                                            expandedPresenceBursts - burstKey
+                                        } else {
+                                            expandedPresenceBursts + burstKey
+                                        }
+                                    },
+                                )
+                                if (expanded) {
+                                    row.messages.forEach { event ->
+                                        ChatTimelineMessageItem(
+                                            message = event,
+                                            members = members,
+                                            displayMode = if (isServer) ChatDisplayMode.IRC_LINE else displayMode,
+                                            density = messageDensity,
+                                            showSeconds = showSeconds,
+                                            coloredNicklist = coloredNicklist,
+                                            showHostmaskInEvents = showHostmaskInEvents,
+                                            isMention = false,
+                                            isQuery = isQuery,
+                                            isMine = isQuery && (myNick ?: viewerUsername).equals(event.sender, ignoreCase = true),
+                                            isSelected = event.id == selectedSearchMessageId,
+                                            onReply = viewModel::reply,
+                                            onLongPress = { nick, text ->
+                                                longPressedMessageText = text
+                                                viewModel.onMessageLongPress(nick)
+                                            },
+                                            tight = false,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -977,16 +1019,12 @@ fun ChatScreen(
             // giorno del primo messaggio visibile (Oggi / Ieri / 8 settembre).
             val topVisibleTime by remember {
                 derivedStateOf {
-                    if (messages.isEmpty()) {
+                    if (timelineRows.isEmpty()) {
                         null
                     } else {
                         val first = listState.firstVisibleItemIndex
-                        val messageIndex = if (dividerIndex != null && first > dividerIndex) {
-                            first - 1
-                        } else {
-                            first
-                        }
-                        messages.getOrNull(messageIndex.coerceIn(messages.indices))?.serverTime
+                        val rowIndex = if (dividerIndex != null && first > dividerIndex) first - 1 else first
+                        timelineRows.getOrNull(rowIndex.coerceIn(timelineRows.indices))?.messages?.firstOrNull()?.serverTime
                     }
                 }
             }
@@ -1619,6 +1657,112 @@ private fun systemEventText(event: FormattedEvent.System, showHostmask: Boolean)
     is FormattedEvent.System.TopicChanged -> stringResource(R.string.event_topic_changed, event.sender)
 }
 
+@Composable
+private fun ChatTimelineMessageItem(
+    message: MessageEntity,
+    members: List<MemberEntity>,
+    displayMode: ChatDisplayMode,
+    density: MessageDensity,
+    showSeconds: Boolean,
+    coloredNicklist: Boolean,
+    showHostmaskInEvents: Boolean,
+    isMention: Boolean,
+    isQuery: Boolean,
+    isMine: Boolean,
+    isSelected: Boolean,
+    onReply: (nick: String, body: String) -> Unit,
+    onLongPress: (nick: String, text: String) -> Unit,
+    tight: Boolean,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
+                else androidx.compose.ui.graphics.Color.Transparent,
+            ),
+    ) {
+        MessageRow(
+            message = message,
+            members = members,
+            displayMode = displayMode,
+            density = density,
+            showSeconds = showSeconds,
+            coloredNicklist = coloredNicklist,
+            showHostmaskInEvents = showHostmaskInEvents,
+            isMention = isMention,
+            isQuery = isQuery,
+            isMine = isMine,
+            onReply = onReply,
+            onLongPress = onLongPress,
+            tight = tight,
+        )
+    }
+}
+
+@Composable
+private fun PresenceBurstSummaryRow(
+    sender: String,
+    joins: Int,
+    leaves: Int,
+    time: String,
+    isIrcLine: Boolean,
+    expanded: Boolean,
+    selected: Boolean,
+    onToggle: () -> Unit,
+) {
+    val joinsLabel = pluralStringResource(R.plurals.chat_presence_joins, joins, joins)
+    val leavesLabel = pluralStringResource(R.plurals.chat_presence_leaves, leaves, leaves)
+    val summary = stringResource(R.string.chat_presence_burst_summary, sender, joinsLabel, leavesLabel)
+    val actionLabel = stringResource(
+        if (expanded) R.string.chat_presence_burst_collapse else R.string.chat_presence_burst_expand,
+    )
+
+    if (isIrcLine) {
+        MircText(
+            text = "[$time] -!- $summary · $actionLabel",
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalResentinCodeFontFamily.current),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    } else {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = ResentinSpacing.xxLarge, vertical = ResentinSpacing.small),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
+                else MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.clickable(onClick = onToggle),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MircText(
+                        text = "$summary · $time",
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = LocalResentinChatFontFamily.current),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.widthIn(max = 300.dp),
+                    )
+                    Icon(
+                        imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                        contentDescription = actionLabel,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp).size(18.dp),
+                    )
+                }
+            }
+        }
+    }
+}
 @Composable
 private fun MessageRow(
     message: MessageEntity,
