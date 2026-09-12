@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Language
@@ -29,12 +30,14 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.CircularProgressIndicator
-import pm.antani.resentin.ui.common.ResentinFilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +50,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import pm.antani.resentin.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(viewModel: LoginViewModel) {
     val state by viewModel.uiState.collectAsState()
@@ -118,30 +122,27 @@ fun LoginScreen(viewModel: LoginViewModel) {
                     .onFocusChanged { focusState -> if (!focusState.isFocused) viewModel.onHostFieldBlur() },
             )
             Spacer(Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                ResentinFilterChip(
-                    selected = state.mode == LoginMode.TOKEN,
-                    onClick = { viewModel.onModeChange(LoginMode.TOKEN) },
-                    label = { Text(stringResource(R.string.login_mode_token)) },
-                    enabled = !state.isLoading,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                ResentinFilterChip(
-                    selected = state.mode == LoginMode.PASSWORD,
-                    onClick = { viewModel.onModeChange(LoginMode.PASSWORD) },
-                    label = { Text(stringResource(R.string.login_mode_password)) },
-                    enabled = !state.isLoading,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                ResentinFilterChip(
-                    selected = state.mode == LoginMode.VISITOR,
-                    onClick = { viewModel.onModeChange(LoginMode.VISITOR) },
-                    label = { Text(stringResource(R.string.login_mode_visitor)) },
-                    enabled = !state.isLoading,
-                    modifier = Modifier.weight(1f),
-                )
+            val loginModes = listOf(
+                LoginMode.TOKEN to R.string.login_mode_token,
+                LoginMode.PASSWORD to R.string.login_mode_password,
+                LoginMode.VISITOR to R.string.login_mode_visitor,
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                loginModes.forEachIndexed { index, (mode, labelRes) ->
+                    SegmentedButton(
+                        selected = state.mode == mode,
+                        onClick = { viewModel.onModeChange(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = loginModes.size),
+                        enabled = !state.isLoading,
+                        modifier = Modifier.weight(1f),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = MaterialTheme.colorScheme.primary,
+                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                            activeBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        label = { Text(stringResource(labelRes)) },
+                    )
+                }
             }
             Spacer(Modifier.height(12.dp))
             when (state.mode) {
