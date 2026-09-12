@@ -225,6 +225,23 @@ function enterEnded() {
   arpeggio?.setPiece("cadence");
 }
 
+// The viewport height for the pass CURRENTLY traveling — captured once in
+// startPass() and reused by every tick() of that pass, rather than re-reading
+// window.innerHeight every frame. Read off .credits-viewport itself (the
+// element the roll's own travel is measured against) rather than the window
+// global: a WebView's window.innerHeight can shift slightly as system bars/
+// insets settle, and a start-of-pass value that later drifts from the
+// per-frame value is exactly what makes the math land somewhere other than
+// "fully below the fold".
+let passVh = 0;
+
+// A stall this long or longer (a backgrounded/dimmed WebView resuming, a GC
+// pause, ...) is treated as "start this frame's motion from zero" rather than
+// integrated as one giant dtMs — the latter is what turns a single dropped
+// frame into travelY jumping clean past the interlude and into the NEXT
+// pass's territory in one step, which reads as the roll skipping/looping.
+const MAX_FRAME_DT_MS = 250;
+
 function startPass() {
   const content = buildNextScreen();
   if (content === null) {
@@ -234,10 +251,10 @@ function startPass() {
   $roll.innerHTML = "";
   $roll.appendChild(content);
   travelY = 0;
-  const vh = window.innerHeight;
+  passVh = $viewport.clientHeight || window.innerHeight;
   const rollH = Math.max($roll.scrollHeight, 1);
-  travelDistance = vh + rollH;
-  $roll.style.transform = `translateY(${vh}px)`;
+  travelDistance = passVh + rollH;
+  $roll.style.transform = `translateY(${passVh}px)`;
   // Reset so tick()'s next frame measures a fresh delta — without this, the
   // first frame after an interlude (or the very first pass) computes dtMs
   // against a stale timestamp, jumps travelY past the whole distance in one
@@ -254,12 +271,11 @@ function tick(now) {
     lastFrameAt = now;
     return; // no elapsed time to integrate on the first frame of a pass
   }
-  const dtMs = now - lastFrameAt;
+  const dtMs = Math.min(now - lastFrameAt, MAX_FRAME_DT_MS);
   lastFrameAt = now;
 
-  const vh = window.innerHeight;
   travelY += (ROLL_SPEED_PX_S * dtMs) / 1000;
-  $roll.style.transform = `translateY(${vh - travelY}px)`;
+  $roll.style.transform = `translateY(${passVh - travelY}px)`;
 
   if (fadingBlock !== null) {
     const progress = travelY / travelDistance;

@@ -49,6 +49,13 @@ fun CreditsScreen(onClose: () -> Unit) {
                 WebView(context).apply {
                     layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                     setBackgroundColor(AndroidColor.BLACK)
+                    // The roll runs for minutes on a fixed requestAnimationFrame clock;
+                    // if the display dims/sleeps on the default screen timeout mid-pass,
+                    // the WebView suspends rAF for the time it's not visible and the
+                    // roll resumes desynced — read live as "only the first block plays
+                    // right, the rest start mid-scroll and loop". Keeping the screen on
+                    // for as long as this WebView is attached removes the cause outright.
+                    keepScreenOn = true
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     // Belt and braces alongside the classic-<script> fix in
