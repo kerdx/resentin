@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -35,6 +36,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -104,6 +106,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import java.time.Instant
 import java.time.LocalDate
@@ -878,9 +881,13 @@ fun ChatScreen(
                     }
                     item(key = message.id) {
                         val previous = messages.getOrNull(index - 1)
+                        val gapFromPrevious = previous?.let { message.serverTime - it.serverTime }
                         val tight = previous != null &&
-                            previous.sender.equals(message.sender, ignoreCase = true) &&
-                            previous.kind == message.kind
+                            index != dividerIndex &&
+                            gapFromPrevious != null && gapFromPrevious in 0..MESSAGE_GROUP_WINDOW_MS &&
+                            previous.kind !in SYSTEM_EVENT_KINDS &&
+                            message.kind !in SYSTEM_EVENT_KINDS &&
+                            previous.sender.equals(message.sender, ignoreCase = true)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1708,6 +1715,9 @@ private fun buildNickLine(
     append(withClickableLinks(mircAnnotatedString(body, lightTheme), linkStylesFor(lightTheme)))
 }
 
+private const val MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000L
+private val SYSTEM_EVENT_KINDS = setOf("join", "part", "quit", "kick", "mode", "nick_change", "topic")
+
 @Composable
 private fun BubbleRow(
     message: MessageEntity,
@@ -1722,6 +1732,7 @@ private fun BubbleRow(
     density: MessageDensity = MessageDensity.NORMAL,
 ) {
     val isOwnPrivate = isPrivate && isMine
+    val continuesGroup = tight && !isMention
     val bubbleColor = when {
         isMention -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
         isOwnPrivate -> MaterialTheme.colorScheme.primaryContainer
@@ -1732,72 +1743,120 @@ private fun BubbleRow(
         isOwnPrivate -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
         else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = density.rowVertical(tight)),
-        // Query messages use the same left-aligned conversation flow as IRC chat.
-        // The sender is still differentiated by the bubble tint below, not by
-        // switching sides of the conversation.
-        horizontalArrangement = Arrangement.Start,
-        verticalAlignment = Alignment.Top,
-    ) {
-        if (isMention) {
-            Box(
-                modifier = Modifier
-                    .padding(top = 4.dp, end = 6.dp)
-                    .size(width = 2.dp, height = 40.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape),
-            )
+    val lightTheme = isLightTheme()
+    val timestampStyle = SpanStyle(
+        fontSize = 10.sp,
+        fontStyle = FontStyle.Normal,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f),
+    )
+    val bodyWithTime = remember(formatted.text, formatted.isNotice, continuesGroup, time, lightTheme, timestampStyle) {
+        buildAnnotatedString {
+            if (formatted.isNotice && continuesGroup) {
+                withStyle(timestampStyle) { append("(notice) ") }
+            }
+            append(withClickableLinks(mircAnnotatedString(formatted.text, lightTheme), linkStylesFor(lightTheme)))
+            if (continuesGroup) {
+                append("  ")
+                withStyle(timestampStyle) { append(time) }
+            }
         }
-        Surface(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(20.dp),
-            color = bubbleColor,
-            border = bubbleBorder,
-            tonalElevation = 0.dp,
+    }
+    val actionWithTime = remember(
+        prefix, message.sender, formatted.text, coloredNicklist, lightTheme, continuesGroup, time, timestampStyle,
+    ) {
+        buildAnnotatedString {
+            if (continuesGroup) {
+                append("* ")
+            } else {
+                append(
+                    buildNickLine(
+                        before = "* ",
+                        prefix = prefix,
+                        sender = message.sender,
+                        after = " ",
+                        body = "",
+                        coloredNicklist = coloredNicklist,
+                        lightTheme = lightTheme,
+                    ),
+                )
+                withStyle(timestampStyle) { append(time) }
+                append(" ")
+            }
+            append(withClickableLinks(mircAnnotatedString(formatted.text, lightTheme), linkStylesFor(lightTheme)))
+            if (continuesGroup) {
+                append("  ")
+                withStyle(timestampStyle) { append(time) }
+            }
+        }
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val maxBubbleWidth = maxWidth * 0.88f
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = density.rowVertical(continuesGroup)),
+            // IRC conversations stay left-aligned; width now follows the content,
+            // with a generous cap so longer lines wrap naturally.
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.Top,
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            ) {
-                if (formatted.isAction) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        val lightTheme = isLightTheme()
-                        val annotated = remember(prefix, message.sender, formatted.text, coloredNicklist, lightTheme) {
-                            buildNickLine("* ", prefix, message.sender, " ", formatted.text, coloredNicklist, lightTheme)
-                        }
-                        Text(
-                            text = annotated,
-                            style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = time,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
+            if (isMention) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 4.dp, end = 6.dp)
+                        .size(width = 2.dp, height = 40.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                )
+            }
+            Surface(
+                modifier = Modifier.widthIn(max = maxBubbleWidth),
+                shape = if (continuesGroup) {
+                    RoundedCornerShape(topStart = 7.dp, topEnd = 20.dp, bottomEnd = 20.dp, bottomStart = 20.dp)
                 } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = if (formatted.isNotice) {
-                                prefix + message.sender + " (notice)"
-                            } else {
-                                prefix + message.sender
-                            },
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (coloredNicklist) colorForNick(message.sender, isLightTheme()) else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = time,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
+                    RoundedCornerShape(20.dp)
+                },
+                color = bubbleColor,
+                border = bubbleBorder,
+                tonalElevation = 0.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    if (!continuesGroup && !formatted.isAction) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (formatted.isNotice) {
+                                    "$prefix${message.sender} (notice)"
+                                } else {
+                                    prefix + message.sender
+                                },
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = if (coloredNicklist) {
+                                    colorForNick(message.sender, lightTheme)
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = time,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f),
+                                maxLines = 1,
+                            )
+                        }
                     }
-                    MircText(text = formatted.text, style = MaterialTheme.typography.bodyLarge)
+                    if (formatted.isAction) {
+                        Text(
+                            text = actionWithTime,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
+                        )
+                    } else {
+                        Text(text = bodyWithTime, style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
             }
         }
