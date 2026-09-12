@@ -20,19 +20,19 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -58,11 +58,23 @@ import pm.antani.resentin.net.dto.UserAdminDto
 import pm.antani.resentin.net.dto.VhostAdminDto
 import pm.antani.resentin.net.dto.VisitorAdminDto
 import pm.antani.resentin.ui.common.ResentinHeaderAction
+import pm.antani.resentin.ui.common.ResentinEmptyState
+import pm.antani.resentin.ui.common.ResentinErrorState
+import pm.antani.resentin.ui.common.ResentinLoadingState
+import pm.antani.resentin.ui.common.ResentinStateBanner
+import pm.antani.resentin.ui.common.ResentinStateTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(viewModel: AdminViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
+    val selectedTabHasContent = when (state.tab) {
+        AdminTab.NETWORKS -> state.networks.isNotEmpty()
+        AdminTab.VHOSTS -> state.vhosts.isNotEmpty()
+        AdminTab.USERS -> state.users.isNotEmpty()
+        AdminTab.SESSIONS -> state.sessions.isNotEmpty()
+        AdminTab.VISITORS -> state.visitors.isNotEmpty()
+    }
     var showCreateDialog by remember { mutableStateOf(false) }
 
     // Only NETWORKS/VHOSTS/USERS have a create dialog wired below — without this,
@@ -144,10 +156,25 @@ fun AdminScreen(viewModel: AdminViewModel, onBack: () -> Unit) {
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            if (state.isLoading) {
-                CircularProgressIndicator(Modifier.align(Alignment.Center))
-            } else {
-                when (state.tab) {
+            when {
+                state.isLoading && !selectedTabHasContent -> {
+                    ResentinLoadingState(
+                        title = stringResource(R.string.admin_loading_title),
+                        description = stringResource(R.string.admin_loading_description),
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                !selectedTabHasContent && state.error != null -> {
+                    ResentinErrorState(
+                        icon = Icons.Outlined.WifiOff,
+                        title = stringResource(R.string.admin_error_title),
+                        description = state.error.orEmpty(),
+                        actionLabel = stringResource(R.string.home_connection_retry),
+                        onRetry = viewModel::refreshAll,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                else -> when (state.tab) {
                     AdminTab.NETWORKS -> NetworksTab(state.networks, viewModel)
                     AdminTab.VHOSTS -> VhostsTab(state.vhosts, viewModel)
                     AdminTab.USERS -> UsersTab(state.users, viewModel)
@@ -155,13 +182,16 @@ fun AdminScreen(viewModel: AdminViewModel, onBack: () -> Unit) {
                     AdminTab.VISITORS -> VisitorsTab(state.visitors, state.lastSweepCount, viewModel)
                 }
             }
-            state.error?.let { message ->
-                Snackbar(
+            if (selectedTabHasContent && state.error != null) {
+                ResentinStateBanner(
+                    icon = Icons.Outlined.WifiOff,
+                    title = stringResource(R.string.ui_error_title),
+                    description = state.error.orEmpty(),
+                    tone = ResentinStateTone.ERROR,
+                    actionLabel = stringResource(R.string.ui_dismiss),
+                    onAction = viewModel::consumeError,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
-                    action = { TextButton(onClick = viewModel::consumeError) { Text(stringResource(R.string.home_dialog_cancel)) } },
-                ) {
-                    Text(message)
-                }
+                )
             }
         }
     }
@@ -525,14 +555,12 @@ private fun VisitorsTab(visitors: List<VisitorAdminDto>, lastSweepCount: Int?, v
 
 @Composable
 private fun EmptyHint(text: String) {
-    Box(Modifier.fillMaxSize()) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.Center),
-        )
-    }
+    ResentinEmptyState(
+        icon = Icons.Outlined.Inbox,
+        title = text,
+        modifier = Modifier.fillMaxSize(),
+        compact = true,
+    )
 }
 
 @Composable

@@ -71,7 +71,6 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -140,6 +139,9 @@ import pm.antani.resentin.ui.common.ResentinDropdownMenu
 import pm.antani.resentin.ui.common.ResentinDropdownMenuItem
 import pm.antani.resentin.ui.common.ResentinHeaderAction
 import pm.antani.resentin.ui.common.ResentinEmptyState
+import pm.antani.resentin.ui.common.ResentinErrorState
+import pm.antani.resentin.ui.common.ResentinStateBanner
+import pm.antani.resentin.ui.common.ResentinStateTone
 import pm.antani.resentin.ui.common.ResentinLoadingState
 import pm.antani.resentin.ui.common.UserCardSheet
 import pm.antani.resentin.ui.common.colorForNick
@@ -864,12 +866,12 @@ fun ChatScreen(
                     )
                 }
                 showHistoryError -> {
-                    ResentinEmptyState(
+                    ResentinErrorState(
                         icon = Icons.Outlined.WifiOff,
                         title = stringResource(R.string.chat_history_error_title),
                         description = stringResource(R.string.chat_history_error_description),
                         actionLabel = stringResource(R.string.chat_history_retry),
-                        onAction = viewModel::refresh,
+                        onRetry = viewModel::refresh,
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
@@ -1415,9 +1417,13 @@ internal fun SlashArgumentSuggestions(
 
 @Composable
 internal fun ChatErrorSnackbar(message: String, modifier: Modifier = Modifier) {
-    Snackbar(modifier = modifier.testTag("chat-error-snackbar")) {
-        Text(message)
-    }
+    ResentinStateBanner(
+        icon = Icons.Outlined.WifiOff,
+        title = stringResource(R.string.ui_error_title),
+        description = message,
+        tone = ResentinStateTone.ERROR,
+        modifier = modifier.testTag("chat-error-snackbar"),
+    )
 }
 
 /** Fast, local-only search over the rows already loaded into Room for this chat.

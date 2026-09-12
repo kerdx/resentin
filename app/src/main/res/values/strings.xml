@@ -6,6 +6,9 @@
     <string name="cd_back">Indietro</string>
     <string name="cd_remove">Rimuovi</string>
     <string name="cd_cancel">Annulla</string>
+    <string name="ui_dismiss">Chiudi</string>
+    <string name="ui_error_title">Qualcosa è andato storto</string>
+    <string name="ui_show_saved_content_description">Mostro i contenuti già salvati fino al prossimo aggiornamento.</string>
     <string name="cd_loading">Caricamento in corso</string>
     <string name="cd_menu_open">Menu aperto</string>
     <string name="cd_menu_closed">Menu chiuso</string>
@@ -29,6 +32,7 @@
     <string name="login_error_server_unreachable">Server non raggiungibile: %1$s</string>
     <string name="login_error_protocol_too_old">Il server richiede un protocollo più recente (min %1$d): aggiorna l\'app</string>
     <string name="login_error_invalid_token">Token non valido o accesso negato</string>
+
 
     <!-- Home -->
     <string name="cd_refresh">Aggiorna</string>
@@ -94,6 +98,14 @@
     <string name="home_network_empty_title">Nessun canale ancora</string>
     <string name="home_network_empty_description">Questa rete non ha ancora conversazioni aperte.</string>
 
+    <string name="directory_loading_title">Caricamento canali</string>
+    <string name="directory_loading_description">Sto recuperando l’elenco e i canali in evidenza.</string>
+    <string name="directory_error_title">Impossibile caricare i canali</string>
+    <string name="directory_error_description">Controlla la connessione e riprova.</string>
+    <string name="directory_empty_description">Prova un’altra ricerca o un ordinamento diverso.</string>
+    <string name="directory_stale_title">Dati salvati non aggiornati</string>
+    <string name="directory_stale_description">Mostro l’elenco salvato. Ultimo aggiornamento: %1$s</string>
+
     <!-- Channel directory -->
     <string name="directory_title">Canali su %1$s</string>
     <string name="directory_search_hint">Cerca canale…</string>
@@ -110,6 +122,11 @@
     <string name="directory_featured_loading">Caricamento canali in evidenza…</string>
     <string name="directory_featured_unavailable">Canali in evidenza non disponibili</string>
     <string name="directory_load_more">Carica altri</string>
+
+    <string name="admin_loading_title">Caricamento dati admin</string>
+    <string name="admin_loading_description">Sto recuperando reti, utenti e sessioni.</string>
+    <string name="admin_error_title">Impossibile caricare i dati admin</string>
+    <string name="admin_error_description">Controlla la connessione e riprova.</string>
 
     <!-- Admin -->
     <string name="settings_admin_panel">Pannello di amministrazione</string>
@@ -401,6 +418,10 @@
     <string name="channel_settings_add_mask">Aggiungi</string>
 
     <!-- Network settings -->
+    <string name="network_settings_loading_title">Caricamento impostazioni rete</string>
+    <string name="network_settings_loading_description">Sto recuperando i dati salvati della rete.</string>
+    <string name="network_settings_missing_title">Rete non trovata</string>
+    <string name="network_settings_missing_description">La rete potrebbe essere stata rimossa. Torna indietro e scegline un’altra.</string>
     <string name="network_settings_connected">Connesso</string>
     <string name="network_settings_nick_label">Nick</string>
     <string name="network_settings_ident_label">Ident</string>
@@ -448,6 +469,13 @@
     <string name="chat_history_error_title">Impossibile caricare la conversazione</string>
     <string name="chat_history_error_description">Controlla la connessione e riprova.</string>
     <string name="chat_history_retry">Riprova</string>
+
+    <string name="share_target_loading_title">Caricamento conversazioni</string>
+    <string name="share_target_loading_description">Sto cercando i canali a cui hai partecipato.</string>
+    <string name="share_target_error_title">Impossibile caricare le conversazioni</string>
+    <string name="share_target_error_description">Controlla la connessione e riprova.</string>
+    <string name="share_target_empty_title">Nessuna conversazione disponibile</string>
+    <string name="share_target_empty_description">Entra prima in un canale: lo troverai qui.</string>
 
     <!-- Share target -->
     <string name="share_target_title">Condividi in...</string>

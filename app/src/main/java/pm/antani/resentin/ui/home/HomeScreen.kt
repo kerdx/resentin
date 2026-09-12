@@ -52,7 +52,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,6 +93,9 @@ import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.rememberAvatarBitmap
 import pm.antani.resentin.ui.common.ResentinHeaderAction
 import pm.antani.resentin.ui.common.ResentinEmptyState
+import pm.antani.resentin.ui.common.ResentinErrorState
+import pm.antani.resentin.ui.common.ResentinStateBanner
+import pm.antani.resentin.ui.common.ResentinStateTone
 import pm.antani.resentin.ui.common.ResentinLoadingState
 import pm.antani.resentin.ui.theme.ResentinSpacing
 
@@ -231,12 +233,12 @@ fun HomeScreen(
                     )
                 }
                 networks.isEmpty() && availableNetworks.isEmpty() && error != null -> {
-                    ResentinEmptyState(
+                    ResentinErrorState(
                         icon = Icons.Outlined.WifiOff,
                         title = stringResource(R.string.home_connection_error_title),
                         description = stringResource(R.string.home_connection_error_description),
                         actionLabel = stringResource(R.string.home_connection_retry),
-                        onAction = viewModel::refresh,
+                        onRetry = viewModel::refresh,
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
@@ -315,9 +317,13 @@ fun HomeScreen(
             }
             if (error != null && (networks.isNotEmpty() || availableNetworks.isNotEmpty())) {
                 val message = error!!
-                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(ResentinSpacing.large)) {
-                    Text(message)
-                }
+                ResentinStateBanner(
+                    icon = Icons.Outlined.WifiOff,
+                    title = stringResource(R.string.ui_error_title),
+                    description = message,
+                    tone = ResentinStateTone.ERROR,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(ResentinSpacing.large),
+                )
             }
         }
     }

@@ -6,6 +6,9 @@
     <string name="cd_back">Back</string>
     <string name="cd_remove">Remove</string>
     <string name="cd_cancel">Cancel</string>
+    <string name="ui_dismiss">Dismiss</string>
+    <string name="ui_error_title">Something went wrong</string>
+    <string name="ui_show_saved_content_description">Showing the last saved content until a refresh succeeds.</string>
     <string name="cd_loading">Loading</string>
     <string name="cd_menu_open">Menu open</string>
     <string name="cd_menu_closed">Menu closed</string>
@@ -29,6 +32,7 @@
     <string name="login_error_server_unreachable">Server unreachable: %1$s</string>
     <string name="login_error_protocol_too_old">The server requires a newer protocol (min %1$d): update the app</string>
     <string name="login_error_invalid_token">Invalid token or access denied</string>
+
 
     <!-- Home -->
     <string name="cd_refresh">Refresh</string>
@@ -87,6 +91,14 @@
     <string name="home_network_empty_title">No channels yet</string>
     <string name="home_network_empty_description">This network does not have any open conversations yet.</string>
 
+    <string name="directory_loading_title">Loading channels</string>
+    <string name="directory_loading_description">Fetching the channel list and featured channels.</string>
+    <string name="directory_error_title">Could not load channels</string>
+    <string name="directory_error_description">Check your connection and try again.</string>
+    <string name="directory_empty_description">Try a different search or sort order.</string>
+    <string name="directory_stale_title">Saved data may be out of date</string>
+    <string name="directory_stale_description">Showing the saved channel list. Last capture: %1$s</string>
+
     <!-- Channel directory -->
     <string name="directory_title">Channels on %1$s</string>
     <string name="directory_search_hint">Search channel…</string>
@@ -104,6 +116,11 @@
     <string name="directory_featured_loading">Loading featured channels…</string>
     <string name="directory_featured_unavailable">Featured channels unavailable</string>
     <string name="directory_load_more">Load more</string>
+
+    <string name="admin_loading_title">Loading admin data</string>
+    <string name="admin_loading_description">Fetching networks, users and sessions.</string>
+    <string name="admin_error_title">Could not load admin data</string>
+    <string name="admin_error_description">Check your connection and try again.</string>
 
     <!-- Admin -->
     <string name="settings_admin_panel">Admin panel</string>
@@ -395,6 +412,10 @@
     <string name="channel_settings_add_mask">Add</string>
 
     <!-- Network settings -->
+    <string name="network_settings_loading_title">Loading network settings</string>
+    <string name="network_settings_loading_description">Fetching the saved network details.</string>
+    <string name="network_settings_missing_title">Network not found</string>
+    <string name="network_settings_missing_description">This network may have been removed. Go back and choose another network.</string>
     <string name="network_settings_connected">Connected</string>
     <string name="network_settings_nick_label">Nick</string>
     <string name="network_settings_ident_label">Ident</string>
@@ -442,6 +463,13 @@
     <string name="chat_history_error_title">Couldn\'t load this conversation</string>
     <string name="chat_history_error_description">Check your connection and try again.</string>
     <string name="chat_history_retry">Try again</string>
+
+    <string name="share_target_loading_title">Loading conversations</string>
+    <string name="share_target_loading_description">Finding your joined channels.</string>
+    <string name="share_target_error_title">Could not load conversations</string>
+    <string name="share_target_error_description">Check your connection and try again.</string>
+    <string name="share_target_empty_title">No conversations to share to</string>
+    <string name="share_target_empty_description">Join a channel first, then it will appear here.</string>
 
     <!-- Share target -->
     <string name="share_target_title">Share to...</string>

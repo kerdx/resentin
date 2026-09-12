@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -33,7 +34,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -63,6 +63,12 @@ import pm.antani.resentin.net.dto.FeaturedChannelDto
 import pm.antani.resentin.ui.common.MircText
 import pm.antani.resentin.ui.common.LocalDensityScale
 import pm.antani.resentin.ui.common.ResentinHeaderAction
+import pm.antani.resentin.ui.common.ResentinEmptyState
+import pm.antani.resentin.ui.common.ResentinErrorState
+import pm.antani.resentin.ui.common.ResentinInlineLoadingState
+import pm.antani.resentin.ui.common.ResentinLoadingState
+import pm.antani.resentin.ui.common.ResentinStateBanner
+import pm.antani.resentin.ui.common.ResentinStateTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -158,15 +164,39 @@ fun DirectoryScreen(
                     label = { Text(stringResource(R.string.directory_sort_name)) },
                 )
             }
-            StatusLine(status = state.status, capturedAt = state.capturedAt)
+            val hasContent = state.entries.isNotEmpty() || state.featured.isNotEmpty()
+            DirectoryStatusLine(
+                status = state.status,
+                capturedAt = state.capturedAt,
+                error = if (hasContent) state.error ?: state.featuredError else null,
+            )
             Box(Modifier.fillMaxSize()) {
+                val loadError = state.error ?: state.featuredError
                 when {
-                    state.entries.isEmpty() && state.featured.isEmpty() &&
-                        (state.isLoading || state.isFeaturedLoading || state.isRefreshing) -> {
-                        CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    !hasContent && (state.isLoading || state.isFeaturedLoading || state.isRefreshing) -> {
+                        ResentinLoadingState(
+                            title = stringResource(R.string.directory_loading_title),
+                            description = stringResource(R.string.directory_loading_description),
+                            modifier = Modifier.align(Alignment.Center),
+                        )
                     }
-                    state.entries.isEmpty() && state.featured.isEmpty() && !state.isFeaturedLoading -> {
-                        Text(stringResource(R.string.directory_empty), modifier = Modifier.align(Alignment.Center))
+                    !hasContent && loadError != null -> {
+                        ResentinErrorState(
+                            icon = Icons.Outlined.WifiOff,
+                            title = stringResource(R.string.directory_error_title),
+                            description = loadError,
+                            actionLabel = stringResource(R.string.home_connection_retry),
+                            onRetry = viewModel::refresh,
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                    }
+                    !hasContent -> {
+                        ResentinEmptyState(
+                            icon = Icons.Outlined.Search,
+                            title = stringResource(R.string.directory_empty),
+                            description = stringResource(R.string.directory_empty_description),
+                            modifier = Modifier.align(Alignment.Center),
+                        )
                     }
                     else -> {
                         DirectoryContent(
@@ -174,11 +204,6 @@ fun DirectoryScreen(
                             onChannelClick = viewModel::joinChannel,
                             onLoadMore = viewModel::loadMore,
                         )
-                    }
-                }
-                (state.error ?: state.featuredError)?.let { message ->
-                    Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
-                        Text(message)
                     }
                 }
             }
@@ -207,14 +232,7 @@ fun DirectoryContent(
     ) {
         if (state.isFeaturedLoading && state.featured.isEmpty()) {
             item(key = "featured-loading") {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Text(stringResource(R.string.directory_featured_loading))
-                }
+                ResentinInlineLoadingState(stringResource(R.string.directory_featured_loading))
             }
         }
         if (state.featured.isNotEmpty()) {
@@ -329,22 +347,38 @@ private fun FeaturedChannelRow(
 }
 
 @Composable
-private fun StatusLine(status: String, capturedAt: String?) {
-    val text = when {
-        status == "refreshing" -> stringResource(R.string.directory_refreshing)
-        capturedAt != null -> stringResource(R.string.directory_captured_at_label, formatIsoTimestamp(capturedAt))
-        else -> null
-    }
-    text?.let {
-        Text(
-            it,
+private fun DirectoryStatusLine(
+    status: String,
+    capturedAt: String?,
+    error: String?,
+) {
+    when {
+        error != null -> ResentinStateBanner(
+            icon = Icons.Outlined.WifiOff,
+            title = stringResource(R.string.ui_error_title),
+            description = error,
+            tone = ResentinStateTone.ERROR,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        )
+        status == "stale" -> ResentinStateBanner(
+            icon = Icons.Outlined.WifiOff,
+            title = stringResource(R.string.directory_stale_title),
+            description = capturedAt?.let { stringResource(R.string.directory_stale_description, formatIsoTimestamp(it)) }
+                ?: stringResource(R.string.ui_show_saved_content_description),
+            tone = ResentinStateTone.OFFLINE,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        )
+        status == "refreshing" -> ResentinInlineLoadingState(
+            title = stringResource(R.string.directory_refreshing),
+        )
+        capturedAt != null -> Text(
+            stringResource(R.string.directory_captured_at_label, formatIsoTimestamp(capturedAt)),
             style = MaterialTheme.typography.bodySmall,
-            color = if (status == "stale") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
     }
 }
-
 @Composable
 private fun DirectoryRow(entry: DirectoryEntryDto, onClick: () -> Unit) {
     Row(
