@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
@@ -29,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -50,6 +53,7 @@ import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
@@ -66,6 +70,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.SmallFloatingActionButton
@@ -137,6 +142,7 @@ import pm.antani.resentin.ui.common.MircText
 import pm.antani.resentin.ui.common.rememberAvatarBitmap
 import pm.antani.resentin.ui.common.ResentinDropdownMenu
 import pm.antani.resentin.ui.common.ResentinDropdownMenuItem
+import pm.antani.resentin.ui.common.ResentinFilterChip
 import pm.antani.resentin.ui.common.ResentinHeaderAction
 import pm.antani.resentin.ui.common.ResentinEmptyState
 import pm.antani.resentin.ui.common.ResentinErrorState
@@ -196,7 +202,7 @@ private fun formatTime(epochMillis: Long, showSeconds: Boolean): String {
     return Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).format(formatter)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
@@ -214,6 +220,7 @@ fun ChatScreen(
     onOpenChannel: (networkSlug: String, channelName: String) -> Unit,
 ) {
     val messages by viewModel.messages.collectAsState()
+    val allMessages by viewModel.allMessages.collectAsState()
     val topic by viewModel.topic.collectAsState()
     val channelModes by viewModel.channelModes.collectAsState()
     val peerAvatarUrl by viewModel.peerAvatarUrl.collectAsState()
@@ -324,6 +331,7 @@ fun ChatScreen(
     val isLoadingOlder by viewModel.isLoadingOlder.collectAsState()
     val coloredNicklist by viewModel.coloredNicklist.collectAsState()
     val showHostmaskInEvents by viewModel.showHostmaskInEvents.collectAsState()
+    val smartPresenceFilter by viewModel.smartPresenceFilter.collectAsState()
     val myNick by viewModel.myNick.collectAsState()
     val awayState by viewModel.awayState.collectAsState()
     val highlightPatterns by viewModel.highlightPatterns.collectAsState()
@@ -344,6 +352,10 @@ fun ChatScreen(
     var showTopicDialog by remember { mutableStateOf(false) }
     var showChannelMenu by remember { mutableStateOf(false) }
     var expandedPresenceBursts by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var showActivitySheet by remember { mutableStateOf(false) }
+    var activityFilter by remember { mutableStateOf(ActivityFilter.ALL) }
+    var revealAllPresenceEvents by remember { mutableStateOf(false) }
+    var pendingActivityJumpId by remember { mutableStateOf<Long?>(null) }
     // The long-pressed row's plain text, threaded to UserCardSheet for its "Copia"/
     // "Copia parziale" actions — the sheet itself only knows the sender's nick (it opens
     // off a WHOIS reply, which arrives async), not which message triggered it.
@@ -375,8 +387,15 @@ fun ChatScreen(
     // Null when there's nothing to mark (cursor still loading, never read anything, or
     // everything is already read).
     val dividerCursor = if (positioned) readCursor ?: initialReadCursor else initialReadCursor
-    val timelineRows = remember(messages, dividerCursor) {
-        buildChatTimeline(messages, dividerCursor)
+    val smartFilterActive = smartPresenceFilter && !searchOpen && !revealAllPresenceEvents && !isQuery && !isServer
+    val timelineMessages = if (revealAllPresenceEvents) allMessages else messages
+    val timelineRows = remember(timelineMessages, dividerCursor, smartFilterActive, myNick) {
+        buildChatTimeline(
+            timelineMessages,
+            dividerCursor,
+            smartPresenceFilterEnabled = smartFilterActive,
+            alwaysVisibleSender = myNick,
+        )
     }
     val dividerIndex = dividerCursor?.let { cursor ->
         timelineRows.indexOfFirst { row -> row.messages.any { it.id > cursor } }.takeIf { it >= 0 }
@@ -406,6 +425,19 @@ fun ChatScreen(
         if (rowIndex < 0) return@LaunchedEffect
         val listIndex = rowIndex + if (dividerIndex != null && rowIndex >= dividerIndex) 1 else 0
         listState.animateScrollToItem(listIndex)
+    }
+
+    LaunchedEffect(pendingActivityJumpId, timelineRows, dividerIndex) {
+        val targetId = pendingActivityJumpId ?: return@LaunchedEffect
+        val rowIndex = timelineRows.indexOfFirst { row -> row.messages.any { it.id == targetId } }
+        if (rowIndex < 0) return@LaunchedEffect
+        val row = timelineRows[rowIndex]
+        if (row is ChatTimelineRow.PresenceSummary) {
+            expandedPresenceBursts = expandedPresenceBursts + row.messages.first().id
+        }
+        val listIndex = rowIndex + if (dividerIndex != null && rowIndex >= dividerIndex) 1 else 0
+        listState.animateScrollToItem(listIndex)
+        pendingActivityJumpId = null
     }
 
     // Land on the first unread message (per the server's read-cursor), not always the
@@ -699,6 +731,16 @@ fun ChatScreen(
                             expanded = showChannelMenu,
                             onDismissRequest = { showChannelMenu = false },
                         ) {
+                            if (!isServer) {
+                                ResentinDropdownMenuItem(
+                                    text = stringResource(R.string.chat_activity_action, allMessages.count { it.kind in SYSTEM_EVENT_KINDS }),
+                                    icon = Icons.Outlined.History,
+                                    onClick = {
+                                        showChannelMenu = false
+                                        showActivitySheet = true
+                                    },
+                                )
+                            }
                             ResentinDropdownMenuItem(
                                 text = stringResource(R.string.cd_search_chat),
                                 icon = Icons.Outlined.Search,
@@ -929,13 +971,19 @@ fun ChatScreen(
                                 tight = tight,
                             )
                         }
-                        is ChatTimelineRow.PresenceBurst -> item(key = row.key) {
+                        is ChatTimelineRow.PresenceSummary -> item(key = row.key) {
                             val burstKey = row.messages.first().id
                             val selectedInBurst = row.messages.any { it.id == selectedSearchMessageId }
                             val expanded = selectedInBurst || burstKey in expandedPresenceBursts
+                            val uniqueUsers = row.messages.map { it.sender.lowercase() }.distinct().size
+                            val senderLabel = row.sender ?: pluralStringResource(
+                                R.plurals.chat_activity_users,
+                                uniqueUsers,
+                                uniqueUsers,
+                            )
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 PresenceBurstSummaryRow(
-                                    sender = row.messages.first().sender,
+                                    sender = senderLabel,
                                     joins = row.joins,
                                     leaves = row.leaves,
                                     time = formatTime(row.messages.last().serverTime, showSeconds),
@@ -1114,6 +1162,107 @@ fun ChatScreen(
                     }
                 }
             }
+                }
+            }
+        }
+    }
+
+    if (showActivitySheet) {
+        val activityMessages = remember(allMessages, activityFilter) {
+            allMessages.asReversed().filter { message ->
+                message.kind in SYSTEM_EVENT_KINDS && when (activityFilter) {
+                    ActivityFilter.ALL -> true
+                    ActivityFilter.PRESENCE -> message.kind in PRESENCE_EVENT_KINDS
+                    ActivityFilter.OTHER -> message.kind !in PRESENCE_EVENT_KINDS
+                }
+            }
+        }
+        ModalBottomSheet(
+            onDismissRequest = { showActivitySheet = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.82f)
+                    .padding(horizontal = 16.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.chat_activity_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { showActivitySheet = false }) {
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.chat_dialog_close))
+                    }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ResentinFilterChip(
+                        selected = activityFilter == ActivityFilter.ALL,
+                        onClick = { activityFilter = ActivityFilter.ALL },
+                        label = { Text(stringResource(R.string.chat_activity_filter_all)) },
+                    )
+                    ResentinFilterChip(
+                        selected = activityFilter == ActivityFilter.PRESENCE,
+                        onClick = { activityFilter = ActivityFilter.PRESENCE },
+                        label = { Text(stringResource(R.string.chat_activity_filter_presence)) },
+                    )
+                    ResentinFilterChip(
+                        selected = activityFilter == ActivityFilter.OTHER,
+                        onClick = { activityFilter = ActivityFilter.OTHER },
+                        label = { Text(stringResource(R.string.chat_activity_filter_other)) },
+                    )
+                }
+                Spacer(Modifier.size(8.dp))
+                if (activityMessages.isEmpty()) {
+                    Text(
+                        stringResource(R.string.chat_activity_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 24.dp),
+                    )
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(activityMessages, key = { it.id }) { event ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showActivitySheet = false
+                                        revealAllPresenceEvents = true
+                                        pendingActivityJumpId = event.id
+                                    },
+                            ) {
+                                Text(
+                                    formatTime(event.serverTime, showSeconds),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                                )
+                                ChatTimelineMessageItem(
+                                    message = event,
+                                    members = members,
+                                    displayMode = ChatDisplayMode.IRC_LINE,
+                                    density = messageDensity,
+                                    showSeconds = showSeconds,
+                                    coloredNicklist = coloredNicklist,
+                                    showHostmaskInEvents = showHostmaskInEvents,
+                                    isMention = false,
+                                    isQuery = isQuery,
+                                    isMine = isQuery && (myNick ?: viewerUsername).equals(event.sender, ignoreCase = true),
+                                    isSelected = false,
+                                    onReply = viewModel::reply,
+                                    onLongPress = { nick, text ->
+                                        longPressedMessageText = text
+                                        viewModel.onMessageLongPress(nick)
+                                    },
+                                    tight = false,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1880,6 +2029,8 @@ private fun buildNickLine(
 
 private const val MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000L
 private val SYSTEM_EVENT_KINDS = setOf("join", "part", "quit", "kick", "mode", "nick_change", "topic")
+private val PRESENCE_EVENT_KINDS = setOf("join", "part", "quit")
+private enum class ActivityFilter { ALL, PRESENCE, OTHER }
 
 @Composable
 private fun BubbleRow(

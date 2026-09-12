@@ -185,6 +185,7 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
     val chatDisplayMode by viewModel.chatDisplayMode.collectAsState()
     val showSeconds by viewModel.showSeconds.collectAsState()
     val showHostmaskInEvents by viewModel.showHostmaskInEvents.collectAsState()
+    val smartPresenceFilter by viewModel.smartPresenceFilter.collectAsState()
     val unreadFirst by viewModel.unreadFirst.collectAsState()
     val fontScale by viewModel.fontScale.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
@@ -646,6 +647,13 @@ fun AppSettingsScreen(viewModel: AppSettingsViewModel, onBack: () -> Unit, onAdm
                         description = stringResource(R.string.settings_show_hostmask_desc),
                         checked = showHostmaskInEvents,
                         onCheckedChange = viewModel::setShowHostmaskInEvents,
+                    )
+                    SettingsRowDivider()
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_smart_presence_filter),
+                        description = stringResource(R.string.settings_smart_presence_filter_desc),
+                        checked = smartPresenceFilter,
+                        onCheckedChange = viewModel::setSmartPresenceFilter,
                     )
                     SettingsRowDivider()
                     SettingsSwitchRow(

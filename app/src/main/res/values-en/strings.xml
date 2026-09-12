@@ -274,6 +274,18 @@
     <string name="chat_presence_burst_summary">%1$s · %2$s, %3$s</string>
     <string name="chat_presence_burst_expand">Show individual lines</string>
     <string name="chat_presence_burst_collapse">Hide individual lines</string>
+    <string name="settings_smart_presence_filter">Smart join and leave filter</string>
+    <string name="settings_smart_presence_filter_desc">Compresses JOIN, PART and QUIT events from users who have not spoken for 10 minutes. You can review all events under Activity.</string>
+    <string name="chat_activity_title">Channel activity</string>
+    <string name="chat_activity_filter_all">All</string>
+    <string name="chat_activity_filter_presence">Joins and leaves</string>
+    <string name="chat_activity_filter_other">Moderation and channel</string>
+    <string name="chat_activity_empty">No events available</string>
+    <string name="chat_activity_action">Activity (%1$d)</string>
+    <plurals name="chat_activity_users">
+        <item quantity="one">%d user</item>
+        <item quantity="other">%d users</item>
+    </plurals>
     <plurals name="chat_presence_joins">
         <item quantity="one">%d join</item>
         <item quantity="other">%d joins</item>

@@ -1,6 +1,7 @@
 package pm.antani.resentin.ui.chat
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import pm.antani.resentin.data.db.MessageEntity
 
@@ -62,6 +63,65 @@ class ChatTimelineTest {
 
         assertEquals(3, rows.size)
         assertTrueAllMessages(rows)
+    }
+
+    @Test
+    fun smartFilterSummarizesRepeatedQuietPresenceChanges() {
+        val rows = buildChatTimeline(
+            listOf(event(1, "join", 0), event(2, "part", 5_000), event(3, "join", 10_000), event(4, "quit", 15_000)),
+            readCursor = null,
+            smartPresenceFilterEnabled = true,
+        )
+
+        val summary = rows.single() as ChatTimelineRow.SuppressedPresence
+        assertEquals("Nick", summary.sender)
+        assertEquals(2, summary.joins)
+        assertEquals(2, summary.leaves)
+        assertEquals(listOf(1L, 2L, 3L, 4L), summary.messages.map { it.id })
+    }
+
+    @Test
+    fun smartFilterHidesAnIsolatedQuietJoin() {
+        val rows = buildChatTimeline(
+            listOf(event(1, "join", 0)),
+            readCursor = null,
+            smartPresenceFilterEnabled = true,
+        )
+
+        assertTrue(rows.isEmpty())
+    }
+
+    @Test
+    fun smartFilterKeepsPresenceForSomeoneWhoRecentlySpoke() {
+        val rows = buildChatTimeline(
+            listOf(
+                event(1, "privmsg", 0),
+                event(2, "join", 60_000),
+                event(3, "part", 65_000),
+                event(4, "join", 70_000),
+            ),
+            readCursor = null,
+            smartPresenceFilterEnabled = true,
+        )
+
+        val summary = rows.last() as ChatTimelineRow.PresenceBurst
+        assertEquals(listOf(2L, 3L, 4L), summary.messages.map { it.id })
+    }
+
+    @Test
+    fun smartFilterNeverHidesOwnPresenceOrImportantEvents() {
+        val rows = buildChatTimeline(
+            listOf(
+                event(1, "join", 0, sender = "me"),
+                event(2, "join", 5_000, sender = "quiet"),
+                event(3, "kick", 6_000, sender = "operator"),
+            ),
+            readCursor = null,
+            smartPresenceFilterEnabled = true,
+            alwaysVisibleSender = "Me",
+        )
+
+        assertEquals(listOf(1L, 3L), rows.flatMap { it.messages }.map { it.id })
     }
 
     private fun assertTrueAllMessages(rows: List<ChatTimelineRow>) {

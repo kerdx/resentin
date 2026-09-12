@@ -69,6 +69,7 @@ class AppPreferences(private val context: Context) {
     private val keyChatDisplayMode = stringPreferencesKey("chat_display_mode")
     private val keyShowSeconds = booleanPreferencesKey("show_seconds")
     private val keyShowHostmaskInEvents = booleanPreferencesKey("show_hostmask_in_events")
+    private val keySmartPresenceFilter = booleanPreferencesKey("smart_presence_filter")
     private val keyColoredNicklist = booleanPreferencesKey("colored_nicklist")
     private val keyReplyStyle = stringPreferencesKey("reply_style")
     private val keyReplyCustomTemplate = stringPreferencesKey("reply_custom_template")
@@ -235,6 +236,13 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setShowHostmaskInEvents(value: Boolean) {
         context.dataStore.edit { it[keyShowHostmaskInEvents] = value }
+    }
+
+    /** Compress JOIN/PART/QUIT noise from users who have not spoken recently. */
+    val smartPresenceFilter: Flow<Boolean> = context.dataStore.data.map { it[keySmartPresenceFilter] ?: true }
+
+    suspend fun setSmartPresenceFilter(value: Boolean) {
+        context.dataStore.edit { it[keySmartPresenceFilter] = value }
     }
 
     /** Local, fast-reading mirror of the server-persisted `DisplayPrefsDto.coloredNicklist`
