@@ -74,6 +74,10 @@ fun DirectoryScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
+    LaunchedEffect(networkSlug) {
+        viewModel.refresh()
+    }
+
     LaunchedEffect(state.joined) {
         state.joined?.let {
             onJoined(it)
@@ -157,7 +161,8 @@ fun DirectoryScreen(
             StatusLine(status = state.status, capturedAt = state.capturedAt)
             Box(Modifier.fillMaxSize()) {
                 when {
-                    state.isLoading && state.entries.isEmpty() && state.featured.isEmpty() && !state.isFeaturedLoading -> {
+                    state.entries.isEmpty() && state.featured.isEmpty() &&
+                        (state.isLoading || state.isFeaturedLoading || state.isRefreshing) -> {
                         CircularProgressIndicator(Modifier.align(Alignment.Center))
                     }
                     state.entries.isEmpty() && state.featured.isEmpty() && !state.isFeaturedLoading -> {
